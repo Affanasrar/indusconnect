@@ -55,6 +55,21 @@ enum DriverStatus {
   INACTIVE
 }
 
+enum RouteStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ShiftType {
+  MORNING
+  AFTERNOON
+  EVENING
+  NIGHT
+  GENERAL
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -95,6 +110,7 @@ model Vehicle {
   notes         String?
 
   drivers Driver[]
+  transportRoutes TransportRoute[]
 
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -114,6 +130,53 @@ model Driver {
   vehicleId     String?
   vehicle       Vehicle?     @relation(fields: [vehicleId], references: [id])
 
+  transportRoutes TransportRoute[]
+
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+}
+
+model TransportRoute {
+  id             String       @id @default(uuid())
+
+  routeName      String
+  routeCode      String       @unique
+  shiftType      ShiftType
+  routeDate      DateTime?
+  startTime      String?
+  endTime        String?
+  startLocation  String?
+  endLocation    String?
+
+  vehicleId      String?
+  vehicle        Vehicle?     @relation(fields: [vehicleId], references: [id])
+
+  driverId       String?
+  driver         Driver?      @relation(fields: [driverId], references: [id])
+
+  status         RouteStatus  @default(DRAFT)
+  notes          String?
+
+  smartStops     SmartStop[]
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model SmartStop {
+  id             String         @id @default(uuid())
+
+  routeId        String
+  route          TransportRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  stopName       String
+  stopOrder      Int
+  latitude       Float?
+  longitude      Float?
+  estimatedTime  String?
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([routeId, stopOrder])
 }

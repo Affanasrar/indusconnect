@@ -6,6 +6,7 @@ import testRoutes from "./modules/test/test.routes";
 import userRoutes from "./modules/users/user.routes";
 import vehicleRoutes from "./modules/vehicles/vehicle.routes";
 import driverRoutes from "./modules/drivers/driver.routes";
+import routeRoutes from "./modules/routes/route.routes";
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use("/api/test", testRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/drivers", driverRoutes);
+app.use("/api/routes", routeRoutes);
 
 
 app.get("/", (_req, res) => {
