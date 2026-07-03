@@ -24,6 +24,31 @@ enum UserStatus {
   INACTIVE
 }
 
+enum VehicleType {
+  BUS
+  VAN
+  CAR
+  COASTER
+  HIACE
+}
+
+enum VehicleStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum OwnershipType {
+  OWNED
+  VENDOR
+}
+
+enum FitnessStatus {
+  VALID
+  EXPIRED
+  PENDING
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -48,4 +73,19 @@ model User {
 
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+}
+
+model Vehicle {
+  id            String        @id @default(uuid())
+  vehicleNumber String       @unique
+  vehicleType   VehicleType
+  capacity      Int
+  ownershipType OwnershipType @default(OWNED)
+  vendorName    String?
+  status        VehicleStatus @default(ACTIVE)
+  fitnessStatus FitnessStatus @default(PENDING)
+  notes         String?
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 }
