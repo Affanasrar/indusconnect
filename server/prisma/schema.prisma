@@ -70,6 +70,14 @@ enum ShiftType {
   GENERAL
 }
 
+enum ShuttleBookingStatus {
+  PENDING
+  ASSIGNED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -93,6 +101,7 @@ model User {
   role         Role       @relation(fields: [roleId], references: [id])
 
   driverProfile Driver?
+  shuttleBookings ShuttleBooking[]
 
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -158,6 +167,7 @@ model TransportRoute {
   notes          String?
 
   smartStops     SmartStop[]
+  shuttleBookings ShuttleBooking[]
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -175,8 +185,39 @@ model SmartStop {
   longitude      Float?
   estimatedTime  String?
 
+  shuttleBookings ShuttleBooking[]
+
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
   @@unique([routeId, stopOrder])
+}
+
+model ShuttleBooking {
+  id             String               @id @default(uuid())
+
+  employeeId     String
+  employee       User                 @relation(fields: [employeeId], references: [id])
+
+  routeId        String?
+  route          TransportRoute?      @relation(fields: [routeId], references: [id])
+
+  pickupStopId   String?
+  pickupStop     SmartStop?           @relation(fields: [pickupStopId], references: [id])
+
+  bookingDate    DateTime
+  shiftType      ShiftType
+  pickupArea     String
+  pickupAddress  String?
+  seatNumber     String?
+
+  status         ShuttleBookingStatus @default(PENDING)
+  remarks        String?
+
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([employeeId])
+  @@index([routeId])
+  @@index([pickupStopId])
 }
