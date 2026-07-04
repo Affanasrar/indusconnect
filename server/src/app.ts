@@ -13,6 +13,7 @@ import travelRequestRoutes from "./modules/travel-requests/travelRequest.routes"
 import accommodationRoutes from "./modules/accommodation/accommodation.routes";
 import path from "path";
 import expenseRoutes from "./modules/expenses/expense.routes";
+import reportRoutes from "./modules/reports/report.routes";
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use("/api/travel-requests", travelRequestRoutes);
 app.use("/api/accommodation", accommodationRoutes);
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/api/expenses", expenseRoutes);
+app.use("/api/reports", reportRoutes);
 
 app.get("/", (_req, res) => {
   res.json({
