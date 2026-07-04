@@ -8,6 +8,7 @@ import vehicleRoutes from "./modules/vehicles/vehicle.routes";
 import driverRoutes from "./modules/drivers/driver.routes";
 import routeRoutes from "./modules/routes/route.routes";
 import shuttleBookingRoutes from "./modules/shuttle-bookings/shuttleBooking.routes";
+import driverTripRoutes from "./modules/driver-trips/driverTrip.routes";
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/drivers", driverRoutes);
 app.use("/api/routes", routeRoutes);
 app.use("/api/shuttle-bookings", shuttleBookingRoutes);
+app.use("/api/driver-trips", driverTripRoutes);
 
 app.get("/", (_req, res) => {
   res.json({
