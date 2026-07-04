@@ -16,6 +16,7 @@ import expenseRoutes from "./modules/expenses/expense.routes";
 import reportRoutes from "./modules/reports/report.routes";
 import { auditMiddleware } from "./middleware/audit.middleware";
 import auditLogRoutes from "./modules/audit-logs/auditLog.routes";
+import vendorRoutes from "./modules/vendors/vendor.routes";
 
 const app = express();
 
@@ -44,6 +45,7 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/api/expenses", expenseRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/audit-logs", auditLogRoutes);
+app.use("/api/vendors", vendorRoutes);
 
 app.get("/", (_req, res) => {
   res.json({

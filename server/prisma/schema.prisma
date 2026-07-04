@@ -203,6 +203,26 @@ enum AuditEntity {
   SYSTEM
 }
 
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  BLACKLISTED
+}
+
+enum VendorContractType {
+  MONTHLY
+  PER_TRIP
+  PER_KM
+  ON_DEMAND
+}
+
+enum VendorBillStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -256,6 +276,9 @@ model Vehicle {
   drivers Driver[]
   transportRoutes TransportRoute[]
 
+  vendorId String?
+  vendor   Vendor? @relation(fields: [vendorId], references: [id])
+
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 }
@@ -305,6 +328,11 @@ model TransportRoute {
   smartStops     SmartStop[]
   shuttleBookings ShuttleBooking[]
   trips TransportTrip[]
+
+  vendorId String?
+  vendor   Vendor? @relation(fields: [vendorId], references: [id])
+
+  vendorBills VendorBill[]
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -560,4 +588,58 @@ model AuditLog {
   @@index([entity])
   @@index([entityId])
   @@index([createdAt])
+}
+
+model Vendor {
+  id              String             @id @default(uuid())
+
+  vendorName      String             @unique
+  contactPerson   String?
+  phone           String?
+  email           String?
+  address         String?
+
+  contractType    VendorContractType @default(PER_TRIP)
+  status          VendorStatus       @default(ACTIVE)
+
+  contractStartDate DateTime?
+  contractEndDate   DateTime?
+
+  notes           String?
+
+  vehicles        Vehicle[]
+  routes          TransportRoute[]
+  bills           VendorBill[]
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+}
+
+model VendorBill {
+  id              String           @id @default(uuid())
+
+  vendorId        String
+  vendor          Vendor           @relation(fields: [vendorId], references: [id])
+
+  routeId         String?
+  route           TransportRoute?  @relation(fields: [routeId], references: [id])
+
+  billNumber      String           @unique
+  billDate        DateTime
+  amount          Float
+  currency        String           @default("PKR")
+
+  description     String?
+  status          VendorBillStatus @default(PENDING)
+
+  financeRemarks  String?
+  approvedAt      DateTime?
+  paidAt          DateTime?
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([vendorId])
+  @@index([routeId])
+  @@index([status])
 }

@@ -36,6 +36,9 @@ export async function getDashboardSummary() {
 
     activeTrips,
     completedTrips,
+
+    totalVendors,
+    totalVendorBills,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.vehicle.count(),
@@ -46,6 +49,8 @@ export async function getDashboardSummary() {
     prisma.room.count(),
     prisma.roomReservation.count(),
     prisma.expenseClaim.count(),
+    prisma.vendor.count(),
+    prisma.vendorBill.count(),
 
     prisma.travelRequest.count({
       where: {
@@ -130,6 +135,8 @@ export async function getDashboardSummary() {
       rooms: totalRooms,
       reservations: totalReservations,
       expenseClaims: totalExpenseClaims,
+      vendors: totalVendors,
+      endorBills: totalVendorBills,
     },
     travel: {
       pending: pendingTravelRequests,
