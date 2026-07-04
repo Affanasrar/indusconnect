@@ -75,6 +75,7 @@ function getEntity(path: string): AuditEntity {
   if (path.includes("/api/users")) return AuditEntity.USER;
   if (path.includes("/api/vehicles")) return AuditEntity.VEHICLE;
   if (path.includes("/api/drivers")) return AuditEntity.DRIVER;
+  if (path.includes("/api/telemetry")) return AuditEntity.TELEMETRY;
 
   if (path.includes("/api/routes") && path.includes("/stops")) {
     return AuditEntity.SMART_STOP;
