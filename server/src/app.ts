@@ -14,6 +14,8 @@ import accommodationRoutes from "./modules/accommodation/accommodation.routes";
 import path from "path";
 import expenseRoutes from "./modules/expenses/expense.routes";
 import reportRoutes from "./modules/reports/report.routes";
+import { auditMiddleware } from "./middleware/audit.middleware";
+import auditLogRoutes from "./modules/audit-logs/auditLog.routes";
 
 const app = express();
 
@@ -26,6 +28,7 @@ app.use(
 
 app.use(express.json());
 app.use(cookieParser());
+app.use(auditMiddleware);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/test", testRoutes);
@@ -40,6 +43,7 @@ app.use("/api/accommodation", accommodationRoutes);
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/api/expenses", expenseRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/audit-logs", auditLogRoutes);
 
 app.get("/", (_req, res) => {
   res.json({
