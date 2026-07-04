@@ -113,6 +113,33 @@ enum TravelUrgency {
   EMERGENCY
 }
 
+enum RoomType {
+  SINGLE
+  DOUBLE
+  SHARED
+  DORMITORY
+  GUEST_HOUSE
+}
+
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+  INACTIVE
+}
+
+enum AccommodationType {
+  INTERNAL_GUEST_HOUSE
+  EXTERNAL_HOTEL
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -140,6 +167,8 @@ model User {
 
   travelRequests TravelRequest[] @relation("EmployeeTravelRequests")
   approvedTravelRequests TravelRequest[] @relation("TravelRequestApprovals")
+
+  roomReservations RoomReservation[] @relation("EmployeeRoomReservations")
 
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -324,10 +353,63 @@ model TravelRequest {
 
   employeeRemarks String?
 
+  roomReservation RoomReservation?
+
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
   @@index([employeeId])
   @@index([approvedById])
   @@index([status])
+}
+
+model Room {
+  id          String     @id @default(uuid())
+
+  roomNumber String     @unique
+  roomType   RoomType
+  capacity   Int
+  location   String
+  floor      String?
+  status     RoomStatus @default(AVAILABLE)
+  notes      String?
+
+  reservations RoomReservation[]
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model RoomReservation {
+  id              String              @id @default(uuid())
+
+  travelRequestId String              @unique
+  travelRequest   TravelRequest       @relation(fields: [travelRequestId], references: [id])
+
+  employeeId      String
+  employee        User                @relation("EmployeeRoomReservations", fields: [employeeId], references: [id])
+
+  accommodationType AccommodationType @default(INTERNAL_GUEST_HOUSE)
+
+  roomId          String?
+  room            Room?               @relation(fields: [roomId], references: [id])
+
+  hotelName       String?
+  hotelAddress    String?
+
+  checkInDate     DateTime
+  checkOutDate    DateTime
+
+  status          ReservationStatus   @default(CONFIRMED)
+  remarks         String?
+
+  checkedInAt     DateTime?
+  checkedOutAt    DateTime?
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([travelRequestId])
+  @@index([employeeId])
+  @@index([roomId])
 }

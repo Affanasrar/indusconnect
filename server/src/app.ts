@@ -10,6 +10,7 @@ import routeRoutes from "./modules/routes/route.routes";
 import shuttleBookingRoutes from "./modules/shuttle-bookings/shuttleBooking.routes";
 import driverTripRoutes from "./modules/driver-trips/driverTrip.routes";
 import travelRequestRoutes from "./modules/travel-requests/travelRequest.routes";
+import accommodationRoutes from "./modules/accommodation/accommodation.routes";
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use("/api/routes", routeRoutes);
 app.use("/api/shuttle-bookings", shuttleBookingRoutes);
 app.use("/api/driver-trips", driverTripRoutes);
 app.use("/api/travel-requests", travelRequestRoutes);
+app.use("/api/accommodation", accommodationRoutes);
 
 app.get("/", (_req, res) => {
   res.json({
