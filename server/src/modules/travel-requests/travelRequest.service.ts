@@ -1,4 +1,8 @@
-import { TravelRequestStatus } from "@prisma/client";
+import { 
+  NotificationPriority,
+  NotificationType,
+  TravelRequestStatus } from "@prisma/client";
+import { createNotification } from "../notifications/notification.service";
 import prisma from "../../config/prisma";
 import {
   CancelTravelRequestInput,
@@ -6,6 +10,7 @@ import {
   DecisionTravelRequestInput,
   UpdateTravelRequestInput,
 } from "./travelRequest.validation";
+
 
 interface AuthUser {
   userId: string;
@@ -174,18 +179,31 @@ export async function approveTravelRequest(
     throw new Error("Only pending travel requests can be approved");
   }
 
-  return prisma.travelRequest.update({
-    where: {
-      id,
-    },
-    data: {
-      status: TravelRequestStatus.APPROVED,
-      approvedById: managerId,
-      decisionRemarks: data.decisionRemarks,
-      decidedAt: new Date(),
-    },
-    include: travelRequestInclude,
-  });
+  const updatedRequest = await prisma.travelRequest.update({
+  where: {
+    id,
+  },
+  data: {
+    status: TravelRequestStatus.APPROVED,
+    approvedById: managerId,
+    decisionRemarks: data.decisionRemarks,
+    decidedAt: new Date(),
+  },
+  include: travelRequestInclude,
+});
+
+await createNotification(managerId, {
+  recipientId: updatedRequest.employeeId,
+  type: NotificationType.TRAVEL_REQUEST,
+  priority: NotificationPriority.HIGH,
+  title: "Travel Request Approved",
+  message: `Your travel request from ${updatedRequest.fromLocation} to ${updatedRequest.toLocation} has been approved.`,
+  entityType: "TravelRequest",
+  entityId: updatedRequest.id,
+});
+
+return updatedRequest;
+
 }
 
 export async function rejectTravelRequest(

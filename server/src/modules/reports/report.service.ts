@@ -42,6 +42,10 @@ export async function getDashboardSummary() {
 
     totalTelemetryLogs,
     emergencyTelemetryEvents,
+
+    totalNotifications,
+    unreadNotifications,
+    urgentNotifications,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.vehicle.count(),
@@ -133,6 +137,18 @@ export async function getDashboardSummary() {
         status: TripStatus.COMPLETED,
       },
     }),
+    prisma.notification.count(),
+    prisma.notification.count({
+  where: {
+    status: "UNREAD",
+  },
+}),
+prisma.notification.count({
+  where: {
+    status: "UNREAD",
+    priority: "URGENT",
+  },
+}),
   ]);
 
   return {
@@ -149,6 +165,7 @@ export async function getDashboardSummary() {
       vendors: totalVendors,
       endorBills: totalVendorBills,
       telemetryLogs: totalTelemetryLogs,
+      notifications: totalNotifications,
     },
     travel: {
       pending: pendingTravelRequests,
@@ -172,6 +189,10 @@ export async function getDashboardSummary() {
     trips: {
       active: activeTrips,
       completed: completedTrips,
+    },
+    notifications: {
+      unread: unreadNotifications,
+      urgent: urgentNotifications,
     },
   };
 }

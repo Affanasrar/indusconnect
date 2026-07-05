@@ -3,7 +3,11 @@ import {
   TelemetryStatus,
   TripIssueType,
   TripStatus,
+  NotificationPriority,
+  NotificationType,
+  RoleName,
 } from "@prisma/client";
+import { createNotificationForRoles } from "../notifications/notification.service";
 import prisma from "../../config/prisma";
 import { CreateTelemetryInput } from "./telemetry.validation";
 
@@ -165,6 +169,34 @@ export async function createTelemetryLog(
       },
     });
   }
+  if (
+  data.status === TelemetryStatus.SOS ||
+  data.status === TelemetryStatus.BREAKDOWN
+) {
+  await createNotificationForRoles({
+    roleNames: [
+      RoleName.SUPER_ADMIN,
+      RoleName.TRANSPORT_ADMIN,
+      RoleName.SECURITY_OFFICER,
+    ],
+    type:
+      data.status === TelemetryStatus.SOS
+        ? NotificationType.SOS
+        : NotificationType.TELEMETRY,
+    priority: NotificationPriority.URGENT,
+    title:
+      data.status === TelemetryStatus.SOS
+        ? "Emergency SOS Alert"
+        : "Vehicle Breakdown Alert",
+    message: `${
+      driver.user.fullName
+    } reported ${data.status} at latitude ${data.latitude}, longitude ${
+      data.longitude
+    }. ${data.remarks ?? ""}`,
+    entityType: "VehicleTelemetryLog",
+    entityId: telemetry.id,
+  });
+}
 
   return telemetry;
 }

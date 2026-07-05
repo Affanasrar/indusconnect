@@ -3,7 +3,10 @@ import {
   ExpenseClaimStatus,
   PayrollSyncStatus,
   TravelRequestStatus,
+  NotificationPriority,
+  NotificationType,
 } from "@prisma/client";
+import { createNotification } from "../notifications/notification.service";
 import prisma from "../../config/prisma";
 import {
   CancelExpenseClaimInput,
@@ -214,18 +217,30 @@ export async function approveExpenseClaim(
     throw new Error("Rejected or cancelled claim cannot be approved");
   }
 
-  return prisma.expenseClaim.update({
-    where: {
-      id,
-    },
-    data: {
-      status: ExpenseClaimStatus.APPROVED,
-      reviewedById: financeOfficerId,
-      financeRemarks: data.financeRemarks,
-      payrollSyncStatus: PayrollSyncStatus.READY_FOR_EXPORT,
-    },
-    include: expenseInclude,
-  });
+  const updatedClaim = await prisma.expenseClaim.update({
+  where: {
+    id,
+  },
+  data: {
+    status: ExpenseClaimStatus.APPROVED,
+    reviewedById: financeOfficerId,
+    financeRemarks: data.financeRemarks,
+    payrollSyncStatus: PayrollSyncStatus.READY_FOR_EXPORT,
+  },
+  include: expenseInclude,
+});
+
+await createNotification(financeOfficerId, {
+  recipientId: updatedClaim.employeeId,
+  type: NotificationType.EXPENSE,
+  priority: NotificationPriority.HIGH,
+  title: "Expense Claim Approved",
+  message: `Your expense claim of ${updatedClaim.currency} ${updatedClaim.amount} has been approved.`,
+  entityType: "ExpenseClaim",
+  entityId: updatedClaim.id,
+});
+
+return updatedClaim;
 }
 
 export async function rejectExpenseClaim(
@@ -260,19 +275,31 @@ export async function flagExpenseClaim(
 ) {
   await getExpenseClaimById(id);
 
-  return prisma.expenseClaim.update({
-    where: {
-      id,
-    },
-    data: {
-      status: ExpenseClaimStatus.FLAGGED,
-      anomalyStatus: ExpenseAnomalyStatus.ANOMALY_REVIEW_REQUIRED,
-      anomalyReason: data.anomalyReason,
-      reviewedById: financeOfficerId,
-      financeRemarks: data.financeRemarks,
-    },
-    include: expenseInclude,
-  });
+  const updatedClaim = await prisma.expenseClaim.update({
+  where: {
+    id,
+  },
+  data: {
+    status: ExpenseClaimStatus.FLAGGED,
+    anomalyStatus: ExpenseAnomalyStatus.ANOMALY_REVIEW_REQUIRED,
+    anomalyReason: data.anomalyReason,
+    reviewedById: financeOfficerId,
+    financeRemarks: data.financeRemarks,
+  },
+  include: expenseInclude,
+});
+
+await createNotification(financeOfficerId, {
+  recipientId: updatedClaim.employeeId,
+  type: NotificationType.EXPENSE,
+  priority: NotificationPriority.URGENT,
+  title: "Expense Claim Flagged",
+  message: `Your expense claim requires additional finance review.`,
+  entityType: "ExpenseClaim",
+  entityId: updatedClaim.id,
+});
+
+return updatedClaim;
 }
 
 export async function markExpenseClaimAsExported(id: string) {

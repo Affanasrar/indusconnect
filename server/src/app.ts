@@ -18,6 +18,7 @@ import { auditMiddleware } from "./middleware/audit.middleware";
 import auditLogRoutes from "./modules/audit-logs/auditLog.routes";
 import vendorRoutes from "./modules/vendors/vendor.routes";
 import telemetryRoutes from "./modules/telemetry/telemetry.routes";
+import notificationRoutes from "./modules/notifications/notification.routes";
 
 const app = express();
 
@@ -48,6 +49,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/audit-logs", auditLogRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/telemetry", telemetryRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.get("/", (_req, res) => {
   res.json({

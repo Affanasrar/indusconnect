@@ -95,6 +95,8 @@ function getEntity(path: string): AuditEntity {
   if (path.includes("/api/driver-trips")) return AuditEntity.TRANSPORT_TRIP;
   if (path.includes("/api/reports")) return AuditEntity.REPORT;
 
+  if (path.includes("/api/notifications")) return AuditEntity.NOTIFICATION;
+
   return AuditEntity.SYSTEM;
 }
 

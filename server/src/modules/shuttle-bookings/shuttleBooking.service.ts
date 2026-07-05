@@ -1,4 +1,9 @@
-import { ShuttleBookingStatus } from "@prisma/client";
+import { 
+  ShuttleBookingStatus,
+  NotificationPriority,
+  NotificationType,
+ } from "@prisma/client";
+import { createNotification } from "../notifications/notification.service";
 import prisma from "../../config/prisma";
 import {
   AssignShuttleBookingInput,
@@ -153,19 +158,33 @@ export async function assignShuttleBooking(
     }
   }
 
-  return prisma.shuttleBooking.update({
-    where: {
-      id,
-    },
-    data: {
-      routeId: data.routeId,
-      pickupStopId: data.pickupStopId,
-      seatNumber: data.seatNumber,
-      status: data.status ?? ShuttleBookingStatus.ASSIGNED,
-      remarks: data.remarks,
-    },
-    include: bookingInclude,
-  });
+  const updatedBooking = await prisma.shuttleBooking.update({
+  where: {
+    id,
+  },
+  data: {
+    routeId: data.routeId,
+    pickupStopId: data.pickupStopId,
+    seatNumber: data.seatNumber,
+    status: data.status ?? ShuttleBookingStatus.ASSIGNED,
+    remarks: data.remarks,
+  },
+  include: bookingInclude,
+});
+
+await createNotification(undefined, {
+  recipientId: updatedBooking.employeeId,
+  type: NotificationType.SHUTTLE,
+  priority: NotificationPriority.HIGH,
+  title: "Shuttle Booking Assigned",
+  message: `Your shuttle booking has been assigned. Seat: ${
+    updatedBooking.seatNumber ?? "Not assigned"
+  }.`,
+  entityType: "ShuttleBooking",
+  entityId: updatedBooking.id,
+});
+
+return updatedBooking;
 }
 
 export async function cancelShuttleBooking(
