@@ -46,6 +46,9 @@ export async function getDashboardSummary() {
     totalNotifications,
     unreadNotifications,
     urgentNotifications,
+
+    totalProxyTravelRequests,
+    totalProxyShuttleBookings,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.vehicle.count(),
@@ -64,6 +67,17 @@ export async function getDashboardSummary() {
         status: {
           in: ["SOS", "BREAKDOWN"],
         },
+      },
+    }),
+
+    prisma.travelRequest.count({
+      where: {
+        isProxyRequest: true,
+      },
+    }),
+    prisma.shuttleBooking.count({
+      where: {
+        isProxyBooking: true,
       },
     }),
 
@@ -126,6 +140,7 @@ export async function getDashboardSummary() {
         status: ReservationStatus.CONFIRMED,
       },
     }),
+    
 
     prisma.transportTrip.count({
       where: {
@@ -193,6 +208,11 @@ prisma.notification.count({
     notifications: {
       unread: unreadNotifications,
       urgent: urgentNotifications,
+    },
+    proxyBookings: {
+      travelRequests: totalProxyTravelRequests,
+      shuttleBookings: totalProxyShuttleBookings,
+      total: totalProxyTravelRequests + totalProxyShuttleBookings,
     },
   };
 }

@@ -203,6 +203,7 @@ enum AuditEntity {
   VENDOR
   TELEMETRY
   NOTIFICATION
+  PROXY_BOOKING
   SYSTEM
 }
 
@@ -300,6 +301,9 @@ model User {
 
   notifications Notification[] @relation("UserNotifications")
   sentNotifications Notification[] @relation("NotificationCreatedBy")
+
+  proxyCreatedTravelRequests TravelRequest[] @relation("ProxyCreatedTravelRequests")
+  proxyCreatedShuttleBookings ShuttleBooking[] @relation("ProxyCreatedShuttleBookings")
 
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -428,12 +432,18 @@ model ShuttleBooking {
   status         ShuttleBookingStatus @default(PENDING)
   remarks        String?
 
+  isProxyBooking   Boolean @default(false)
+  proxyCreatedById String?
+  proxyCreatedBy   User?   @relation("ProxyCreatedShuttleBookings", fields: [proxyCreatedById], references: [id])
+  proxyReason      String?
+
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
 
   @@index([employeeId])
   @@index([routeId])
   @@index([pickupStopId])
+  @@index([proxyCreatedById])
 }
 
 model TransportTrip {
@@ -504,12 +514,18 @@ model TravelRequest {
 
   expenseClaims ExpenseClaim[]
 
+  isProxyRequest   Boolean @default(false)
+  proxyCreatedById String?
+  proxyCreatedBy   User?   @relation("ProxyCreatedTravelRequests", fields: [proxyCreatedById], references: [id])
+  proxyReason      String?
+
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
   @@index([employeeId])
   @@index([approvedById])
   @@index([status])
+  @@index([proxyCreatedById])
 }
 
 model Room {
