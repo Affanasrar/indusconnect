@@ -107,7 +107,7 @@ export async function getVehicleMaintenanceTaskByIdController(
   res: Response
 ) {
   try {
-    const task = await getVehicleMaintenanceTaskById(req.params.id);
+    const task = await getVehicleMaintenanceTaskById(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -131,7 +131,7 @@ export async function updateVehicleMaintenanceTaskController(
 ) {
   try {
     const validatedData = updateVehicleMaintenanceTaskSchema.parse(req.body);
-    const task = await updateVehicleMaintenanceTask(req.params.id, validatedData);
+    const task = await updateVehicleMaintenanceTask(String(req.params.id), validatedData);
 
     return res.status(200).json({
       success: true,
@@ -154,7 +154,7 @@ export async function startVehicleMaintenanceTaskController(
   res: Response
 ) {
   try {
-    const task = await startVehicleMaintenanceTask(req.params.id);
+    const task = await startVehicleMaintenanceTask(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -180,7 +180,7 @@ export async function resolveVehicleMaintenanceTaskController(
     const validatedData = resolveTaskSchema.parse(req.body);
 
     const task = await resolveVehicleMaintenanceTask(
-      req.params.id,
+      String(req.params.id),
       validatedData.resolutionNotes
     );
 
@@ -205,7 +205,7 @@ export async function cancelVehicleMaintenanceTaskController(
   res: Response
 ) {
   try {
-    const task = await cancelVehicleMaintenanceTask(req.params.id);
+    const task = await cancelVehicleMaintenanceTask(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -260,7 +260,7 @@ export async function createHousekeepingTaskAfterCheckoutController(
     const currentUser = (req as any).user;
 
     const task = await createHousekeepingTaskAfterCheckout(
-      req.params.reservationId,
+      String(req.params.reservationId),
       currentUser?.userId
     );
 
@@ -331,7 +331,7 @@ export async function getHousekeepingTaskByIdController(
   res: Response
 ) {
   try {
-    const task = await getHousekeepingTaskById(req.params.id);
+    const task = await getHousekeepingTaskById(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -353,7 +353,7 @@ export async function updateHousekeepingTaskController(
 ) {
   try {
     const validatedData = updateHousekeepingTaskSchema.parse(req.body);
-    const task = await updateHousekeepingTask(req.params.id, validatedData);
+    const task = await updateHousekeepingTask(String(req.params.id), validatedData);
 
     return res.status(200).json({
       success: true,
@@ -376,7 +376,7 @@ export async function startHousekeepingTaskController(
   res: Response
 ) {
   try {
-    const task = await startHousekeepingTask(req.params.id);
+    const task = await startHousekeepingTask(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -402,7 +402,7 @@ export async function completeHousekeepingTaskController(
     const validatedData = completeHousekeepingTaskSchema.parse(req.body);
 
     const task = await completeHousekeepingTask(
-      req.params.id,
+      String(req.params.id),
       validatedData.completionNotes
     );
 
@@ -427,7 +427,7 @@ export async function cancelHousekeepingTaskController(
   res: Response
 ) {
   try {
-    const task = await cancelHousekeepingTask(req.params.id);
+    const task = await cancelHousekeepingTask(String(req.params.id));
 
     return res.status(200).json({
       success: true,

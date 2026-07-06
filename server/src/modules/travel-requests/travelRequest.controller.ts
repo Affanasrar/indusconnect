@@ -122,7 +122,7 @@ export async function getTravelRequestByIdController(
   res: Response
 ) {
   try {
-    const request = await getTravelRequestById(req.params.id);
+    const request = await getTravelRequestById(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -147,7 +147,7 @@ export async function updateTravelRequestController(
     const validatedData = updateTravelRequestSchema.parse(req.body);
 
     const request = await updateTravelRequest(
-      req.params.id,
+      String(req.params.id),
       currentUser,
       validatedData
     );
@@ -177,7 +177,7 @@ export async function approveTravelRequestController(
     const validatedData = decisionTravelRequestSchema.parse(req.body);
 
     const request = await approveTravelRequest(
-      req.params.id,
+      String(req.params.id),
       currentUser.userId,
       validatedData
     );
@@ -207,7 +207,7 @@ export async function rejectTravelRequestController(
     const validatedData = decisionTravelRequestSchema.parse(req.body);
 
     const request = await rejectTravelRequest(
-      req.params.id,
+      String(req.params.id),
       currentUser.userId,
       validatedData
     );
@@ -237,7 +237,7 @@ export async function cancelTravelRequestController(
     const validatedData = cancelTravelRequestSchema.parse(req.body);
 
     const request = await cancelTravelRequest(
-      req.params.id,
+      String(req.params.id),
       currentUser,
       validatedData
     );

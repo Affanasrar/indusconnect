@@ -95,7 +95,7 @@ export async function getShuttleBookingByIdController(
   res: Response
 ) {
   try {
-    const booking = await getShuttleBookingById(req.params.id);
+    const booking = await getShuttleBookingById(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -118,7 +118,7 @@ export async function assignShuttleBookingController(
   try {
     const validatedData = assignShuttleBookingSchema.parse(req.body);
 
-    const booking = await assignShuttleBooking(req.params.id, validatedData);
+    const booking = await assignShuttleBooking(String(req.params.id), validatedData);
 
     return res.status(200).json({
       success: true,
@@ -145,7 +145,7 @@ export async function cancelShuttleBookingController(
     const currentUser = (req as any).user;
 
     const booking = await cancelShuttleBooking(
-      req.params.id,
+      String(req.params.id),
       currentUser,
       validatedData
     );

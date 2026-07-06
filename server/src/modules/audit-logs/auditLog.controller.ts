@@ -50,7 +50,7 @@ export async function getMyAuditLogsController(req: Request, res: Response) {
 
 export async function getAuditLogByIdController(req: Request, res: Response) {
   try {
-    const log = await getAuditLogById(req.params.id);
+    const log = await getAuditLogById(String(req.params.id));
 
     return res.status(200).json({
       success: true,

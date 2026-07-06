@@ -76,7 +76,7 @@ export async function getAvailableRoomsController(_req: Request, res: Response) 
 
 export async function getRoomByIdController(req: Request, res: Response) {
   try {
-    const room = await getRoomById(req.params.id);
+    const room = await getRoomById(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -94,7 +94,7 @@ export async function getRoomByIdController(req: Request, res: Response) {
 export async function updateRoomController(req: Request, res: Response) {
   try {
     const validatedData = updateRoomSchema.parse(req.body);
-    const room = await updateRoom(req.params.id, validatedData);
+    const room = await updateRoom(String(req.params.id), validatedData);
 
     return res.status(200).json({
       success: true,
@@ -183,7 +183,7 @@ export async function getReservationByIdController(
   res: Response
 ) {
   try {
-    const reservation = await getReservationById(req.params.id);
+    const reservation = await getReservationById(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -200,7 +200,7 @@ export async function getReservationByIdController(
 
 export async function checkInReservationController(req: Request, res: Response) {
   try {
-    const reservation = await checkInReservation(req.params.id);
+    const reservation = await checkInReservation(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -218,7 +218,7 @@ export async function checkInReservationController(req: Request, res: Response) 
 
 export async function checkOutReservationController(req: Request, res: Response) {
   try {
-    const reservation = await checkOutReservation(req.params.id);
+    const reservation = await checkOutReservation(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -241,7 +241,7 @@ export async function cancelReservationController(req: Request, res: Response) {
       status: "CANCELLED",
     });
 
-    const reservation = await cancelReservation(req.params.id, validatedData);
+    const reservation = await cancelReservation(String(req.params.id), validatedData);
 
     return res.status(200).json({
       success: true,

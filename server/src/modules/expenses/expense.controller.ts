@@ -152,7 +152,7 @@ export async function getExpenseClaimByIdController(
   res: Response
 ) {
   try {
-    const claim = await getExpenseClaimById(req.params.id);
+    const claim = await getExpenseClaimById(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -177,7 +177,7 @@ export async function approveExpenseClaimController(
     const validatedData = financeDecisionSchema.parse(req.body);
 
     const claim = await approveExpenseClaim(
-      req.params.id,
+      String(req.params.id),
       currentUser.userId,
       validatedData
     );
@@ -207,7 +207,7 @@ export async function rejectExpenseClaimController(
     const validatedData = financeDecisionSchema.parse(req.body);
 
     const claim = await rejectExpenseClaim(
-      req.params.id,
+      String(req.params.id),
       currentUser.userId,
       validatedData
     );
@@ -234,7 +234,7 @@ export async function flagExpenseClaimController(req: Request, res: Response) {
     const validatedData = flagExpenseClaimSchema.parse(req.body);
 
     const claim = await flagExpenseClaim(
-      req.params.id,
+      String(req.params.id),
       currentUser.userId,
       validatedData
     );
@@ -260,7 +260,7 @@ export async function exportExpenseClaimController(
   res: Response
 ) {
   try {
-    const claim = await markExpenseClaimAsExported(req.params.id);
+    const claim = await markExpenseClaimAsExported(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -287,7 +287,7 @@ export async function cancelExpenseClaimController(
     const validatedData = cancelExpenseClaimSchema.parse(req.body);
 
     const claim = await cancelExpenseClaim(
-      req.params.id,
+      String(req.params.id),
       currentUser,
       validatedData
     );

@@ -23,53 +23,10 @@ const router = Router();
 
 router.use(authMiddleware);
 
-router.post(
-  "/",
-  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
-  createVendorController
-);
-
-router.get(
-  "/",
-  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN", "FINANCE_OFFICER"),
-  getAllVendorsController
-);
-
-router.get(
-  "/active",
-  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
-  getActiveVendorsController
-);
-
-router.get(
-  "/:id",
-  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN", "FINANCE_OFFICER"),
-  getVendorByIdController
-);
-
-router.patch(
-  "/:id",
-  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
-  updateVendorController
-);
-
-router.patch(
-  "/:id/deactivate",
-  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
-  deactivateVendorController
-);
-
-router.patch(
-  "/vehicles/:vehicleId/assign",
-  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
-  assignVendorToVehicleController
-);
-
-router.patch(
-  "/routes/:routeId/assign",
-  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
-  assignVendorToRouteController
-);
+/**
+ * IMPORTANT:
+ * Specific routes must come before "/:id".
+ */
 
 router.post(
   "/bills",
@@ -111,6 +68,54 @@ router.patch(
   "/bills/:id/pay",
   authorizeRoles("SUPER_ADMIN", "FINANCE_OFFICER"),
   payVendorBillController
+);
+
+router.patch(
+  "/vehicles/:vehicleId/assign",
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  assignVendorToVehicleController
+);
+
+router.patch(
+  "/routes/:routeId/assign",
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  assignVendorToRouteController
+);
+
+router.get(
+  "/active",
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  getActiveVendorsController
+);
+
+router.post(
+  "/",
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  createVendorController
+);
+
+router.get(
+  "/",
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN", "FINANCE_OFFICER"),
+  getAllVendorsController
+);
+
+router.get(
+  "/:id",
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN", "FINANCE_OFFICER"),
+  getVendorByIdController
+);
+
+router.patch(
+  "/:id",
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  updateVendorController
+);
+
+router.patch(
+  "/:id/deactivate",
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  deactivateVendorController
 );
 
 export default router;

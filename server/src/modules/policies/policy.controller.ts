@@ -82,7 +82,7 @@ export async function getPolicyRuleByIdController(
   res: Response
 ) {
   try {
-    const rule = await getPolicyRuleById(req.params.id);
+    const rule = await getPolicyRuleById(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -100,7 +100,7 @@ export async function getPolicyRuleByIdController(
 export async function updatePolicyRuleController(req: Request, res: Response) {
   try {
     const validatedData = updatePolicyRuleSchema.parse(req.body);
-    const rule = await updatePolicyRule(req.params.id, validatedData);
+    const rule = await updatePolicyRule(String(req.params.id), validatedData);
 
     return res.status(200).json({
       success: true,
@@ -121,7 +121,7 @@ export async function deactivatePolicyRuleController(
   res: Response
 ) {
   try {
-    const rule = await deactivatePolicyRule(req.params.id);
+    const rule = await deactivatePolicyRule(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -144,7 +144,7 @@ export async function evaluateTravelRequestPolicyController(
   res: Response
 ) {
   try {
-    const result = await evaluateTravelRequestPolicy(req.params.id);
+    const result = await evaluateTravelRequestPolicy(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -167,7 +167,7 @@ export async function evaluateExpenseClaimPolicyController(
   res: Response
 ) {
   try {
-    const result = await evaluateExpenseClaimPolicy(req.params.id);
+    const result = await evaluateExpenseClaimPolicy(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -190,7 +190,7 @@ export async function evaluateShuttleBookingPolicyController(
   res: Response
 ) {
   try {
-    const result = await evaluateShuttleBookingPolicy(req.params.id);
+    const result = await evaluateShuttleBookingPolicy(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -213,7 +213,7 @@ export async function evaluateAccommodationPolicyController(
   res: Response
 ) {
   try {
-    const result = await evaluateAccommodationPolicy(req.params.travelRequestId);
+    const result = await evaluateAccommodationPolicy(String(req.params.travelRequestId));
 
     return res.status(200).json({
       success: true,

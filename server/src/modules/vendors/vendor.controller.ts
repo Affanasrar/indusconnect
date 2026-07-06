@@ -80,7 +80,7 @@ export async function getActiveVendorsController(_req: Request, res: Response) {
 
 export async function getVendorByIdController(req: Request, res: Response) {
   try {
-    const vendor = await getVendorById(req.params.id);
+    const vendor = await getVendorById(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -98,7 +98,7 @@ export async function getVendorByIdController(req: Request, res: Response) {
 export async function updateVendorController(req: Request, res: Response) {
   try {
     const validatedData = updateVendorSchema.parse(req.body);
-    const vendor = await updateVendor(req.params.id, validatedData);
+    const vendor = await updateVendor(String(req.params.id), validatedData);
 
     return res.status(200).json({
       success: true,
@@ -115,7 +115,7 @@ export async function updateVendorController(req: Request, res: Response) {
 
 export async function deactivateVendorController(req: Request, res: Response) {
   try {
-    const vendor = await deactivateVendor(req.params.id);
+    const vendor = await deactivateVendor(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -139,7 +139,7 @@ export async function assignVendorToVehicleController(
     const validatedData = assignVendorToVehicleSchema.parse(req.body);
 
     const vehicle = await assignVendorToVehicle(
-      req.params.vehicleId,
+      String(req.params.vehicleId),
       validatedData
     );
 
@@ -166,7 +166,7 @@ export async function assignVendorToRouteController(
   try {
     const validatedData = assignVendorToRouteSchema.parse(req.body);
 
-    const route = await assignVendorToRoute(req.params.routeId, validatedData);
+    const route = await assignVendorToRoute(String(req.params.routeId), validatedData);
 
     return res.status(200).json({
       success: true,
@@ -252,7 +252,7 @@ export async function getVendorBillByIdController(
   res: Response
 ) {
   try {
-    const bill = await getVendorBillById(req.params.id);
+    const bill = await getVendorBillById(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -274,7 +274,7 @@ export async function approveVendorBillController(req: Request, res: Response) {
       status: "APPROVED",
     });
 
-    const bill = await approveVendorBill(req.params.id, validatedData);
+    const bill = await approveVendorBill(String(req.params.id), validatedData);
 
     return res.status(200).json({
       success: true,
@@ -299,7 +299,7 @@ export async function rejectVendorBillController(req: Request, res: Response) {
       status: "REJECTED",
     });
 
-    const bill = await rejectVendorBill(req.params.id, validatedData);
+    const bill = await rejectVendorBill(String(req.params.id), validatedData);
 
     return res.status(200).json({
       success: true,
@@ -317,7 +317,7 @@ export async function rejectVendorBillController(req: Request, res: Response) {
 
 export async function payVendorBillController(req: Request, res: Response) {
   try {
-    const bill = await markVendorBillAsPaid(req.params.id);
+    const bill = await markVendorBillAsPaid(String(req.params.id));
 
     return res.status(200).json({
       success: true,

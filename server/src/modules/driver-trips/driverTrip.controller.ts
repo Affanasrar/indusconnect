@@ -29,7 +29,9 @@ export async function getMyAssignedRoutesController(req: Request, res: Response)
     return res.status(400).json({
       success: false,
       message:
-        error instanceof Error ? error.message : "Failed to fetch assigned routes",
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch assigned routes",
     });
   }
 }
@@ -40,7 +42,7 @@ export async function getMyRouteManifestController(req: Request, res: Response) 
 
     const manifest = await getMyRouteManifest(
       currentUser.userId,
-      req.params.routeId
+      String(req.params.routeId)
     );
 
     return res.status(200).json({
@@ -52,7 +54,9 @@ export async function getMyRouteManifestController(req: Request, res: Response) 
     return res.status(400).json({
       success: false,
       message:
-        error instanceof Error ? error.message : "Failed to fetch driver manifest",
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch driver manifest",
     });
   }
 }
@@ -67,7 +71,7 @@ export async function submitSafetyChecklistController(
 
     const trip = await submitSafetyChecklist(
       currentUser.userId,
-      req.params.routeId,
+      String(req.params.routeId),
       validatedData
     );
 
@@ -91,7 +95,10 @@ export async function startTripController(req: Request, res: Response) {
   try {
     const currentUser = (req as any).user;
 
-    const trip = await startTrip(currentUser.userId, req.params.routeId);
+    const trip = await startTrip(
+      currentUser.userId,
+      String(req.params.routeId)
+    );
 
     return res.status(200).json({
       success: true,
@@ -115,8 +122,8 @@ export async function markPassengerBoardedController(
 
     const booking = await markPassengerBoarded(
       currentUser.userId,
-      req.params.routeId,
-      req.params.bookingId
+      String(req.params.routeId),
+      String(req.params.bookingId)
     );
 
     return res.status(200).json({
@@ -128,7 +135,9 @@ export async function markPassengerBoardedController(
     return res.status(400).json({
       success: false,
       message:
-        error instanceof Error ? error.message : "Failed to mark passenger boarded",
+        error instanceof Error
+          ? error.message
+          : "Failed to mark passenger boarded",
     });
   }
 }
@@ -142,8 +151,8 @@ export async function markPassengerNoShowController(
 
     const booking = await markPassengerNoShow(
       currentUser.userId,
-      req.params.routeId,
-      req.params.bookingId
+      String(req.params.routeId),
+      String(req.params.bookingId)
     );
 
     return res.status(200).json({
@@ -155,7 +164,9 @@ export async function markPassengerNoShowController(
     return res.status(400).json({
       success: false,
       message:
-        error instanceof Error ? error.message : "Failed to mark passenger no-show",
+        error instanceof Error
+          ? error.message
+          : "Failed to mark passenger no-show",
     });
   }
 }
@@ -167,7 +178,7 @@ export async function reportTripIssueController(req: Request, res: Response) {
 
     const trip = await reportTripIssue(
       currentUser.userId,
-      req.params.routeId,
+      String(req.params.routeId),
       validatedData
     );
 
@@ -189,7 +200,10 @@ export async function endTripController(req: Request, res: Response) {
   try {
     const currentUser = (req as any).user;
 
-    const trip = await endTrip(currentUser.userId, req.params.routeId);
+    const trip = await endTrip(
+      currentUser.userId,
+      String(req.params.routeId)
+    );
 
     return res.status(200).json({
       success: true,

@@ -387,7 +387,7 @@ export async function getTransportSummary() {
     totalRoutes,
     totalBookings,
     pendingBookings,
-    confirmedBookings,
+    assignedBookings,
     completedBookings,
     noShowBookings,
     activeTrips,
@@ -405,7 +405,7 @@ export async function getTransportSummary() {
     }),
     prisma.shuttleBooking.count({
       where: {
-        status: ShuttleBookingStatus.CONFIRMED,
+        status: ShuttleBookingStatus.ASSIGNED,
       },
     }),
     prisma.shuttleBooking.count({
@@ -438,7 +438,7 @@ export async function getTransportSummary() {
     bookings: {
       total: totalBookings,
       pending: pendingBookings,
-      confirmed: confirmedBookings,
+      assigned: assignedBookings,
       completed: completedBookings,
       noShow: noShowBookings,
     },

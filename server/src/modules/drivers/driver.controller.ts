@@ -31,7 +31,7 @@ export async function getAllDriversController(_req: Request, res: Response) {
 
 export async function getDriverByIdController(req: Request, res: Response) {
   try {
-    const driver = await getDriverById(req.params.id);
+    const driver = await getDriverById(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -70,7 +70,7 @@ export async function updateDriverController(req: Request, res: Response) {
   try {
     const validatedData = updateDriverSchema.parse(req.body);
 
-    const driver = await updateDriver(req.params.id, validatedData);
+    const driver = await updateDriver(String(req.params.id), validatedData);
 
     return res.status(200).json({
       success: true,
@@ -88,7 +88,7 @@ export async function updateDriverController(req: Request, res: Response) {
 
 export async function deactivateDriverController(req: Request, res: Response) {
   try {
-    const driver = await deactivateDriver(req.params.id);
+    const driver = await deactivateDriver(String(req.params.id));
 
     return res.status(200).json({
       success: true,

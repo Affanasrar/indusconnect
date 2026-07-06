@@ -35,7 +35,7 @@ export async function getAllRoutesController(_req: Request, res: Response) {
 
 export async function getRouteByIdController(req: Request, res: Response) {
   try {
-    const route = await getRouteById(req.params.id);
+    const route = await getRouteById(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -73,7 +73,7 @@ export async function updateRouteController(req: Request, res: Response) {
   try {
     const validatedData = updateRouteSchema.parse(req.body);
 
-    const route = await updateRoute(req.params.id, validatedData);
+    const route = await updateRoute(String(req.params.id), validatedData);
 
     return res.status(200).json({
       success: true,
@@ -90,7 +90,7 @@ export async function updateRouteController(req: Request, res: Response) {
 
 export async function cancelRouteController(req: Request, res: Response) {
   try {
-    const route = await cancelRoute(req.params.id);
+    const route = await cancelRoute(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -109,7 +109,7 @@ export async function addSmartStopController(req: Request, res: Response) {
   try {
     const validatedData = addSmartStopSchema.parse(req.body);
 
-    const stop = await addSmartStop(req.params.routeId, validatedData);
+    const stop = await addSmartStop(String(req.params.routeId), validatedData);
 
     return res.status(201).json({
       success: true,
@@ -129,7 +129,7 @@ export async function updateSmartStopController(req: Request, res: Response) {
   try {
     const validatedData = updateSmartStopSchema.parse(req.body);
 
-    const stop = await updateSmartStop(req.params.stopId, validatedData);
+    const stop = await updateSmartStop(String(req.params.stopId), validatedData);
 
     return res.status(200).json({
       success: true,
@@ -147,7 +147,7 @@ export async function updateSmartStopController(req: Request, res: Response) {
 
 export async function deleteSmartStopController(req: Request, res: Response) {
   try {
-    const stop = await deleteSmartStop(req.params.stopId);
+    const stop = await deleteSmartStop(String(req.params.stopId));
 
     return res.status(200).json({
       success: true,

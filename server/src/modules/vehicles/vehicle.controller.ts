@@ -31,7 +31,7 @@ export async function getAllVehiclesController(_req: Request, res: Response) {
 
 export async function getVehicleByIdController(req: Request, res: Response) {
   try {
-    const vehicle = await getVehicleById(req.params.id);
+    const vehicle = await getVehicleById(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -70,7 +70,7 @@ export async function updateVehicleController(req: Request, res: Response) {
   try {
     const validatedData = updateVehicleSchema.parse(req.body);
 
-    const vehicle = await updateVehicle(req.params.id, validatedData);
+    const vehicle = await updateVehicle(String(req.params.id), validatedData);
 
     return res.status(200).json({
       success: true,
@@ -88,7 +88,7 @@ export async function updateVehicleController(req: Request, res: Response) {
 
 export async function deactivateVehicleController(req: Request, res: Response) {
   try {
-    const vehicle = await deactivateVehicle(req.params.id);
+    const vehicle = await deactivateVehicle(String(req.params.id));
 
     return res.status(200).json({
       success: true,

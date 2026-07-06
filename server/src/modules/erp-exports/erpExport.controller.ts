@@ -159,7 +159,7 @@ export async function getPayrollExportByIdController(
   res: Response
 ) {
   try {
-    const exportRecord = await getPayrollExportById(req.params.id);
+    const exportRecord = await getPayrollExportById(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -180,9 +180,9 @@ export async function downloadPayrollExportCsvController(
   res: Response
 ) {
   try {
-    const exportRecord = await getPayrollExportById(req.params.id);
+    const exportRecord = await getPayrollExportById(String(req.params.id));
 
-    await markPayrollExportAsDownloaded(req.params.id);
+    await markPayrollExportAsDownloaded(String(req.params.id));
 
     res.setHeader("Content-Type", "text/csv");
     res.setHeader(
@@ -207,7 +207,7 @@ export async function markPayrollExportAsSyncedController(
   res: Response
 ) {
   try {
-    const exportRecord = await markPayrollExportAsSynced(req.params.id);
+    const exportRecord = await markPayrollExportAsSynced(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -233,7 +233,7 @@ export async function markPayrollExportAsFailedController(
     const validatedData = markExportFailedSchema.parse(req.body);
 
     const exportRecord = await markPayrollExportAsFailed(
-      req.params.id,
+      String(req.params.id),
       validatedData.failureReason
     );
 

@@ -86,7 +86,7 @@ export async function getTelemetryByRouteController(
   res: Response
 ) {
   try {
-    const logs = await getTelemetryByRoute(req.params.routeId);
+    const logs = await getTelemetryByRoute(String(req.params.routeId));
 
     return res.status(200).json({
       success: true,
@@ -109,7 +109,7 @@ export async function getTelemetryByDriverController(
   res: Response
 ) {
   try {
-    const logs = await getTelemetryByDriver(req.params.driverId);
+    const logs = await getTelemetryByDriver(String(req.params.driverId));
 
     return res.status(200).json({
       success: true,

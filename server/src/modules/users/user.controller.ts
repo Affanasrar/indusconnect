@@ -26,7 +26,7 @@ export async function getAllUsersController(_req: Request, res: Response) {
 
 export async function getUserByIdController(req: Request, res: Response) {
   try {
-    const user = await getUserById(req.params.id);
+    const user = await getUserById(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -64,7 +64,7 @@ export async function updateUserController(req: Request, res: Response) {
   try {
     const validatedData = updateUserSchema.parse(req.body);
 
-    const user = await updateUser(req.params.id, validatedData);
+    const user = await updateUser(String(req.params.id), validatedData);
 
     return res.status(200).json({
       success: true,

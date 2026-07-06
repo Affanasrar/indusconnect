@@ -67,14 +67,6 @@ function getAction(method: string, path: string): AuditAction {
   if (method === "PATCH" || method === "PUT") return AuditAction.UPDATE;
   if (method === "DELETE") return AuditAction.DELETE;
 
-  if (path.includes("/api/maintenance/housekeeping")) {
-  return AuditEntity.HOUSEKEEPING_TASK;
-}
-
-if (path.includes("/api/maintenance")) {
-  return AuditEntity.MAINTENANCE_TASK;
-}
-
   return AuditAction.SYSTEM;
 }
 
@@ -108,6 +100,13 @@ function getEntity(path: string): AuditEntity {
   if (path.includes("/api/proxy-bookings")) return AuditEntity.PROXY_BOOKING;
   
   if (path.includes("/api/policies")) return AuditEntity.POLICY_RULE;
+  if (path.includes("/api/maintenance/housekeeping")) {
+    return AuditEntity.HOUSEKEEPING_TASK;
+  }
+
+  if (path.includes("/api/maintenance")) {
+    return AuditEntity.MAINTENANCE_TASK;
+  }
   if (path.includes("/api/erp-exports")) return AuditEntity.ERP_EXPORT;
 
   return AuditEntity.SYSTEM;
@@ -133,15 +132,15 @@ export function auditMiddleware(
 
   let responseMessage: string | undefined;
 
-  const originalJson = res.json.bind(res);
+  const originalJson = res.json;
 
-  res.json = (body: any) => {
-    if (body?.message) {
-      responseMessage = body.message;
-    }
+(res as any).json = function (body: any) {
+  if (body?.message) {
+    responseMessage = body.message;
+  }
 
-    return originalJson(body);
-  };
+  return originalJson.call(this, body);
+};
 
   res.on("finish", async () => {
     try {

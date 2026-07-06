@@ -25,6 +25,11 @@ import maintenanceRoutes from "./modules/maintenance/maintenance.routes";
 import erpExportRoutes from "./modules/erp-exports/erpExport.routes";
 import frontendSupportRoutes from "./modules/frontend-support/frontendSupport.routes";
 import demoDataRoutes from "./modules/demo/demoData.routes";
+import healthRoutes from "./modules/health/health.routes";
+import {
+  globalErrorMiddleware,
+  notFoundMiddleware,
+} from "./middleware/error.middleware";
 
 const app = express();
 
@@ -35,10 +40,11 @@ app.use(
   })
 );
 
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(auditMiddleware);
-
+app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/test", testRoutes);
 app.use("/api/users", userRoutes);
@@ -62,6 +68,8 @@ app.use("/api/maintenance", maintenanceRoutes);
 app.use("/api/erp-exports", erpExportRoutes);
 app.use("/api/frontend", frontendSupportRoutes);
 app.use("/api/demo", demoDataRoutes);
+app.use(notFoundMiddleware);
+app.use(globalErrorMiddleware);
 
 
 app.get("/", (_req, res) => {

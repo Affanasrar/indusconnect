@@ -172,7 +172,7 @@ export async function getNotificationByIdController(
   res: Response
 ) {
   try {
-    const notification = await getNotificationById(req.params.id);
+    const notification = await getNotificationById(String(req.params.id));
 
     return res.status(200).json({
       success: true,
@@ -196,7 +196,7 @@ export async function markNotificationAsReadController(
     const currentUser = (req as any).user;
 
     const notification = await markNotificationAsRead(
-      req.params.id,
+      String(req.params.id),
       currentUser.userId
     );
 
