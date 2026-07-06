@@ -1,4 +1,4 @@
-import { RoleName, UserStatus } from "@prisma/client";
+import { HRGrade, RoleName, UserStatus } from "@prisma/client";
 import { z } from "zod";
 
 export const createUserSchema = z.object({
@@ -7,6 +7,9 @@ export const createUserSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
   phone: z.string().optional(),
   role: z.nativeEnum(RoleName),
+  employeeCode: z.string().optional(),
+  department: z.string().optional(),
+  hrGrade: z.nativeEnum(HRGrade).optional(),
 });
 
 export const updateUserSchema = z.object({
@@ -14,6 +17,9 @@ export const updateUserSchema = z.object({
   phone: z.string().optional(),
   role: z.nativeEnum(RoleName).optional(),
   status: z.nativeEnum(UserStatus).optional(),
+  employeeCode: z.string().optional(),
+  department: z.string().optional(),
+  hrGrade: z.nativeEnum(HRGrade).optional(),
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;

@@ -49,6 +49,9 @@ export async function getDashboardSummary() {
 
     totalProxyTravelRequests,
     totalProxyShuttleBookings,
+
+    totalPolicyRules,
+    totalPolicyDecisionLogs,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.vehicle.count(),
@@ -135,6 +138,8 @@ export async function getDashboardSummary() {
         status: RoomStatus.OCCUPIED,
       },
     }),
+    prisma.policyRule.count(),
+    prisma.policyDecisionLog.count(),
     prisma.roomReservation.count({
       where: {
         status: ReservationStatus.CONFIRMED,
@@ -181,6 +186,8 @@ prisma.notification.count({
       endorBills: totalVendorBills,
       telemetryLogs: totalTelemetryLogs,
       notifications: totalNotifications,
+      policyRules: totalPolicyRules,
+      policyDecisionLogs: totalPolicyDecisionLogs,
     },
     travel: {
       pending: pendingTravelRequests,

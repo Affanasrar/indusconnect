@@ -204,6 +204,7 @@ enum AuditEntity {
   TELEMETRY
   NOTIFICATION
   PROXY_BOOKING
+  POLICY_RULE
   SYSTEM
 }
 
@@ -264,6 +265,36 @@ enum NotificationStatus {
   READ
 }
 
+enum HRGrade {
+  SUPPORT_STAFF
+  STAFF
+  OFFICER
+  MANAGER
+  SENIOR_MANAGER
+  EXECUTIVE
+  DOCTOR
+  CONSULTANT
+}
+
+enum PolicyRuleType {
+  TRAVEL_APPROVAL
+  EXPENSE_LIMIT
+  ACCOMMODATION_FALLBACK
+  TRANSPORT_CUTOFF
+}
+
+enum PolicyRuleStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PolicyDecisionStatus {
+  PASSED
+  WARNING
+  REVIEW_REQUIRED
+  BLOCKED
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -288,6 +319,12 @@ model User {
 
   driverProfile Driver?
   shuttleBookings ShuttleBooking[]
+
+  employeeCode String? @unique
+  department   String?
+  hrGrade      HRGrade @default(STAFF)
+
+policyDecisionLogs PolicyDecisionLog[]
 
   travelRequests TravelRequest[] @relation("EmployeeTravelRequests")
   approvedTravelRequests TravelRequest[] @relation("TravelRequestApprovals")
@@ -779,4 +816,64 @@ model Notification {
   @@index([status])
   @@index([priority])
   @@index([createdAt])
+}
+
+model PolicyRule {
+  id          String           @id @default(uuid())
+
+  ruleName    String
+  ruleCode    String           @unique
+  ruleType    PolicyRuleType
+  status      PolicyRuleStatus @default(ACTIVE)
+
+  department  String?
+  hrGrade     HRGrade?
+
+  maxAmount   Float?
+
+  requiresManagerApproval       Boolean @default(false)
+  requiresFinanceApproval       Boolean @default(false)
+  requiresTransportApproval     Boolean @default(false)
+  requiresAccommodationApproval Boolean @default(false)
+
+  allowEmergencyOverride Boolean @default(false)
+
+  cutoffHoursBeforeShift Int?
+  internalFirstRequired  Boolean @default(false)
+
+  description String?
+
+  decisionLogs PolicyDecisionLog[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([ruleType])
+  @@index([status])
+  @@index([hrGrade])
+  @@index([department])
+}
+
+model PolicyDecisionLog {
+  id           String               @id @default(uuid())
+
+  policyRuleId String?
+  policyRule   PolicyRule?          @relation(fields: [policyRuleId], references: [id])
+
+  userId       String?
+  user         User?                @relation(fields: [userId], references: [id])
+
+  entityType   String
+  entityId     String
+
+  decision     PolicyDecisionStatus
+  message      String
+
+  createdAt    DateTime             @default(now())
+
+  @@index([policyRuleId])
+  @@index([userId])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([decision])
 }

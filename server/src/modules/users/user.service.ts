@@ -11,6 +11,9 @@ const userSelect = {
   status: true,
   createdAt: true,
   updatedAt: true,
+  employeeCode: true,
+  department: true,
+  hrGrade: true,
   role: {
     select: {
       id: true,
@@ -72,6 +75,9 @@ export async function createUser(data: CreateUserInput) {
       password: hashedPassword,
       phone: data.phone,
       roleId: role.id,
+      employeeCode: data.employeeCode,
+      department: data.department,
+      hrGrade: data.hrGrade,
     },
     select: userSelect,
   });
@@ -103,6 +109,9 @@ export async function updateUser(id: string, data: UpdateUserInput) {
       phone: data.phone,
       status: data.status,
       roleId,
+      employeeCode: data.employeeCode,
+      department: data.department,
+      hrGrade: data.hrGrade,
     },
     select: userSelect,
   });

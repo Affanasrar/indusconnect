@@ -98,6 +98,8 @@ function getEntity(path: string): AuditEntity {
   if (path.includes("/api/notifications")) return AuditEntity.NOTIFICATION;
 
   if (path.includes("/api/proxy-bookings")) return AuditEntity.PROXY_BOOKING;
+  
+  if (path.includes("/api/policies")) return AuditEntity.POLICY_RULE;
 
   return AuditEntity.SYSTEM;
 }
