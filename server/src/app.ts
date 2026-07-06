@@ -30,6 +30,7 @@ import {
   globalErrorMiddleware,
   notFoundMiddleware,
 } from "./middleware/error.middleware";
+import apiDocsRoutes from "./modules/api-docs/apiDocs.routes";
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(auditMiddleware);
 app.use("/api/health", healthRoutes);
+app.use("/api/docs", apiDocsRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/test", testRoutes);
 app.use("/api/users", userRoutes);
