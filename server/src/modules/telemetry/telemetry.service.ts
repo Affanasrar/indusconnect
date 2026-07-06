@@ -10,6 +10,7 @@ import {
 import { createNotificationForRoles } from "../notifications/notification.service";
 import prisma from "../../config/prisma";
 import { CreateTelemetryInput } from "./telemetry.validation";
+import { createVehicleMaintenanceTaskFromTelemetry } from "../maintenance/maintenance.service";
 
 const telemetryInclude = {
   driver: {
@@ -196,6 +197,9 @@ export async function createTelemetryLog(
     entityType: "VehicleTelemetryLog",
     entityId: telemetry.id,
   });
+}
+  if (data.status === TelemetryStatus.BREAKDOWN) {
+  await createVehicleMaintenanceTaskFromTelemetry(telemetry.id);
 }
 
   return telemetry;

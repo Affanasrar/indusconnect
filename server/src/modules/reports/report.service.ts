@@ -52,6 +52,12 @@ export async function getDashboardSummary() {
 
     totalPolicyRules,
     totalPolicyDecisionLogs,
+
+    totalVehicleMaintenanceTasks,
+    openVehicleMaintenanceTasks,
+    totalHousekeepingTasks,
+    pendingHousekeepingTasks,
+
   ] = await Promise.all([
     prisma.user.count(),
     prisma.vehicle.count(),
@@ -127,6 +133,22 @@ export async function getDashboardSummary() {
         ],
       },
     }),
+    prisma.vehicleMaintenanceTask.count(),
+prisma.vehicleMaintenanceTask.count({
+  where: {
+    status: {
+      in: ["OPEN", "IN_PROGRESS"],
+    },
+  },
+}),
+prisma.housekeepingTask.count(),
+prisma.housekeepingTask.count({
+  where: {
+    status: {
+      in: ["PENDING", "IN_PROGRESS"],
+    },
+  },
+}),
 
     prisma.room.count({
       where: {
@@ -220,6 +242,12 @@ prisma.notification.count({
       travelRequests: totalProxyTravelRequests,
       shuttleBookings: totalProxyShuttleBookings,
       total: totalProxyTravelRequests + totalProxyShuttleBookings,
+    },
+    maintenance: {
+      vehicleTasks: totalVehicleMaintenanceTasks,
+      openVehicleTasks: openVehicleMaintenanceTasks,
+      housekeepingTasks: totalHousekeepingTasks,
+      pendingHousekeepingTasks,
     },
   };
 }

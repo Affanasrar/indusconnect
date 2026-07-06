@@ -205,6 +205,8 @@ enum AuditEntity {
   NOTIFICATION
   PROXY_BOOKING
   POLICY_RULE
+  MAINTENANCE_TASK
+  HOUSEKEEPING_TASK
   SYSTEM
 }
 
@@ -295,6 +297,52 @@ enum PolicyDecisionStatus {
   BLOCKED
 }
 
+enum MaintenanceTaskType {
+  ROUTINE_SERVICE
+  REPAIR
+  BREAKDOWN
+  INSPECTION
+  FITNESS_RENEWAL
+  OTHER
+}
+
+enum MaintenanceTaskStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CANCELLED
+}
+
+enum MaintenancePriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum HousekeepingTaskType {
+  ROOM_CLEANING
+  LINEN_CHANGE
+  SANITIZATION
+  INSPECTION
+  MAINTENANCE_REQUIRED
+  OTHER
+}
+
+enum HousekeepingTaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum HousekeepingPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
 model Role {
   id          String   @id @default(uuid())
   name        RoleName @unique
@@ -324,7 +372,7 @@ model User {
   department   String?
   hrGrade      HRGrade @default(STAFF)
 
-policyDecisionLogs PolicyDecisionLog[]
+  policyDecisionLogs PolicyDecisionLog[]
 
   travelRequests TravelRequest[] @relation("EmployeeTravelRequests")
   approvedTravelRequests TravelRequest[] @relation("TravelRequestApprovals")
@@ -341,6 +389,12 @@ policyDecisionLogs PolicyDecisionLog[]
 
   proxyCreatedTravelRequests TravelRequest[] @relation("ProxyCreatedTravelRequests")
   proxyCreatedShuttleBookings ShuttleBooking[] @relation("ProxyCreatedShuttleBookings")
+
+  reportedVehicleMaintenanceTasks VehicleMaintenanceTask[] @relation("VehicleMaintenanceReportedBy")
+  assignedVehicleMaintenanceTasks VehicleMaintenanceTask[] @relation("VehicleMaintenanceAssignedTo")
+
+  createdHousekeepingTasks HousekeepingTask[] @relation("HousekeepingCreatedBy")
+  assignedHousekeepingTasks HousekeepingTask[] @relation("HousekeepingAssignedTo")
 
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -365,6 +419,8 @@ model Vehicle {
 
   telemetryLogs VehicleTelemetryLog[]
 
+  maintenanceTasks VehicleMaintenanceTask[]
+
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 }
@@ -387,6 +443,8 @@ model Driver {
   trips TransportTrip[]
 
   telemetryLogs VehicleTelemetryLog[]
+
+  maintenanceTasks VehicleMaintenanceTask[]
 
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
@@ -511,6 +569,8 @@ model TransportTrip {
 
   telemetryLogs VehicleTelemetryLog[]
 
+  maintenanceTasks VehicleMaintenanceTask[]
+
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
@@ -578,6 +638,8 @@ model Room {
 
   reservations RoomReservation[]
 
+  housekeepingTasks HousekeepingTask[]
+
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 }
@@ -607,6 +669,8 @@ model RoomReservation {
 
   checkedInAt     DateTime?
   checkedOutAt    DateTime?
+
+  housekeepingTasks HousekeepingTask[]
 
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
@@ -775,6 +839,8 @@ model VehicleTelemetryLog {
   accuracy        Float?
   remarks         String?
 
+  maintenanceTask VehicleMaintenanceTask?
+
   recordedAt      DateTime         @default(now())
   createdAt       DateTime         @default(now())
 
@@ -876,4 +942,86 @@ model PolicyDecisionLog {
   @@index([entityType])
   @@index([entityId])
   @@index([decision])
+}
+
+model VehicleMaintenanceTask {
+  id              String                @id @default(uuid())
+
+  vehicleId       String
+  vehicle         Vehicle               @relation(fields: [vehicleId], references: [id])
+
+  driverId        String?
+  driver          Driver?               @relation(fields: [driverId], references: [id])
+
+  transportTripId String?
+  transportTrip   TransportTrip?        @relation(fields: [transportTripId], references: [id])
+
+  telemetryLogId  String?               @unique
+  telemetryLog    VehicleTelemetryLog?  @relation(fields: [telemetryLogId], references: [id])
+
+  reportedById    String?
+  reportedBy      User?                 @relation("VehicleMaintenanceReportedBy", fields: [reportedById], references: [id])
+
+  assignedToId    String?
+  assignedTo      User?                 @relation("VehicleMaintenanceAssignedTo", fields: [assignedToId], references: [id])
+
+  taskType        MaintenanceTaskType
+  priority        MaintenancePriority   @default(NORMAL)
+  status          MaintenanceTaskStatus @default(OPEN)
+
+  title           String
+  description     String?
+
+  startedAt       DateTime?
+  resolvedAt      DateTime?
+  resolutionNotes String?
+
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([transportTripId])
+  @@index([reportedById])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([priority])
+}
+
+model HousekeepingTask {
+  id              String                 @id @default(uuid())
+
+  roomId          String
+  room            Room                   @relation(fields: [roomId], references: [id])
+
+  reservationId   String?
+  reservation     RoomReservation?       @relation(fields: [reservationId], references: [id])
+
+  createdById     String?
+  createdBy       User?                  @relation("HousekeepingCreatedBy", fields: [createdById], references: [id])
+
+  assignedToId    String?
+  assignedTo      User?                  @relation("HousekeepingAssignedTo", fields: [assignedToId], references: [id])
+
+  taskType        HousekeepingTaskType   @default(ROOM_CLEANING)
+  priority        HousekeepingPriority   @default(NORMAL)
+  status          HousekeepingTaskStatus @default(PENDING)
+
+  title           String
+  description     String?
+
+  dueDate         DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  completionNotes String?
+
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@index([roomId])
+  @@index([reservationId])
+  @@index([createdById])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([priority])
 }

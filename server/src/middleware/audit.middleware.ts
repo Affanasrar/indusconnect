@@ -67,6 +67,14 @@ function getAction(method: string, path: string): AuditAction {
   if (method === "PATCH" || method === "PUT") return AuditAction.UPDATE;
   if (method === "DELETE") return AuditAction.DELETE;
 
+  if (path.includes("/api/maintenance/housekeeping")) {
+  return AuditEntity.HOUSEKEEPING_TASK;
+}
+
+if (path.includes("/api/maintenance")) {
+  return AuditEntity.MAINTENANCE_TASK;
+}
+
   return AuditAction.SYSTEM;
 }
 

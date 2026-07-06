@@ -21,6 +21,7 @@ import telemetryRoutes from "./modules/telemetry/telemetry.routes";
 import notificationRoutes from "./modules/notifications/notification.routes";
 import proxyBookingRoutes from "./modules/proxy-bookings/proxyBooking.routes";
 import policyRoutes from "./modules/policies/policy.routes";
+import maintenanceRoutes from "./modules/maintenance/maintenance.routes";
 
 const app = express();
 
@@ -54,6 +55,7 @@ app.use("/api/telemetry", telemetryRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/proxy-bookings", proxyBookingRoutes);
 app.use("/api/policies", policyRoutes);
+app.use("/api/maintenance", maintenanceRoutes);
 
 app.get("/", (_req, res) => {
   res.json({

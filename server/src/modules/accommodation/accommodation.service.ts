@@ -12,6 +12,7 @@ import {
   UpdateReservationStatusInput,
   UpdateRoomInput,
 } from "./accommodation.validation";
+import { createHousekeepingTaskAfterCheckout } from "../maintenance/maintenance.service";
 
 const roomInclude = {
   reservations: {
@@ -302,15 +303,8 @@ export async function checkOutReservation(id: string) {
   });
 
   if (reservation.roomId) {
-    await prisma.room.update({
-      where: {
-        id: reservation.roomId,
-      },
-      data: {
-        status: RoomStatus.AVAILABLE,
-      },
-    });
-  }
+  await createHousekeepingTaskAfterCheckout(updatedReservation.id);
+}
 
   return updatedReservation;
 }
