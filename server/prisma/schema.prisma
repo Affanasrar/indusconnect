@@ -207,6 +207,7 @@ enum AuditEntity {
   POLICY_RULE
   MAINTENANCE_TASK
   HOUSEKEEPING_TASK
+  ERP_EXPORT
   SYSTEM
 }
 
@@ -354,6 +355,25 @@ model Role {
   updatedAt   DateTime @updatedAt
 }
 
+enum PayrollExportType {
+  EXPENSE_CLAIMS
+  VENDOR_BILLS
+  TRAVEL_ALLOWANCES
+  COMBINED
+}
+
+enum PayrollExportFormat {
+  JSON
+  CSV
+}
+
+enum PayrollExportStatus {
+  GENERATED
+  DOWNLOADED
+  SYNCED
+  FAILED
+}
+
 model User {
   id           String     @id @default(uuid())
   fullName     String
@@ -395,6 +415,8 @@ model User {
 
   createdHousekeepingTasks HousekeepingTask[] @relation("HousekeepingCreatedBy")
   assignedHousekeepingTasks HousekeepingTask[] @relation("HousekeepingAssignedTo")
+
+  generatedPayrollExports PayrollExport[] @relation("PayrollExportGeneratedBy")
 
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -616,6 +638,12 @@ model TravelRequest {
   proxyCreatedBy   User?   @relation("ProxyCreatedTravelRequests", fields: [proxyCreatedById], references: [id])
   proxyReason      String?
 
+  allowancePayrollSyncStatus PayrollSyncStatus @default(NOT_READY)
+  allowanceExportedAt        DateTime?
+
+  allowancePayrollExportId   String?
+  allowancePayrollExport     PayrollExport? @relation("TravelAllowancePayrollExport", fields: [allowancePayrollExportId], references: [id])
+
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
@@ -623,6 +651,8 @@ model TravelRequest {
   @@index([approvedById])
   @@index([status])
   @@index([proxyCreatedById])
+  @@index([allowancePayrollExportId])
+  @@index([allowancePayrollSyncStatus])
 }
 
 model Room {
@@ -716,6 +746,9 @@ model ExpenseClaim {
   payrollSyncStatus PayrollSyncStatus  @default(NOT_READY)
   exportedAt      DateTime?
 
+  payrollExportId String?
+  payrollExport   PayrollExport? @relation("ExpenseClaimPayrollExport", fields: [payrollExportId], references: [id])
+
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
@@ -723,6 +756,7 @@ model ExpenseClaim {
   @@index([travelRequestId])
   @@index([status])
   @@index([anomalyStatus])
+  @@index([payrollExportId])
 }
 
 model AuditLog {
@@ -804,12 +838,20 @@ model VendorBill {
   approvedAt      DateTime?
   paidAt          DateTime?
 
+  payrollSyncStatus PayrollSyncStatus @default(NOT_READY)
+  exportedAt         DateTime?
+
+  payrollExportId    String?
+  payrollExport      PayrollExport? @relation("VendorBillPayrollExport", fields: [payrollExportId], references: [id])
+
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
   @@index([vendorId])
   @@index([routeId])
   @@index([status])
+  @@index([payrollExportId])
+  @@index([payrollSyncStatus])
 }
 
 model VehicleTelemetryLog {
@@ -1024,4 +1066,39 @@ model HousekeepingTask {
   @@index([assignedToId])
   @@index([status])
   @@index([priority])
+}
+
+model PayrollExport {
+  id              String              @id @default(uuid())
+
+  exportNumber    String              @unique
+  exportType      PayrollExportType
+  format          PayrollExportFormat @default(JSON)
+  status          PayrollExportStatus @default(GENERATED)
+
+  generatedById   String?
+  generatedBy     User?               @relation("PayrollExportGeneratedBy", fields: [generatedById], references: [id])
+
+  totalRecords    Int                 @default(0)
+  totalAmount     Float               @default(0)
+  currency        String              @default("PKR")
+
+  payload         Json
+  csvContent      String?
+
+  syncedAt        DateTime?
+  failureReason   String?
+  notes           String?
+
+  expenseClaims   ExpenseClaim[]      @relation("ExpenseClaimPayrollExport")
+  vendorBills     VendorBill[]        @relation("VendorBillPayrollExport")
+  travelRequests  TravelRequest[]     @relation("TravelAllowancePayrollExport")
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([exportType])
+  @@index([status])
+  @@index([generatedById])
+  @@index([createdAt])
 }

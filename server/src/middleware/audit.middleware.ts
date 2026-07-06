@@ -108,6 +108,7 @@ function getEntity(path: string): AuditEntity {
   if (path.includes("/api/proxy-bookings")) return AuditEntity.PROXY_BOOKING;
   
   if (path.includes("/api/policies")) return AuditEntity.POLICY_RULE;
+  if (path.includes("/api/erp-exports")) return AuditEntity.ERP_EXPORT;
 
   return AuditEntity.SYSTEM;
 }

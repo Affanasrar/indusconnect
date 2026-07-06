@@ -22,6 +22,7 @@ import notificationRoutes from "./modules/notifications/notification.routes";
 import proxyBookingRoutes from "./modules/proxy-bookings/proxyBooking.routes";
 import policyRoutes from "./modules/policies/policy.routes";
 import maintenanceRoutes from "./modules/maintenance/maintenance.routes";
+import erpExportRoutes from "./modules/erp-exports/erpExport.routes";
 
 const app = express();
 
@@ -56,6 +57,8 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/proxy-bookings", proxyBookingRoutes);
 app.use("/api/policies", policyRoutes);
 app.use("/api/maintenance", maintenanceRoutes);
+app.use("/api/erp-exports", erpExportRoutes);
+
 
 app.get("/", (_req, res) => {
   res.json({

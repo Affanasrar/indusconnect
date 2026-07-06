@@ -2,6 +2,7 @@ import {
   OwnershipType,
   VendorBillStatus,
   VendorStatus,
+  PayrollSyncStatus,
 } from "@prisma/client";
 import prisma from "../../config/prisma";
 import {
@@ -317,6 +318,7 @@ export async function approveVendorBill(
       status: VendorBillStatus.APPROVED,
       financeRemarks: data.financeRemarks,
       approvedAt: new Date(),
+      payrollSyncStatus: PayrollSyncStatus.READY_FOR_EXPORT,
     },
     include: vendorBillInclude,
   });

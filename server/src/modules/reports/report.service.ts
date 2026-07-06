@@ -57,6 +57,9 @@ export async function getDashboardSummary() {
     openVehicleMaintenanceTasks,
     totalHousekeepingTasks,
     pendingHousekeepingTasks,
+    totalPayrollExports,
+    syncedPayrollExports,
+    failedPayrollExports,
 
   ] = await Promise.all([
     prisma.user.count(),
@@ -147,6 +150,17 @@ prisma.housekeepingTask.count({
     status: {
       in: ["PENDING", "IN_PROGRESS"],
     },
+  },
+}),
+    prisma.payrollExport.count(),
+prisma.payrollExport.count({
+  where: {
+    status: "SYNCED",
+  },
+}),
+prisma.payrollExport.count({
+  where: {
+    status: "FAILED",
   },
 }),
 
@@ -248,6 +262,11 @@ prisma.notification.count({
       openVehicleTasks: openVehicleMaintenanceTasks,
       housekeepingTasks: totalHousekeepingTasks,
       pendingHousekeepingTasks,
+    },
+    erpExports: {
+      total: totalPayrollExports,
+      synced: syncedPayrollExports,
+      failed: failedPayrollExports,
     },
   };
 }
