@@ -24,6 +24,7 @@ import policyRoutes from "./modules/policies/policy.routes";
 import maintenanceRoutes from "./modules/maintenance/maintenance.routes";
 import erpExportRoutes from "./modules/erp-exports/erpExport.routes";
 import frontendSupportRoutes from "./modules/frontend-support/frontendSupport.routes";
+import demoDataRoutes from "./modules/demo/demoData.routes";
 
 const app = express();
 
@@ -60,6 +61,7 @@ app.use("/api/policies", policyRoutes);
 app.use("/api/maintenance", maintenanceRoutes);
 app.use("/api/erp-exports", erpExportRoutes);
 app.use("/api/frontend", frontendSupportRoutes);
+app.use("/api/demo", demoDataRoutes);
 
 
 app.get("/", (_req, res) => {
