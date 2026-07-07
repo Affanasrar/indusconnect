@@ -75,6 +75,7 @@ async function ensureUser(data: {
     update: {
       fullName: data.fullName,
       phone: data.phone,
+      password,
       status: UserStatus.ACTIVE,
       roleId: role.id,
       employeeCode: data.employeeCode,

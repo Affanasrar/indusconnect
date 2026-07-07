@@ -17,19 +17,24 @@ export default function AppLayout() {
   const unread = bootstrap?.notificationSummary?.unread ?? 0;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <aside className="fixed left-0 top-0 hidden h-screen w-72 border-r border-slate-200 bg-white lg:block">
-        <div className="flex h-20 items-center gap-3 border-b border-slate-200 px-6">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-700 text-white">
+    <div className="min-h-screen w-full overflow-x-hidden bg-slate-50">
+      <aside className="fixed left-0 top-0 z-30 hidden h-screen w-64 border-r border-slate-200 bg-white xl:block">
+        <div className="flex h-20 items-center gap-3 border-b border-slate-200 px-5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-700 text-white">
             <ShieldCheck size={24} />
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-slate-900">IndusConnect</h1>
-            <p className="text-xs text-slate-500">Mobility & Logistics</p>
+
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-bold text-slate-900">
+              IndusConnect
+            </h1>
+            <p className="truncate text-xs text-slate-500">
+              Mobility & Logistics
+            </p>
           </div>
         </div>
 
-        <nav className="space-y-1 p-4">
+        <nav className="h-[calc(100vh-80px)] space-y-1 overflow-y-auto p-4">
           {menu.map((item) => (
             <NavLink
               key={item.key}
@@ -42,58 +47,85 @@ export default function AppLayout() {
                 }`
               }
             >
-              <LayoutDashboard size={18} />
-              <span>{item.title}</span>
+              <LayoutDashboard size={18} className="shrink-0" />
+              <span className="truncate">{item.title}</span>
             </NavLink>
           ))}
         </nav>
       </aside>
 
-      <div className="lg:pl-72">
-        <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-slate-200 bg-white px-5 lg:px-8">
-          <div className="flex items-center gap-3">
-            <button className="rounded-xl border border-slate-200 p-2 lg:hidden">
-              <Menu size={20} />
-            </button>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                Role-Based Dashboard
-              </h2>
-              <p className="text-sm text-slate-500">
-                {bootstrap?.role ?? user?.role?.name ?? "Authenticated User"}
-              </p>
-            </div>
-          </div>
+      <div className="min-w-0 xl:pl-64">
+        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
+          <div className="flex h-20 min-w-0 items-center justify-between gap-3 px-4 sm:px-5 lg:px-8">
+            <div className="flex min-w-0 items-center gap-3">
+              <button className="shrink-0 rounded-xl border border-slate-200 p-2 xl:hidden">
+                <Menu size={20} />
+              </button>
 
-          <div className="flex items-center gap-3">
-            <div className="relative rounded-xl border border-slate-200 p-2">
-              <Bell size={20} className="text-slate-600" />
-              {unread > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-bold text-white">
-                  {unread}
-                </span>
-              )}
-            </div>
-
-            <div className="hidden items-center gap-3 rounded-2xl border border-slate-200 px-4 py-2 md:flex">
-              <UserCircle size={22} className="text-slate-500" />
-              <div>
-                <p className="text-sm font-semibold text-slate-900">
-                  {user?.fullName ?? "User"}
+              <div className="min-w-0">
+                <h2 className="truncate text-base font-bold text-slate-900 sm:text-lg">
+                  Role-Based Dashboard
+                </h2>
+                <p className="truncate text-xs text-slate-500 sm:text-sm">
+                  {bootstrap?.role ?? user?.role?.name ?? "Authenticated User"}
                 </p>
-                <p className="text-xs text-slate-500">{user?.email}</p>
               </div>
             </div>
 
-            <Button variant="secondary" onClick={logout}>
-              <LogOut size={16} className="mr-2" />
-              Logout
-            </Button>
+            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+              <div className="relative rounded-xl border border-slate-200 p-2">
+                <Bell size={19} className="text-slate-600" />
+                {unread > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-bold text-white">
+                    {unread}
+                  </span>
+                )}
+              </div>
+
+              <div className="hidden min-w-0 items-center gap-3 rounded-2xl border border-slate-200 px-4 py-2 lg:flex">
+                <UserCircle size={22} className="shrink-0 text-slate-500" />
+                <div className="min-w-0">
+                  <p className="max-w-40 truncate text-sm font-semibold text-slate-900">
+                    {user?.fullName ?? "User"}
+                  </p>
+                  <p className="max-w-40 truncate text-xs text-slate-500">
+                    {user?.email}
+                  </p>
+                </div>
+              </div>
+
+              <Button variant="secondary" onClick={logout} className="px-3">
+                <LogOut size={16} className="sm:mr-2" />
+                <span className="hidden sm:inline">Logout</span>
+              </Button>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 bg-white px-4 py-3 xl:hidden">
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {menu.map((item) => (
+                <NavLink
+                  key={item.key}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `shrink-0 rounded-xl px-4 py-2 text-sm font-medium ${
+                      isActive
+                        ? "bg-blue-700 text-white"
+                        : "bg-slate-100 text-slate-700"
+                    }`
+                  }
+                >
+                  {item.title}
+                </NavLink>
+              ))}
+            </div>
           </div>
         </header>
 
-        <main className="p-5 lg:p-8">
-          <Outlet />
+        <main className="min-w-0 overflow-x-hidden p-4 sm:p-5 lg:p-8">
+          <div className="mx-auto w-full max-w-[1600px] min-w-0">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

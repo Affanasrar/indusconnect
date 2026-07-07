@@ -5,6 +5,7 @@ import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import ModulePlaceholderPage from "./pages/ModulePlaceholderPage";
 import NotFoundPage from "./pages/NotFoundPage";
+import UsersPage from "./pages/UsersPage";
 
 export default function App() {
   return (
@@ -16,7 +17,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
 
-          <Route path="/users" element={<ModulePlaceholderPage />} />
+          <Route path="/users" element={<UsersPage />} />
           <Route path="/vehicles" element={<ModulePlaceholderPage />} />
           <Route path="/drivers" element={<ModulePlaceholderPage />} />
           <Route path="/routes" element={<ModulePlaceholderPage />} />
