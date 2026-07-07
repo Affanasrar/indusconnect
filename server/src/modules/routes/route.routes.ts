@@ -17,14 +17,24 @@ const router = Router();
 router.use(authMiddleware);
 router.use(authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"));
 
-router.get("/", getAllRoutesController);
-router.get("/:id", getRouteByIdController);
-router.post("/", createRouteController);
-router.patch("/:id", updateRouteController);
-router.patch("/:id/cancel", cancelRouteController);
+/*
+ * Specific nested routes should come before generic "/:id" routes.
+ */
 
+// Smart-stop routes
 router.post("/:routeId/stops", addSmartStopController);
 router.patch("/stops/:stopId", updateSmartStopController);
 router.delete("/stops/:stopId", deleteSmartStopController);
+
+// Specific route action
+router.patch("/:id/cancel", cancelRouteController);
+
+// Main route collection
+router.get("/", getAllRoutesController);
+router.post("/", createRouteController);
+
+// Generic route ID endpoints
+router.get("/:id", getRouteByIdController);
+router.patch("/:id", updateRouteController);
 
 export default router;

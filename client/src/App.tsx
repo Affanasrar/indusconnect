@@ -8,6 +8,7 @@ import NotFoundPage from "./pages/NotFoundPage";
 import UsersPage from "./pages/UsersPage";
 import VehiclesPage from "./pages/VehiclesPage";
 import DriversPage from "./pages/DriversPage";
+import RoutesPage from "./pages/RoutesPage";
 
 export default function App() {
   return (
@@ -22,7 +23,7 @@ export default function App() {
           <Route path="/users" element={<UsersPage />} />
           <Route path="/vehicles" element={<VehiclesPage />} />
           <Route path="/drivers" element={<DriversPage />} />
-          <Route path="/routes" element={<ModulePlaceholderPage />} />
+          <Route path="/routes" element={<RoutesPage />} />
           <Route
             path="/shuttle-bookings"
             element={<ModulePlaceholderPage />}
