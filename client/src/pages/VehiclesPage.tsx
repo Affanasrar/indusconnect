@@ -750,7 +750,7 @@ export default function VehiclesPage() {
             </div>
           ) : (
             <div className="w-full min-w-0 overflow-x-auto">
-              <table className="w-full min-w-[880px] border-separate border-spacing-y-2">
+              <table className="w-full min-w-880px border-separate border-spacing-y-2">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
                     <th className="px-4 py-2">Vehicle</th>

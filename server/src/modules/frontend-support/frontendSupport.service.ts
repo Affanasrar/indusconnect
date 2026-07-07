@@ -520,7 +520,20 @@ export async function getUserDropdowns() {
 }
 
 export async function getTransportDropdowns() {
-  const [vehicles, drivers, routes, vendors] = await Promise.all([
+  const [driverUsers, vehicles, drivers, routes, vendors] = await Promise.all([
+    prisma.user.findMany({
+      where: {
+        status: UserStatus.ACTIVE,
+        role: {
+          name: RoleName.DRIVER,
+        },
+      },
+      select: userSelect,
+      orderBy: {
+        fullName: "asc",
+      },
+    }),
+
     prisma.vehicle.findMany({
       where: {
         status: VehicleStatus.ACTIVE,
@@ -581,6 +594,7 @@ export async function getTransportDropdowns() {
   ]);
 
   return {
+    driverUsers,
     vehicles,
     drivers,
     routes,
