@@ -6,6 +6,7 @@ import LoginPage from "./pages/LoginPage";
 import ModulePlaceholderPage from "./pages/ModulePlaceholderPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import UsersPage from "./pages/UsersPage";
+import VehiclesPage from "./pages/VehiclesPage";
 
 export default function App() {
   return (
@@ -18,7 +19,7 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
 
           <Route path="/users" element={<UsersPage />} />
-          <Route path="/vehicles" element={<ModulePlaceholderPage />} />
+          <Route path="/vehicles" element={<VehiclesPage />} />
           <Route path="/drivers" element={<ModulePlaceholderPage />} />
           <Route path="/routes" element={<ModulePlaceholderPage />} />
           <Route
