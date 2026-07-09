@@ -14,19 +14,22 @@ const router = Router();
 
 router.use(authMiddleware);
 
-router.post("/", authorizeRoles("EMPLOYEE"), createShuttleBookingController);
-router.get("/my", getMyShuttleBookingsController);
+router.post(
+  "/",
+  authorizeRoles("EMPLOYEE"),
+  createShuttleBookingController
+);
+
+router.get(
+  "/my",
+  authorizeRoles("EMPLOYEE"),
+  getMyShuttleBookingsController
+);
 
 router.get(
   "/",
   authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
   getAllShuttleBookingsController
-);
-
-router.get(
-  "/:id",
-  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
-  getShuttleBookingByIdController
 );
 
 router.patch(
@@ -35,6 +38,24 @@ router.patch(
   assignShuttleBookingController
 );
 
-router.patch("/:id/cancel", cancelShuttleBookingController);
+router.patch(
+  "/:id/cancel",
+  authorizeRoles(
+    "EMPLOYEE",
+    "SUPER_ADMIN",
+    "TRANSPORT_ADMIN"
+  ),
+  cancelShuttleBookingController
+);
+
+router.get(
+  "/:id",
+  authorizeRoles(
+    "EMPLOYEE",
+    "SUPER_ADMIN",
+    "TRANSPORT_ADMIN"
+  ),
+  getShuttleBookingByIdController
+);
 
 export default router;

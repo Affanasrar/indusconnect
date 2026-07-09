@@ -9,7 +9,7 @@ import UsersPage from "./pages/UsersPage";
 import VehiclesPage from "./pages/VehiclesPage";
 import DriversPage from "./pages/DriversPage";
 import RoutesPage from "./pages/RoutesPage";
-import ShuttleBookingsPage from "./pages/ShuttleBookingsPage";
+import ShuttleModulePage from "./pages/ShuttleModulePage";
 
 export default function App() {
   return (
@@ -27,7 +27,7 @@ export default function App() {
           <Route path="/routes" element={<RoutesPage />} />
           <Route
             path="/shuttle-bookings"
-            element={<ShuttleBookingsPage />}
+            element={<ShuttleModulePage />}
           />
           <Route path="/driver-trips" element={<ModulePlaceholderPage />} />
           <Route path="/travel-requests" element={<ModulePlaceholderPage />} />

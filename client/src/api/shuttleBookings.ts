@@ -11,6 +11,13 @@ export interface CreateShuttleBookingInput {
   remarks?: string;
 }
 
+export interface AssignShuttleBookingInput {
+  routeId: string;
+  pickupStopId: string;
+  seatNumber: string;
+  remarks?: string;
+}
+
 export interface CancelShuttleBookingInput {
   remarks?: string;
 }
@@ -34,9 +41,29 @@ export async function getMyShuttleBookings() {
   return response.data.data;
 }
 
+export async function getAllShuttleBookings() {
+  const response = await http.get<ApiResponse<ShuttleBooking[]>>(
+    "/shuttle-bookings"
+  );
+
+  return response.data.data;
+}
+
 export async function getShuttleBookingById(id: string) {
   const response = await http.get<ApiResponse<ShuttleBooking>>(
     `/shuttle-bookings/${id}`
+  );
+
+  return response.data.data;
+}
+
+export async function assignShuttleBooking(
+  id: string,
+  data: AssignShuttleBookingInput
+) {
+  const response = await http.patch<ApiResponse<ShuttleBooking>>(
+    `/shuttle-bookings/${id}/assign`,
+    data
   );
 
   return response.data.data;
