@@ -17,11 +17,25 @@ const router = Router();
 router.use(authMiddleware);
 router.use(authorizeRoles("DRIVER"));
 
-router.get("/routes", getMyAssignedRoutesController);
-router.get("/manifest/:routeId", getMyRouteManifestController);
+router.get(
+  "/routes",
+  getMyAssignedRoutesController
+);
 
-router.post("/:routeId/checklist", submitSafetyChecklistController);
-router.post("/:routeId/start", startTripController);
+router.get(
+  "/manifest/:routeId",
+  getMyRouteManifestController
+);
+
+router.post(
+  "/:routeId/checklist",
+  submitSafetyChecklistController
+);
+
+router.post(
+  "/:routeId/start",
+  startTripController
+);
 
 router.patch(
   "/:routeId/passengers/:bookingId/board",
@@ -33,7 +47,14 @@ router.patch(
   markPassengerNoShowController
 );
 
-router.post("/:routeId/report-issue", reportTripIssueController);
-router.post("/:routeId/end", endTripController);
+router.post(
+  "/:routeId/report-issue",
+  reportTripIssueController
+);
+
+router.post(
+  "/:routeId/end",
+  endTripController
+);
 
 export default router;
