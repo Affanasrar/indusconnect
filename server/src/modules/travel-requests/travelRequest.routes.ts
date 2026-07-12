@@ -10,7 +10,6 @@ import {
   getPendingTravelRequestsController,
   getTravelRequestByIdController,
   rejectTravelRequestController,
-  updateTravelRequestController,
 } from "./travelRequest.controller";
 
 const router = Router();
@@ -19,60 +18,54 @@ router.use(authMiddleware);
 
 router.post(
   "/",
-  authorizeRoles("EMPLOYEE", "MANAGER", "SUPER_ADMIN"),
+  authorizeRoles("EMPLOYEE"),
   createTravelRequestController
 );
 
-router.get("/my", getMyTravelRequestsController);
-
 router.get(
-  "/",
-  authorizeRoles(
-    "SUPER_ADMIN",
-    "MANAGER",
-    "TRANSPORT_ADMIN",
-    "ACCOMMODATION_ADMIN",
-    "FINANCE_OFFICER"
-  ),
-  getAllTravelRequestsController
+  "/my",
+  authorizeRoles("EMPLOYEE"),
+  getMyTravelRequestsController
 );
 
 router.get(
   "/pending",
-  authorizeRoles("SUPER_ADMIN", "MANAGER"),
+  authorizeRoles("MANAGER", "SUPER_ADMIN"),
   getPendingTravelRequestsController
 );
 
 router.get(
-  "/:id",
-  authorizeRoles(
-    "SUPER_ADMIN",
-    "MANAGER",
-    "TRANSPORT_ADMIN",
-    "ACCOMMODATION_ADMIN",
-    "FINANCE_OFFICER"
-  ),
-  getTravelRequestByIdController
-);
-
-router.patch(
-  "/:id",
-  authorizeRoles("EMPLOYEE", "MANAGER", "SUPER_ADMIN"),
-  updateTravelRequestController
+  "/",
+  authorizeRoles("MANAGER", "SUPER_ADMIN"),
+  getAllTravelRequestsController
 );
 
 router.patch(
   "/:id/approve",
-  authorizeRoles("SUPER_ADMIN", "MANAGER"),
+  authorizeRoles("MANAGER", "SUPER_ADMIN"),
   approveTravelRequestController
 );
 
 router.patch(
   "/:id/reject",
-  authorizeRoles("SUPER_ADMIN", "MANAGER"),
+  authorizeRoles("MANAGER", "SUPER_ADMIN"),
   rejectTravelRequestController
 );
 
-router.patch("/:id/cancel", cancelTravelRequestController);
+router.patch(
+  "/:id/cancel",
+  authorizeRoles("EMPLOYEE", "SUPER_ADMIN"),
+  cancelTravelRequestController
+);
+
+router.get(
+  "/:id",
+  authorizeRoles(
+    "EMPLOYEE",
+    "MANAGER",
+    "SUPER_ADMIN"
+  ),
+  getTravelRequestByIdController
+);
 
 export default router;
