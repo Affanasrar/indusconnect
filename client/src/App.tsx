@@ -13,6 +13,7 @@ import ShuttleModulePage from "./pages/ShuttleModulePage";
 import DriverTripsPage from "./pages/DriverTripsPage";
 import TravelRequestsPage from "./pages/TravelRequestsPage";
 import AccommodationPage from "./pages/AccommodationPage";
+import ExpensesPage from "./pages/ExpensesPage";
 
 export default function App() {
   return (
@@ -44,7 +45,10 @@ export default function App() {
             path="/accommodation"
             element={<AccommodationPage />}
           />
-          <Route path="/expenses" element={<ModulePlaceholderPage />} />
+          <Route
+            path="/expenses"
+            element={<ExpensesPage />}
+          />
           <Route path="/vendors" element={<ModulePlaceholderPage />} />
           <Route path="/telemetry" element={<ModulePlaceholderPage />} />
           <Route path="/notifications" element={<ModulePlaceholderPage />} />
