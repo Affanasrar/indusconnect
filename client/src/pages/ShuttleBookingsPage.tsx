@@ -11,21 +11,27 @@ import {
   TicketCheck,
   UserCheck,
   XCircle,
+  Repeat,
+  Trash2,
 } from "lucide-react";
 import {
   cancelShuttleBooking,
   createShuttleBooking,
   getMyShuttleBookings,
+  createShuttleSubscription,
+  getMyShuttleSubscriptions,
+  deactivateShuttleSubscription,
 } from "../api/shuttleBookings";
-import type { CreateShuttleBookingInput } from "../api/shuttleBookings";
+import { getRoutes } from "../api/routes";
 import { useAuth } from "../auth/AuthContext";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import type {
   ShuttleBooking,
   ShuttleBookingStatus,
+  ShuttleSubscription,
 } from "../types/shuttle";
-import type { ShiftType } from "../types/transport";
+import type { ShiftType, TransportRoute } from "../types/transport";
 
 interface BookingFormState {
   bookingDate: string;
@@ -33,6 +39,10 @@ interface BookingFormState {
   pickupArea: string;
   pickupAddress: string;
   remarks: string;
+  isRecurring: boolean;
+  selectedRouteId: string;
+  selectedStopId: string;
+  activeDays: number[];
 }
 
 const defaultForm: BookingFormState = {
@@ -41,14 +51,14 @@ const defaultForm: BookingFormState = {
   pickupArea: "",
   pickupAddress: "",
   remarks: "",
+  isRecurring: false,
+  selectedRouteId: "",
+  selectedStopId: "",
+  activeDays: [1, 2, 3, 4, 5], // Mon-Fri by default
 };
 
 function getErrorMessage(error: unknown) {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "response" in error
-  ) {
+  if (typeof error === "object" && error !== null && "response" in error) {
     const responseError = error as {
       response?: {
         data?: {
@@ -56,14 +66,11 @@ function getErrorMessage(error: unknown) {
         };
       };
     };
-
     return responseError.response?.data?.message;
   }
-
   if (error instanceof Error) {
     return error.message;
   }
-
   return undefined;
 }
 
@@ -79,19 +86,14 @@ function getStatusBadge(status: ShuttleBookingStatus) {
   switch (status) {
     case "PENDING":
       return "bg-amber-50 text-amber-700";
-
     case "ASSIGNED":
       return "bg-blue-50 text-blue-700";
-
     case "COMPLETED":
       return "bg-emerald-50 text-emerald-700";
-
     case "CANCELLED":
       return "bg-red-50 text-red-700";
-
     case "NO_SHOW":
       return "bg-slate-200 text-slate-700";
-
     default:
       return "bg-slate-100 text-slate-700";
   }
@@ -101,10 +103,22 @@ function getTodayInputValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
+const WEEKDAYS = [
+  { label: "Mon", value: 1 },
+  { label: "Tue", value: 2 },
+  { label: "Wed", value: 3 },
+  { label: "Thu", value: 4 },
+  { label: "Fri", value: 5 },
+  { label: "Sat", value: 6 },
+  { label: "Sun", value: 7 },
+];
+
 export default function ShuttleBookingsPage() {
   const { bootstrap } = useAuth();
 
   const [bookings, setBookings] = useState<ShuttleBooking[]>([]);
+  const [subscriptions, setSubscriptions] = useState<ShuttleSubscription[]>([]);
+  const [routes, setRoutes] = useState<TransportRoute[]>([]);
   const [form, setForm] = useState<BookingFormState>(defaultForm);
 
   const [search, setSearch] = useState("");
@@ -114,76 +128,73 @@ export default function ShuttleBookingsPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [processingId, setProcessingId] = useState<string | null>(
-    null
-  );
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const currentRole = bootstrap?.role;
 
-  const shiftTypes = (
-    bootstrap?.formOptions?.shiftTypes ?? [
-      "MORNING",
-      "AFTERNOON",
-      "EVENING",
-      "NIGHT",
-      "GENERAL",
-    ]
-  ) as ShiftType[];
+  const shiftTypes = (bootstrap?.formOptions?.shiftTypes ?? [
+    "MORNING",
+    "AFTERNOON",
+    "EVENING",
+    "NIGHT",
+    "GENERAL",
+  ]) as ShiftType[];
 
-  const bookingStatuses = (
-    bootstrap?.formOptions?.shuttleBookingStatuses ?? [
-      "PENDING",
-      "ASSIGNED",
-      "CANCELLED",
-      "COMPLETED",
-      "NO_SHOW",
-    ]
-  ) as ShuttleBookingStatus[];
+  const bookingStatuses = (bootstrap?.formOptions?.shuttleBookingStatuses ?? [
+    "PENDING",
+    "ASSIGNED",
+    "CANCELLED",
+    "COMPLETED",
+    "NO_SHOW",
+  ]) as ShuttleBookingStatus[];
 
-  async function loadBookings() {
+  async function loadData() {
     if (currentRole && currentRole !== "EMPLOYEE") {
       setIsLoading(false);
       return;
     }
-
     try {
       setIsLoading(true);
       setError("");
+      
+      const [bookingsData, subscriptionsData, routesData] = await Promise.all([
+        getMyShuttleBookings(),
+        getMyShuttleSubscriptions(),
+        getRoutes(),
+      ]);
 
-      const data = await getMyShuttleBookings();
-      setBookings(data);
+      setBookings(bookingsData || []);
+      setSubscriptions(subscriptionsData || []);
+      setRoutes(routesData || []);
     } catch (requestError) {
-      setError(
-        getErrorMessage(requestError) ??
-          "Failed to fetch shuttle bookings"
-      );
+      setError(getErrorMessage(requestError) ?? "Failed to fetch shuttle details");
     } finally {
       setIsLoading(false);
     }
   }
 
   useEffect(() => {
-    loadBookings();
+    loadData();
   }, [currentRole]);
+
+  // Derived filtered stops for recurring form
+  const selectedRouteStops = useMemo(() => {
+    if (!form.selectedRouteId) return [];
+    const route = routes.find((r) => r.id === form.selectedRouteId);
+    return route?.smartStops ?? [];
+  }, [form.selectedRouteId, routes]);
 
   const summary = useMemo(() => {
     return {
       total: bookings.length,
-      pending: bookings.filter(
-        (booking) => booking.status === "PENDING"
-      ).length,
-      assigned: bookings.filter(
-        (booking) => booking.status === "ASSIGNED"
-      ).length,
-      completed: bookings.filter(
-        (booking) => booking.status === "COMPLETED"
-      ).length,
+      pending: bookings.filter((b) => b.status === "PENDING").length,
+      assigned: bookings.filter((b) => b.status === "ASSIGNED").length,
+      completed: bookings.filter((b) => b.status === "COMPLETED").length,
     };
   }, [bookings]);
 
   const filteredBookings = useMemo(() => {
     const keyword = search.toLowerCase().trim();
-
     return bookings.filter((booking) => {
       const matchesSearch =
         !keyword ||
@@ -194,9 +205,7 @@ export default function ShuttleBookingsPage() {
         booking.pickupStop?.stopName?.toLowerCase().includes(keyword) ||
         booking.seatNumber?.toLowerCase().includes(keyword);
 
-      const matchesStatus =
-        statusFilter === "ALL" ||
-        booking.status === statusFilter;
+      const matchesStatus = statusFilter === "ALL" || booking.status === statusFilter;
 
       return matchesSearch && matchesStatus;
     });
@@ -207,97 +216,99 @@ export default function ShuttleBookingsPage() {
     setError("");
   }
 
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>
-  ) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     setMessage("");
     setError("");
     setIsSubmitting(true);
 
     try {
-      if (!form.bookingDate) {
-        throw new Error("Booking date is required");
+      if (form.isRecurring) {
+        if (!form.selectedRouteId) throw new Error("Please select a commute Route");
+        if (!form.selectedStopId) throw new Error("Please select a Smart Stop");
+        if (form.activeDays.length === 0) throw new Error("Please select active weekdays");
+
+        await createShuttleSubscription({
+          routeId: form.selectedRouteId,
+          pickupStopId: form.selectedStopId,
+          shiftType: form.shiftType,
+          activeDays: form.activeDays,
+        });
+
+        setMessage("Standing commute subscription registered. Shuttles will auto-register daily.");
+      } else {
+        if (!form.bookingDate) throw new Error("Booking date is required");
+        if (!form.pickupArea.trim()) throw new Error("Pickup area is required");
+
+        await createShuttleBooking({
+          bookingDate: form.bookingDate,
+          shiftType: form.shiftType,
+          pickupArea: form.pickupArea.trim(),
+          pickupAddress: form.pickupAddress.trim() || undefined,
+          remarks: form.remarks.trim() || undefined,
+        });
+
+        setMessage("Shuttle booking request submitted successfully");
       }
-
-      if (!form.pickupArea.trim()) {
-        throw new Error("Pickup area is required");
-      }
-
-      const payload: CreateShuttleBookingInput = {
-        bookingDate: form.bookingDate,
-        shiftType: form.shiftType,
-        pickupArea: form.pickupArea.trim(),
-      };
-
-      if (form.pickupAddress.trim()) {
-        payload.pickupAddress = form.pickupAddress.trim();
-      }
-
-      if (form.remarks.trim()) {
-        payload.remarks = form.remarks.trim();
-      }
-
-      await createShuttleBooking(payload);
-
-      setMessage("Shuttle booking request submitted successfully");
 
       resetForm();
-      await loadBookings();
+      await loadData();
     } catch (requestError) {
-      setError(
-        getErrorMessage(requestError) ??
-          "Failed to create shuttle booking"
-      );
+      setError(getErrorMessage(requestError) ?? "Failed to register shuttle request");
     } finally {
       setIsSubmitting(false);
     }
   }
 
+  // Handle temporary skip tomorrow
   async function handleCancel(booking: ShuttleBooking) {
-    if (
-      booking.status !== "PENDING" &&
-      booking.status !== "ASSIGNED"
-    ) {
-      return;
-    }
+    if (booking.status !== "PENDING" && booking.status !== "ASSIGNED") return;
 
-    const reason =
-      window.prompt(
-        "Enter cancellation reason. You may leave it blank."
-      ) ?? "";
-
-    const confirmed = window.confirm(
-      `Cancel shuttle booking for ${formatDate(
-        booking.bookingDate
-      )}?`
-    );
-
-    if (!confirmed) {
-      return;
-    }
+    const confirmed = window.confirm(`Skip tomorrow's shuttle ride on ${formatDate(booking.bookingDate)}?`);
+    if (!confirmed) return;
 
     try {
       setProcessingId(booking.id);
       setMessage("");
       setError("");
 
-      await cancelShuttleBooking(booking.id, {
-        remarks: reason.trim() || undefined,
-      });
-
-      setMessage("Shuttle booking cancelled successfully");
-
-      await loadBookings();
+      await cancelShuttleBooking(booking.id, { remarks: "Skip tomorrow's commute" });
+      setMessage("Tomorrow's shuttle ride has been skipped");
+      await loadData();
     } catch (requestError) {
-      setError(
-        getErrorMessage(requestError) ??
-          "Failed to cancel shuttle booking"
-      );
+      setError(getErrorMessage(requestError) ?? "Failed to skip shuttle ride");
     } finally {
       setProcessingId(null);
     }
+  }
+
+  // Handle permanent drop commute subscription
+  async function handleDeactivateSubscription(subId: string) {
+    const confirmed = window.confirm("Completely drop/cancel your recurring standing commute subscription?");
+    if (!confirmed) return;
+
+    try {
+      setProcessingId(subId);
+      setMessage("");
+      setError("");
+
+      await deactivateShuttleSubscription(subId);
+      setMessage("Commute pass subscription has been dropped successfully");
+      await loadData();
+    } catch (requestError) {
+      setError(getErrorMessage(requestError) ?? "Failed to drop subscription");
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
+  function handleWeekdayToggle(dayValue: number) {
+    setForm((prev) => ({
+      ...prev,
+      activeDays: prev.activeDays.includes(dayValue)
+        ? prev.activeDays.filter((d) => d !== dayValue)
+        : [...prev.activeDays, dayValue],
+    }));
   }
 
   if (currentRole && currentRole !== "EMPLOYEE") {
@@ -307,27 +318,18 @@ export default function ShuttleBookingsPage() {
           <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
             Shuttle Management
           </p>
-
           <h1 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
             Shuttle Bookings
           </h1>
         </div>
-
         <Card>
           <div className="py-10 text-center">
-            <BusFront
-              size={44}
-              className="mx-auto text-slate-300"
-            />
-
+            <BusFront size={44} className="mx-auto text-slate-300" />
             <h2 className="mt-4 text-lg font-bold text-slate-900">
               Employee booking view
             </h2>
-
             <p className="mx-auto mt-2 max-w-xl text-sm text-slate-500">
-              This screen is currently designed for employee shuttle
-              requests. The Transport Admin assignment interface will
-              be added in the next module.
+              This screen is designed for employee shuttle bookings.
             </p>
           </div>
         </Card>
@@ -337,53 +339,45 @@ export default function ShuttleBookingsPage() {
 
   return (
     <div className="min-w-0 space-y-6">
+      {/* Header */}
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div className="min-w-0">
           <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
-            Employee Mobility
+            Employee Commute Desk
           </p>
-
           <h1 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
-            My Shuttle Bookings
+            My Shuttle Bookings & Commute Passes
           </h1>
-
           <p className="mt-2 max-w-3xl text-sm text-slate-500 sm:text-base">
-            Submit a shuttle request and track route, pickup stop,
-            vehicle, and seat assignment.
+            Set up a standing weekly commute pass once, or request single-day shuttle rides.
           </p>
         </div>
-
-        <Button variant="secondary" onClick={loadBookings}>
+        <Button variant="secondary" onClick={loadData}>
           <RefreshCcw size={16} className="mr-2" />
-          Refresh
+          Refresh Registry
         </Button>
       </div>
 
+      {/* Alerts */}
       {message && (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
           {message}
         </div>
       )}
-
       {error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {error}
         </div>
       )}
 
+      {/* Summary Cards */}
       <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm text-slate-500">
-                Total Bookings
-              </p>
-
-              <p className="mt-2 text-2xl font-bold text-slate-900">
-                {summary.total}
-              </p>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Rides booked</p>
+              <p className="mt-2 text-2xl font-bold text-slate-800">{summary.total}</p>
             </div>
-
             <div className="rounded-2xl bg-blue-50 p-3 text-blue-700">
               <TicketCheck size={22} />
             </div>
@@ -393,13 +387,9 @@ export default function ShuttleBookingsPage() {
         <Card>
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm text-slate-500">Pending</p>
-
-              <p className="mt-2 text-2xl font-bold text-slate-900">
-                {summary.pending}
-              </p>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Pending</p>
+              <p className="mt-2 text-2xl font-bold text-slate-800">{summary.pending}</p>
             </div>
-
             <div className="rounded-2xl bg-amber-50 p-3 text-amber-700">
               <Clock3 size={22} />
             </div>
@@ -409,13 +399,9 @@ export default function ShuttleBookingsPage() {
         <Card>
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm text-slate-500">Assigned</p>
-
-              <p className="mt-2 text-2xl font-bold text-slate-900">
-                {summary.assigned}
-              </p>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Assigned</p>
+              <p className="mt-2 text-2xl font-bold text-slate-800">{summary.assigned}</p>
             </div>
-
             <div className="rounded-2xl bg-violet-50 p-3 text-violet-700">
               <UserCheck size={22} />
             </div>
@@ -425,361 +411,420 @@ export default function ShuttleBookingsPage() {
         <Card>
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm text-slate-500">Completed</p>
-
-              <p className="mt-2 text-2xl font-bold text-slate-900">
-                {summary.completed}
-              </p>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Active passes</p>
+              <p className="mt-2 text-2xl font-bold text-emerald-700">{subscriptions.length} active</p>
             </div>
-
             <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">
-              <BusFront size={22} />
+              <Repeat size={22} />
             </div>
           </div>
         </Card>
       </div>
 
-      <div className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(320px,410px)_minmax(0,1fr)]">
-        <Card>
-          <div className="mb-5 flex items-center gap-3">
-            <div className="rounded-2xl bg-blue-50 p-3 text-blue-700">
-              <Send size={22} />
+      <div className="grid min-w-0 gap-6 lg:grid-cols-3">
+        {/* LEFT COLUMN: Request Forms */}
+        <div className="space-y-6">
+          <Card>
+            <div className="mb-5 flex items-center gap-3">
+              <div className="rounded-2xl bg-blue-50 p-3 text-blue-700">
+                <Send size={20} />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-800">
+                  {form.isRecurring ? "Set Standing Commute Pass" : "Request Shuttle Ride"}
+                </h2>
+                <p className="text-3xs text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+                  Choose single-run or recurring auto-booking
+                </p>
+              </div>
             </div>
 
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                New Booking Request
-              </h2>
-
-              <p className="text-sm text-slate-500">
-                Transport Admin will assign the route, stop, and seat.
-              </p>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">
-                Booking Date
-              </label>
-
-              <input
-                type="date"
-                min={getTodayInputValue()}
-                value={form.bookingDate}
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    bookingDate: event.target.value,
-                  })
-                }
-                required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">
-                Shift
-              </label>
-
-              <select
-                value={form.shiftType}
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    shiftType: event.target.value as ShiftType,
-                  })
-                }
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
-              >
-                {shiftTypes.map((shift) => (
-                  <option key={shift} value={shift}>
-                    {shift}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">
-                Pickup Area
-              </label>
-
-              <input
-                value={form.pickupArea}
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    pickupArea: event.target.value,
-                  })
-                }
-                placeholder="Garden West"
-                required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">
-                Pickup Address
-              </label>
-
-              <textarea
-                rows={3}
-                value={form.pickupAddress}
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    pickupAddress: event.target.value,
-                  })
-                }
-                placeholder="Enter nearby landmark or complete address"
-                className="w-full resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">
-                Remarks
-              </label>
-
-              <textarea
-                rows={3}
-                value={form.remarks}
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    remarks: event.target.value,
-                  })
-                }
-                placeholder="Optional instructions"
-                className="w-full resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
-              />
-            </div>
-
-            <Button
-              className="w-full"
-              disabled={isSubmitting}
-            >
-              <Send size={16} className="mr-2" />
-
-              {isSubmitting
-                ? "Submitting..."
-                : "Submit Booking Request"}
-            </Button>
-          </form>
-        </Card>
-
-        <Card className="min-w-0">
-          <div className="mb-5 flex flex-col justify-between gap-4 xl:flex-row xl:items-center">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                Booking History
-              </h2>
-
-              <p className="text-sm text-slate-500">
-                {filteredBookings.length} bookings found
-              </p>
-            </div>
-
-            <div className="grid w-full gap-3 sm:grid-cols-2 xl:w-auto">
-              <div className="relative">
-                <Search
-                  size={17}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* RECURRING TOGGLE BUTTON */}
+              <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200/50">
+                <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                  <Repeat size={13} className="text-blue-700" /> Auto-Repeat Commute daily
+                </span>
                 <input
-                  value={search}
-                  onChange={(event) =>
-                    setSearch(event.target.value)
+                  type="checkbox"
+                  checked={form.isRecurring}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      isRecurring: e.target.checked,
+                    }))
                   }
-                  placeholder="Search bookings..."
-                  className="w-full rounded-xl border border-slate-300 py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100 xl:w-64"
+                  className="rounded text-blue-700 focus:ring-blue-500 w-4 h-4 cursor-pointer"
                 />
               </div>
 
-              <select
-                value={statusFilter}
-                onChange={(event) =>
-                  setStatusFilter(event.target.value)
-                }
-                className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
-              >
-                <option value="ALL">All statuses</option>
+              {form.isRecurring ? (
+                /* RECURRING COMMUTE PASS FORM */
+                <div className="space-y-4">
+                  <div>
+                    <label className="mb-1 block text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                      Select Standard Route
+                    </label>
+                    <select
+                      value={form.selectedRouteId}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          selectedRouteId: e.target.value,
+                          selectedStopId: "", // reset stop
+                        }))
+                      }
+                      required
+                      className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                    >
+                      <option value="">-- Choose Commute Route --</option>
+                      {routes.map((route) => (
+                        <option key={route.id} value={route.id}>
+                          {route.routeName} ({route.routeCode}) - {route.shiftType}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                {bookingStatuses.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+                  {form.selectedRouteId && (
+                    <div>
+                      <label className="mb-1 block text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                        Select Pickup Smart Stop
+                      </label>
+                      <select
+                        value={form.selectedStopId}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            selectedStopId: e.target.value,
+                          }))
+                        }
+                        required
+                        className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                      >
+                        <option value="">-- Choose Pickup Stop --</option>
+                        {selectedRouteStops.map((stop: any) => (
+                          <option key={stop.id} value={stop.id}>
+                            Stop {stop.stopOrder}: {stop.stopName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
-          {isLoading ? (
-            <div className="rounded-2xl bg-slate-50 p-8 text-center text-sm font-medium text-slate-500">
-              Loading bookings...
+                  {/* WEEKDAY CHECKLIST SELECTORS */}
+                  <div>
+                    <label className="mb-1 block text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                      Select Active Weekdays
+                    </label>
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {WEEKDAYS.map((day) => {
+                        const isSelected = form.activeDays.includes(day.value);
+                        return (
+                          <button
+                            key={day.value}
+                            type="button"
+                            onClick={() => handleWeekdayToggle(day.value)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold tracking-tight transition ${
+                              isSelected
+                                ? "bg-slate-900 text-white shadow-sm"
+                                : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                            }`}
+                          >
+                            {day.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* SINGLE RIDE BOOKING FORM */
+                <div className="space-y-4">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                      Booking Date
+                    </label>
+                    <input
+                      type="date"
+                      min={getTodayInputValue()}
+                      value={form.bookingDate}
+                      required
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          bookingDate: e.target.value,
+                        }))
+                      }
+                      className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                      Pickup Area Name
+                    </label>
+                    <input
+                      value={form.pickupArea}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          pickupArea: e.target.value,
+                        }))
+                      }
+                      placeholder="e.g. Garden West, Saddar stop..."
+                      required
+                      className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                      Pickup Address / Landmark
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={form.pickupAddress}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          pickupAddress: e.target.value,
+                        }))
+                      }
+                      placeholder="Specify nearby landmark details..."
+                      className="w-full resize-none rounded-xl border border-slate-300 px-4 py-2 text-xs outline-none focus:border-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                      Remarks / Instructions
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={form.remarks}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          remarks: e.target.value,
+                        }))
+                      }
+                      placeholder="Optional instructions..."
+                      className="w-full resize-none rounded-xl border border-slate-300 px-4 py-2 text-xs outline-none focus:border-blue-600"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                  Shift Type
+                </label>
+                <select
+                  value={form.shiftType}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      shiftType: e.target.value as ShiftType,
+                    }))
+                  }
+                  className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-600"
+                >
+                  {shiftTypes.map((shift) => (
+                    <option key={shift} value={shift}>
+                      {shift}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <Button className="w-full" disabled={isSubmitting}>
+                <Send size={15} className="mr-1.5" />
+                {isSubmitting
+                  ? "Saving commute settings..."
+                  : form.isRecurring
+                  ? "Register Commute Pass"
+                  : "Submit Booking"}
+              </Button>
+            </form>
+          </Card>
+        </div>
+
+        {/* RIGHT COLUMN: Active Passes list and History */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Active passes standing list */}
+          {subscriptions.length > 0 && (
+            <Card>
+              <h2 className="text-base font-extrabold text-slate-800 flex items-center gap-1.5 border-b border-slate-100 pb-2.5 mb-4">
+                <Repeat size={16} className="text-blue-700" /> Standing Commute Subscriptions (Passes)
+              </h2>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {subscriptions.map((sub) => {
+                  const daysLabels = sub.activeDays.map((d) => WEEKDAYS.find((wd) => wd.value === d)?.label).join(", ");
+                  return (
+                    <div key={sub.id} className="p-4 rounded-2xl bg-blue-50/20 border border-blue-100/30 flex flex-col justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <BusFront className="text-blue-700" size={16} />
+                          <h4 className="font-extrabold text-slate-800 text-sm">{sub.route?.routeName || "Commute Route"}</h4>
+                        </div>
+                        <div className="mt-2 text-2xs text-slate-500 font-semibold space-y-1">
+                          <div className="flex items-center gap-1">
+                            <MapPin size={11} className="text-slate-400" />
+                            <span>Stop: <strong>{sub.pickupStop?.stopName || "Standard stop"}</strong></span>
+                          </div>
+                          <div>Shift: <strong>{sub.shiftType}</strong></div>
+                          <div>Weekdays: <strong>{daysLabels}</strong></div>
+                        </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={processingId === sub.id}
+                        onClick={() => handleDeactivateSubscription(sub.id)}
+                        className="rounded-xl w-full text-2xs py-1.5 border border-red-200 text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 size={12} className="mr-1" />
+                        Cancel/Drop Pass
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
+          {/* Bookings History table */}
+          <Card>
+            <div className="mb-5 flex flex-col justify-between gap-4 xl:flex-row xl:items-center">
+              <div>
+                <h2 className="text-base font-extrabold text-slate-800">Commute Booking History</h2>
+                <p className="text-xs text-slate-500">{filteredBookings.length} rides logged</p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="relative">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search history..."
+                    className="w-full rounded-xl border border-slate-300 py-2 pl-9 pr-4 text-xs outline-none focus:border-blue-600 xl:w-56"
+                  />
+                </div>
+
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="rounded-xl border border-slate-300 px-3 py-2 text-xs outline-none focus:border-blue-600 bg-white"
+                >
+                  <option value="ALL">All statuses</option>
+                  {bookingStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          ) : (
-            <div className="w-full min-w-0 overflow-x-auto">
+
+            <div className="w-full overflow-x-auto">
               <table className="w-full min-w-[1020px] border-separate border-spacing-y-2">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
                     <th className="px-4 py-2">Date / Shift</th>
-                    <th className="px-4 py-2">Pickup</th>
-                    <th className="px-4 py-2">Route</th>
+                    <th className="px-4 py-2">Pickup Stop</th>
+                    <th className="px-4 py-2">Assigned Route</th>
                     <th className="px-4 py-2">Stop / Seat</th>
                     <th className="px-4 py-2">Vehicle</th>
                     <th className="px-4 py-2">Status</th>
-                    <th className="px-4 py-2 text-right">Action</th>
+                    <th className="px-4 py-2 text-right">Cancel Action</th>
                   </tr>
                 </thead>
-
                 <tbody>
-                  {filteredBookings.map((booking) => (
-                    <tr key={booking.id} className="bg-slate-50">
-                      <td className="rounded-l-2xl px-4 py-4">
-                        <div className="flex items-start gap-2">
-                          <CalendarDays
-                            size={17}
-                            className="mt-0.5 text-slate-400"
-                          />
-
-                          <div>
-                            <p className="text-sm font-semibold text-slate-800">
-                              {formatDate(booking.bookingDate)}
-                            </p>
-
-                            <p className="text-xs text-slate-500">
-                              {booking.shiftType}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-4">
-                        <div className="flex items-start gap-2">
-                          <MapPin
-                            size={17}
-                            className="mt-0.5 text-red-500"
-                          />
-
-                          <div>
-                            <p className="text-sm font-semibold text-slate-700">
-                              {booking.pickupArea}
-                            </p>
-
-                            <p className="max-w-44 truncate text-xs text-slate-500">
-                              {booking.pickupAddress ?? "-"}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-4">
-                        {booking.route ? (
-                          <div>
-                            <p className="text-sm font-semibold text-slate-700">
-                              {booking.route.routeName}
-                            </p>
-
-                            <p className="text-xs text-slate-500">
-                              {booking.route.routeCode}
-                            </p>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-slate-400">
-                            Awaiting assignment
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-4">
-                        <p className="text-sm font-semibold text-slate-700">
-                          {booking.pickupStop?.stopName ??
-                            "Not assigned"}
-                        </p>
-
-                        <p className="text-xs text-slate-500">
-                          Seat: {booking.seatNumber ?? "-"}
-                        </p>
-                      </td>
-
-                      <td className="px-4 py-4">
-                        {booking.route?.vehicle ? (
-                          <div>
-                            <p className="text-sm font-semibold text-slate-700">
-                              {
-                                booking.route.vehicle
-                                  .vehicleNumber
-                              }
-                            </p>
-
-                            <p className="text-xs text-slate-500">
-                              {booking.route.vehicle.vehicleType}
-                            </p>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-slate-400">
-                            -
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-4">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusBadge(
-                            booking.status
-                          )}`}
-                        >
-                          {booking.status}
-                        </span>
-
-                        {booking.isProxyBooking && (
-                          <p className="mt-2 text-xs font-medium text-violet-600">
-                            Proxy booking
-                          </p>
-                        )}
-                      </td>
-
-                      <td className="rounded-r-2xl px-4 py-4 text-right">
-                        {(booking.status === "PENDING" ||
-                          booking.status === "ASSIGNED") && (
-                          <Button
-                            type="button"
-                            variant="danger"
-                            disabled={processingId === booking.id}
-                            onClick={() => handleCancel(booking)}
-                          >
-                            <XCircle
-                              size={15}
-                              className="mr-2"
-                            />
-
-                            {processingId === booking.id
-                              ? "Cancelling..."
-                              : "Cancel"}
-                          </Button>
-                        )}
-
-                        {booking.status !== "PENDING" &&
-                          booking.status !== "ASSIGNED" && (
-                            <span className="text-xs text-slate-400">
-                              No action
-                            </span>
-                          )}
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={7} className="rounded-2xl bg-slate-50 px-4 py-10 text-center text-sm font-semibold text-slate-500">
+                        Fetching latest commute ledger...
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredBookings.map((booking) => (
+                      <tr key={booking.id} className="bg-slate-50">
+                        <td className="rounded-l-2xl px-4 py-4">
+                          <div className="flex items-start gap-2">
+                            <CalendarDays size={17} className="mt-0.5 text-slate-400" />
+                            <div>
+                              <p className="text-sm font-semibold text-slate-800">{formatDate(booking.bookingDate)}</p>
+                              <p className="text-xs text-slate-500">{booking.shiftType}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-start gap-2">
+                            <MapPin size={17} className="mt-0.5 text-red-500" />
+                            <div>
+                              <p className="text-sm font-semibold text-slate-700">{booking.pickupArea}</p>
+                              <p className="max-w-44 truncate text-xs text-slate-500">{booking.pickupAddress ?? "-"}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          {booking.route ? (
+                            <div>
+                              <p className="text-sm font-semibold text-slate-700">{booking.route.routeName}</p>
+                              <p className="text-xs text-slate-500">{booking.route.routeCode}</p>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-slate-400">Awaiting assignment</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4">
+                          <p className="text-sm font-semibold text-slate-700">{booking.pickupStop?.stopName ?? "Not assigned"}</p>
+                          <p className="text-xs text-slate-500">Seat: {booking.seatNumber ?? "-"}</p>
+                        </td>
+                        <td className="px-4 py-4">
+                          {booking.route?.vehicle ? (
+                            <div>
+                              <p className="text-sm font-semibold text-slate-700">{booking.route.vehicle.vehicleNumber}</p>
+                              <p className="text-xs text-slate-500">{booking.route.vehicle.vehicleType}</p>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-slate-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4">
+                          <span className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusBadge(booking.status)}`}>
+                            {booking.status}
+                          </span>
+                          {booking.remarks && booking.remarks.includes("Auto-generated") && (
+                            <p className="mt-2 text-xs font-bold text-blue-700 flex items-center gap-0.5">
+                              <Repeat size={10} /> Auto-generated
+                            </p>
+                          )}
+                        </td>
+                        <td className="rounded-r-2xl px-4 py-4 text-right">
+                          {(booking.status === "PENDING" || booking.status === "ASSIGNED") && (
+                            <Button
+                              type="button"
+                              variant="danger"
+                              disabled={processingId === booking.id}
+                              onClick={() => handleCancel(booking)}
+                            >
+                              <XCircle size={15} className="mr-2" />
+                              {processingId === booking.id ? "Skipping..." : "Skip Ride"}
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
 
-                  {filteredBookings.length === 0 && (
+                  {!isLoading && filteredBookings.length === 0 && (
                     <tr>
-                      <td
-                        colSpan={7}
-                        className="rounded-2xl bg-slate-50 px-4 py-10 text-center text-sm text-slate-500"
-                      >
+                      <td colSpan={7} className="rounded-2xl bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
                         No shuttle bookings found.
                       </td>
                     </tr>
@@ -787,8 +832,8 @@ export default function ShuttleBookingsPage() {
                 </tbody>
               </table>
             </div>
-          )}
-        </Card>
+          </Card>
+        </div>
       </div>
     </div>
   );

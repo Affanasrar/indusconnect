@@ -410,6 +410,9 @@ model User {
   proxyCreatedTravelRequests TravelRequest[] @relation("ProxyCreatedTravelRequests")
   proxyCreatedShuttleBookings ShuttleBooking[] @relation("ProxyCreatedShuttleBookings")
 
+  shuttleSubscriptions ShuttleSubscription[] @relation("EmployeeShuttleSubscriptions")
+  proxyCreatedShuttleSubscriptions ShuttleSubscription[] @relation("ProxyCreatedShuttleSubscriptions")
+
   reportedVehicleMaintenanceTasks VehicleMaintenanceTask[] @relation("VehicleMaintenanceReportedBy")
   assignedVehicleMaintenanceTasks VehicleMaintenanceTask[] @relation("VehicleMaintenanceAssignedTo")
 
@@ -495,6 +498,7 @@ model TransportRoute {
 
   smartStops     SmartStop[]
   shuttleBookings ShuttleBooking[]
+  shuttleSubscriptions ShuttleSubscription[]
   trips TransportTrip[]
 
   vendorId String?
@@ -521,6 +525,7 @@ model SmartStop {
   estimatedTime  String?
 
   shuttleBookings ShuttleBooking[]
+  shuttleSubscriptions ShuttleSubscription[]
 
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -561,6 +566,36 @@ model ShuttleBooking {
   @@index([routeId])
   @@index([pickupStopId])
   @@index([proxyCreatedById])
+}
+
+model ShuttleSubscription {
+  id              String         @id @default(uuid())
+  employeeId      String
+  employee        User           @relation("EmployeeShuttleSubscriptions", fields: [employeeId], references: [id])
+
+  routeId         String
+  route           TransportRoute @relation(fields: [routeId], references: [id])
+
+  pickupStopId    String
+  pickupStop      SmartStop      @relation(fields: [pickupStopId], references: [id])
+
+  shiftType       ShiftType
+
+  // Array of active week days (1 = Monday, 5 = Friday, etc.)
+  activeDays      Int[]
+
+  isActive        Boolean        @default(true)
+
+  isProxyBooking   Boolean @default(false)
+  proxyCreatedById String?
+  proxyCreatedBy   User?   @relation("ProxyCreatedShuttleSubscriptions", fields: [proxyCreatedById], references: [id])
+  proxyReason      String?
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([employeeId])
+  @@index([isActive])
 }
 
 model TransportTrip {

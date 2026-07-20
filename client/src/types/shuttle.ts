@@ -34,3 +34,22 @@ export interface ShuttleBooking {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface ShuttleSubscription {
+  id: string;
+  employeeId: string;
+  employee?: UserProfile;
+  routeId: string;
+  route?: any;
+  pickupStopId: string;
+  pickupStop?: any;
+  shiftType: string;
+  activeDays: number[];
+  isActive: boolean;
+  isProxyBooking?: boolean;
+  proxyCreatedById?: string | null;
+  proxyCreatedBy?: UserProfile | null;
+  proxyReason?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}

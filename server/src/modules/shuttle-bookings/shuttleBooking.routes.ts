@@ -8,6 +8,10 @@ import {
   getAllShuttleBookingsController,
   getMyShuttleBookingsController,
   getShuttleBookingByIdController,
+  createShuttleSubscriptionController,
+  getMyShuttleSubscriptionsController,
+  deactivateShuttleSubscriptionController,
+  triggerDailyAutoBookingsController,
 } from "./shuttleBooking.controller";
 
 const router = Router();
@@ -56,6 +60,31 @@ router.get(
     "TRANSPORT_ADMIN"
   ),
   getShuttleBookingByIdController
+);
+
+// SUB-ROUTES FOR COMMUTE SUBSCRIPTIONS
+router.post(
+  "/subscriptions",
+  authorizeRoles("EMPLOYEE"),
+  createShuttleSubscriptionController
+);
+
+router.get(
+  "/subscriptions/my",
+  authorizeRoles("EMPLOYEE"),
+  getMyShuttleSubscriptionsController
+);
+
+router.patch(
+  "/subscriptions/:id/deactivate",
+  authorizeRoles("EMPLOYEE", "SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  deactivateShuttleSubscriptionController
+);
+
+router.post(
+  "/subscriptions/trigger-daily",
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  triggerDailyAutoBookingsController
 );
 
 export default router;

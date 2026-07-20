@@ -165,3 +165,124 @@ export async function cancelShuttleBookingController(
     });
   }
 }
+
+// =========================================================================
+// SHUTTLE SUBSCRIPTION CONTROLLERS
+// =========================================================================
+
+import { createShuttleSubscriptionSchema } from "./shuttleBooking.validation";
+import {
+  createShuttleSubscription,
+  getMyShuttleSubscriptions,
+  deactivateShuttleSubscription,
+  generateDailyBookingsFromSubscriptions,
+} from "./shuttleBooking.service";
+
+export async function createShuttleSubscriptionController(
+  req: Request,
+  res: Response
+) {
+  try {
+    const validatedData = createShuttleSubscriptionSchema.parse(req.body);
+    const currentUser = (req as any).user;
+
+    const subscription = await createShuttleSubscription(
+      currentUser.userId,
+      validatedData
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: "Standing Shuttle Subscription registered successfully",
+      data: subscription,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to create standing shuttle subscription",
+    });
+  }
+}
+
+export async function getMyShuttleSubscriptionsController(
+  req: Request,
+  res: Response
+) {
+  try {
+    const currentUser = (req as any).user;
+
+    const subscriptions = await getMyShuttleSubscriptions(currentUser.userId);
+
+    return res.status(200).json({
+      success: true,
+      message: "My active standing subscriptions fetched successfully",
+      data: subscriptions,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch my standing subscriptions",
+    });
+  }
+}
+
+export async function deactivateShuttleSubscriptionController(
+  req: Request,
+  res: Response
+) {
+  try {
+    const currentUser = (req as any).user;
+
+    const subscription = await deactivateShuttleSubscription(
+      String(req.params.id),
+      currentUser
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Standing Shuttle Subscription dropped successfully",
+      data: subscription,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to drop standing subscription",
+    });
+  }
+}
+
+// Admin developer triggers to run generator manually for testing/cron simulation
+export async function triggerDailyAutoBookingsController(
+  _req: Request,
+  res: Response
+) {
+  try {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const count = await generateDailyBookingsFromSubscriptions(tomorrow);
+
+    return res.status(200).json({
+      success: true,
+      message: `Triggered nightly auto-booking generation for tomorrow. Created ${count} bookings.`,
+      data: { created: count },
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to trigger auto-bookings generation",
+    });
+  }
+}

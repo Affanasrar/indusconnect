@@ -80,3 +80,37 @@ export async function cancelShuttleBooking(
 
   return response.data.data;
 }
+
+export interface CreateShuttleSubscriptionInput {
+  routeId: string;
+  pickupStopId: string;
+  shiftType: ShiftType;
+  activeDays: number[];
+  isProxyBooking?: boolean;
+  proxyCreatedById?: string;
+  proxyReason?: string;
+}
+
+import type { ShuttleSubscription } from "../types/shuttle";
+
+export async function createShuttleSubscription(data: CreateShuttleSubscriptionInput) {
+  const response = await http.post<ApiResponse<ShuttleSubscription>>(
+    "/shuttle-bookings/subscriptions",
+    data
+  );
+  return response.data.data;
+}
+
+export async function getMyShuttleSubscriptions() {
+  const response = await http.get<ApiResponse<ShuttleSubscription[]>>(
+    "/shuttle-bookings/subscriptions/my"
+  );
+  return response.data.data;
+}
+
+export async function deactivateShuttleSubscription(id: string) {
+  const response = await http.patch<ApiResponse<ShuttleSubscription>>(
+    `/shuttle-bookings/subscriptions/${id}/deactivate`
+  );
+  return response.data.data;
+}

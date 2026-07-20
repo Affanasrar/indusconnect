@@ -32,3 +32,17 @@ export type AssignShuttleBookingInput = z.infer<
 export type CancelShuttleBookingInput = z.infer<
   typeof cancelShuttleBookingSchema
 >;
+
+export const createShuttleSubscriptionSchema = z.object({
+  routeId: z.string().uuid("Valid Route ID is required"),
+  pickupStopId: z.string().uuid("Valid Pickup Stop ID is required"),
+  shiftType: z.nativeEnum(ShiftType),
+  activeDays: z.array(z.number().int().min(1).max(7)),
+  isProxyBooking: z.boolean().optional(),
+  proxyCreatedById: z.string().uuid().optional(),
+  proxyReason: z.string().optional(),
+});
+
+export type CreateShuttleSubscriptionInput = z.infer<
+  typeof createShuttleSubscriptionSchema
+>;
