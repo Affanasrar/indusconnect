@@ -8,6 +8,16 @@ export type RoleName =
   | "FINANCE_OFFICER"
   | "SECURITY_OFFICER";
 
+export type HRGrade =
+  | "SUPPORT_STAFF"
+  | "STAFF"
+  | "OFFICER"
+  | "MANAGER"
+  | "SENIOR_MANAGER"
+  | "EXECUTIVE"
+  | "DOCTOR"
+  | "CONSULTANT";
+
 export interface ApiResponse<T> {
   success: boolean;
   message: string;

@@ -13,6 +13,8 @@ export type TravelMode =
   | "AIR"
   | "SELF";
 
+export type TravelUrgency = "NORMAL" | "URGENT" | "EMERGENCY";
+
 export type TravelRequestStatus =
   | "PENDING"
   | "PENDING_MANAGER_APPROVAL"
@@ -57,6 +59,15 @@ export interface TravelRequest {
   dailyAllowance?: number | null;
   policyRemarks?: string | null;
   policyCompliant?: boolean | null;
+
+  urgency?: TravelUrgency;
+  accommodationRequired?: boolean;
+  transportRequired?: boolean;
+  estimatedBudget?: number;
+  isProxyRequest?: boolean;
+  proxyCreatedById?: string | null;
+  proxyCreatedBy?: UserProfile | null;
+  proxyReason?: string | null;
 
   createdAt?: string;
   updatedAt?: string;

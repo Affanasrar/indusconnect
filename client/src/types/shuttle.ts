@@ -29,6 +29,7 @@ export interface ShuttleBooking {
   remarks?: string | null;
   isProxyBooking?: boolean;
   proxyCreatedById?: string | null;
+  proxyCreatedBy?: UserProfile | null;
   proxyReason?: string | null;
   createdAt?: string;
   updatedAt?: string;

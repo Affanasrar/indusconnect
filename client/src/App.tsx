@@ -14,6 +14,11 @@ import DriverTripsPage from "./pages/DriverTripsPage";
 import TravelRequestsPage from "./pages/TravelRequestsPage";
 import AccommodationPage from "./pages/AccommodationPage";
 import ExpensesPage from "./pages/ExpensesPage";
+import VendorsPage from "./pages/VendorsPage";
+import TelemetryPage from "./pages/TelemetryPage";
+import NotificationsPage from "./pages/NotificationsPage";
+import ProxyBookingsPage from "./pages/ProxyBookingsPage";
+import PoliciesPage from "./pages/PoliciesPage";
 
 export default function App() {
   return (
@@ -49,11 +54,11 @@ export default function App() {
             path="/expenses"
             element={<ExpensesPage />}
           />
-          <Route path="/vendors" element={<ModulePlaceholderPage />} />
-          <Route path="/telemetry" element={<ModulePlaceholderPage />} />
-          <Route path="/notifications" element={<ModulePlaceholderPage />} />
-          <Route path="/proxy-bookings" element={<ModulePlaceholderPage />} />
-          <Route path="/policies" element={<ModulePlaceholderPage />} />
+          <Route path="/vendors" element={<VendorsPage />} />
+          <Route path="/telemetry" element={<TelemetryPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/proxy-bookings" element={<ProxyBookingsPage />} />
+          <Route path="/policies" element={<PoliciesPage />} />
           <Route path="/maintenance" element={<ModulePlaceholderPage />} />
           <Route path="/erp-exports" element={<ModulePlaceholderPage />} />
           <Route path="/reports" element={<ModulePlaceholderPage />} />

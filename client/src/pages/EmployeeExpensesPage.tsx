@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import {
   CalendarDays,
   ExternalLink,
+  FileText,
   RefreshCcw,
   Search,
   Send,
@@ -479,7 +480,7 @@ export default function EmployeeExpensesPage() {
         <Card>
           <div className="mb-5 flex items-center gap-3">
             <div className="rounded-2xl bg-blue-50 p-3 text-blue-700">
-              <FileReceipt size={22} />
+              <FileText size={22} />
             </div>
 
             <div>
@@ -845,8 +846,7 @@ export default function EmployeeExpensesPage() {
                             </Button>
                           )}
 
-                          {!canCancelClaim(claim.status) &&
-                            claim.status !== "DRAFT" && (
+                          {!canCancelClaim(claim.status) && (
                               <span className="text-xs text-slate-400">
                                 No action
                               </span>
