@@ -7,6 +7,8 @@ export const createShuttleBookingSchema = z.object({
   pickupArea: z.string().min(2, "Pickup area is required"),
   pickupAddress: z.string().optional(),
   remarks: z.string().optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
 });
 
 export const assignShuttleBookingSchema = z.object({

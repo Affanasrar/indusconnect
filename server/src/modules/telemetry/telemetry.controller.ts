@@ -86,7 +86,8 @@ export async function getTelemetryByRouteController(
   res: Response
 ) {
   try {
-    const logs = await getTelemetryByRoute(String(req.params.routeId));
+    const currentUser = (req as any).user;
+    const logs = await getTelemetryByRoute(String(req.params.routeId), currentUser);
 
     return res.status(200).json({
       success: true,
@@ -94,7 +95,7 @@ export async function getTelemetryByRouteController(
       data: logs,
     });
   } catch (error) {
-    return res.status(404).json({
+    return res.status(403).json({
       success: false,
       message:
         error instanceof Error

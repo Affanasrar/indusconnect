@@ -40,7 +40,7 @@ router.get(
 
 router.get(
   "/routes/:routeId",
-  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN", "SECURITY_OFFICER"),
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN", "SECURITY_OFFICER", "EMPLOYEE"),
   getTelemetryByRouteController
 );
 

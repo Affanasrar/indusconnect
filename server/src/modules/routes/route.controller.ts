@@ -14,6 +14,7 @@ import {
   getRouteById,
   updateRoute,
   updateSmartStop,
+  runVRPOptimization,
 } from "./route.service";
 
 export async function getAllRoutesController(_req: Request, res: Response) {
@@ -159,6 +160,28 @@ export async function deleteSmartStopController(req: Request, res: Response) {
       success: false,
       message:
         error instanceof Error ? error.message : "Failed to delete smart stop",
+    });
+  }
+}
+
+export async function runVRPOptimizationController(req: Request, res: Response) {
+  try {
+    const { shiftType, date } = req.body;
+    if (!shiftType || !date) {
+      throw new Error("Both shiftType and date are required parameters.");
+    }
+
+    const result = await runVRPOptimization(String(shiftType), String(date));
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to run VRP optimization",
     });
   }
 }

@@ -167,17 +167,45 @@ export default function DashboardPage() {
       }
 
       case "myDashboard": {
-        const completedTrips = data.shuttleBookings?.filter((b: any) => b.status === "COMPLETED").length ?? 0;
+        const recentBooking = data.recentShuttleBookings?.[0];
+        const totalBookingsCount = data.counts?.shuttleBookings ?? 0;
+        
         return (
-          <div className="mt-3 text-xs font-semibold text-slate-600 space-y-2">
-            <div className="flex justify-between items-center">
-              <span>My Shuttle Trips</span>
-              <span className="font-bold text-slate-800">{completedTrips} completed</span>
+          <div className="mt-3 text-xs font-semibold text-slate-600 space-y-3">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+              <span>Total Commutes Booked</span>
+              <span className="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded">{totalBookingsCount} rides</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span>My Claims</span>
-              <span className="font-bold text-slate-800">PKR {data.expensesSum ?? 0}</span>
-            </div>
+            
+            {recentBooking ? (
+              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1.5">
+                <p className="text-4xs text-slate-400 font-bold uppercase tracking-wider">Most Recent Commute</p>
+                <div className="flex justify-between items-center text-slate-700">
+                  <span className="font-bold truncate max-w-[120px]">{recentBooking.pickupArea}</span>
+                  <span className="text-3xs bg-blue-50 text-blue-700 font-bold px-1.5 py-0.5 rounded uppercase">
+                    {recentBooking.status}
+                  </span>
+                </div>
+                <div className="text-3xs text-slate-500 space-y-0.5">
+                  <p>Date: {new Date(recentBooking.bookingDate).toLocaleDateString()}</p>
+                  <p>Shift: {recentBooking.shiftType} ({recentBooking.route?.startTime || "N/A"})</p>
+                  {recentBooking.pickupStop && (
+                    <p>Stop: {recentBooking.pickupStop.stopName} (Arrival: {recentBooking.pickupStop.estimatedTime || "N/A"})</p>
+                  )}
+                  {recentBooking.seatNumber && (
+                    <p className="text-emerald-700 font-extrabold">Seat: {recentBooking.seatNumber}</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="py-2 text-center text-slate-400 italic text-3xs">
+                No shuttle rides booked yet.
+              </div>
+            )}
+            
+            <Link to="/shuttle-bookings" className="text-3xs text-blue-700 font-bold hover:underline flex items-center gap-0.5 mt-2">
+              Manage Shuttle Desk <ArrowRight size={10} />
+            </Link>
           </div>
         );
       }

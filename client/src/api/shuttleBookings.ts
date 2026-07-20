@@ -9,6 +9,8 @@ export interface CreateShuttleBookingInput {
   pickupArea: string;
   pickupAddress?: string;
   remarks?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface AssignShuttleBookingInput {

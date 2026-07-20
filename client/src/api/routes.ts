@@ -118,3 +118,11 @@ export async function deleteSmartStop(stopId: string) {
 
   return response.data.data;
 }
+
+export async function runVRPOptimization(shiftType: string, date: string) {
+  const response = await http.post<ApiResponse<any>>("/routes/vrp-optimize", {
+    shiftType,
+    date,
+  });
+  return response.data.data;
+}

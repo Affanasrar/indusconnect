@@ -23,6 +23,7 @@ import {
   getRoutes,
   updateRoute,
   updateSmartStop,
+  runVRPOptimization,
 } from "../api/routes";
 import type {
   CreateRouteInput,
@@ -30,6 +31,7 @@ import type {
   UpdateRouteInput,
 } from "../api/routes";
 import { getTransportDropdowns } from "../api/drivers";
+import MapView from "../components/ui/MapView";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import type {
@@ -154,6 +156,34 @@ export default function RoutesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
+
+  const [showVRPModal, setShowVRPModal] = useState(false);
+  const [vrpShiftType, setVrpShiftType] = useState<ShiftType>("MORNING");
+  const [vrpDate, setVrpDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [isOptimizingVRP, setIsOptimizingVRP] = useState(false);
+  const [vrpMessage, setVrpMessage] = useState<string | null>(null);
+  const [vrpError, setVrpError] = useState<string | null>(null);
+
+  async function handleVRPSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setIsOptimizingVRP(true);
+    setVrpMessage(null);
+    setVrpError(null);
+    try {
+      const response = await runVRPOptimization(vrpShiftType, vrpDate);
+      setVrpMessage(response?.message || "VRP routes generated successfully.");
+      const data = await getRoutes();
+      setRoutes(data || []);
+      setTimeout(() => {
+        setShowVRPModal(false);
+        setVrpMessage(null);
+      }, 3000);
+    } catch (err: any) {
+      setVrpError(err.response?.data?.message || err.message || "Failed to run VRP optimization");
+    } finally {
+      setIsOptimizingVRP(false);
+    }
+  }
 
   const [routeForm, setRouteForm] =
     useState<RouteFormState>(defaultRouteForm);
@@ -337,6 +367,105 @@ export default function RoutesPage() {
           : "",
       estimatedTime: stop.estimatedTime ?? "",
     });
+  }
+
+  function calculateAutoEstimatedTime(
+    stopOrder: number,
+    lat: number,
+    lng: number,
+    routeStartTime: string,
+    existingStops: any[]
+  ): string {
+    if (!routeStartTime) return "";
+
+    const timeParts = routeStartTime.split(":");
+    let hours = parseInt(timeParts[0], 10) || 8;
+    let minutes = parseInt(timeParts[1], 10) || 0;
+
+    if (stopOrder === 1) {
+      minutes += 5;
+      hours += Math.floor(minutes / 60);
+      minutes = minutes % 60;
+      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+    }
+
+    const prevStop = existingStops.find((s) => s.stopOrder === stopOrder - 1);
+    if (!prevStop || !prevStop.latitude || !prevStop.longitude || !prevStop.estimatedTime) {
+      const offset = (stopOrder - 1) * 15 + 5;
+      minutes += offset;
+      hours += Math.floor(minutes / 60);
+      minutes = minutes % 60;
+      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+    }
+
+    const prevParts = prevStop.estimatedTime.split(":");
+    let prevHours = parseInt(prevParts[0], 10);
+    let prevMinutes = parseInt(prevParts[1], 10);
+
+    const R = 6371;
+    const dLat = ((lat - prevStop.latitude) * Math.PI) / 180;
+    const dLon = ((lng - prevStop.longitude) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((prevStop.latitude * Math.PI) / 180) *
+        Math.cos((lat * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+
+    const duration = Math.round(distance * 2) + 3;
+
+    prevMinutes += duration;
+    prevHours += Math.floor(prevMinutes / 60);
+    prevMinutes = prevMinutes % 60;
+    prevHours = prevHours % 24;
+
+    return `${String(prevHours).padStart(2, "0")}:${String(prevMinutes).padStart(2, "0")}`;
+  }
+
+  async function handleStopMapChange(lat: number, lng: number) {
+    const latStr = String(lat);
+    const lngStr = String(lng);
+
+    const autoTime = calculateAutoEstimatedTime(
+      stopForm.stopOrder,
+      lat,
+      lng,
+      selectedRoute?.startTime || "08:00",
+      selectedRoute?.smartStops || []
+    );
+
+    setStopForm((prev) => ({
+      ...prev,
+      latitude: latStr,
+      longitude: lngStr,
+      estimatedTime: autoTime || prev.estimatedTime,
+    }));
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+        {
+          headers: {
+            "User-Agent": "IndusConnect-Application/1.0",
+          },
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        const road = data.address?.road || "";
+        const suburb = data.address?.suburb || data.address?.neighbourhood || "";
+        const label = road && suburb ? `${road}, ${suburb}` : road || suburb || data.name || "Stop Landmark";
+        
+        setStopForm((prev) => ({
+          ...prev,
+          stopName: label,
+        }));
+      }
+    } catch (err) {
+      console.error("Stop reverse geocode failed:", err);
+    }
   }
 
   async function handleRouteSubmit(
@@ -555,6 +684,9 @@ export default function RoutesPage() {
       setProcessingId(null);
     }
   }
+
+  const stopMapLat = stopForm.latitude ? parseFloat(stopForm.latitude) : 24.8607;
+  const stopMapLng = stopForm.longitude ? parseFloat(stopForm.longitude) : 67.0104;
 
   return (
     <div className="min-w-0 space-y-6">
@@ -970,14 +1102,23 @@ export default function RoutesPage() {
 
         <Card className="min-w-0">
           <div className="mb-5 flex flex-col justify-between gap-4 xl:flex-row xl:items-center">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                Transport Routes
-              </h2>
-
-              <p className="text-sm text-slate-500">
-                {filteredRoutes.length} routes found
-              </p>
+            <div className="flex items-start justify-between w-full xl:w-auto">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  Transport Routes
+                </h2>
+                <p className="text-sm text-slate-500">
+                  {filteredRoutes.length} routes found
+                </p>
+              </div>
+              <Button
+                type="button"
+                onClick={() => setShowVRPModal(true)}
+                className="bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 text-white font-extrabold text-xs shadow-md border-0 shrink-0 ml-4 py-2"
+              >
+                <Navigation size={13} className="mr-1.5 animate-pulse" />
+                VRP Dispatch Optimizer
+              </Button>
             </div>
 
             <div className="grid w-full gap-3 sm:grid-cols-3 xl:w-auto">
@@ -1054,7 +1195,8 @@ export default function RoutesPage() {
                   {filteredRoutes.map((route) => (
                     <tr
                       key={route.id}
-                      className={`bg-slate-50 ${
+                      onClick={() => setSelectedRouteId(route.id)}
+                      className={`bg-slate-50 cursor-pointer hover:bg-slate-100/80 transition-colors ${
                         selectedRouteId === route.id
                           ? "outline outline-2 outline-blue-200"
                           : ""
@@ -1252,6 +1394,30 @@ export default function RoutesPage() {
 
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Pin Stop Location on Map
+                </label>
+                <MapView
+                  latitude={stopMapLat}
+                  longitude={stopMapLng}
+                  onChange={handleStopMapChange}
+                  markers={(selectedRoute.smartStops ?? []).map((s: any) => ({
+                    latitude: s.latitude,
+                    longitude: s.longitude,
+                    label: `Stop ${s.stopOrder}: ${s.stopName}`,
+                  }))}
+                  polylines={(selectedRoute.smartStops ?? [])
+                    .slice()
+                    .sort((a, b) => a.stopOrder - b.stopOrder)
+                    .map((s: any) => ({ latitude: s.latitude, longitude: s.longitude }))}
+                  height="220px"
+                />
+                <p className="text-4xs text-slate-400 font-semibold mt-1">
+                  Drag the pin to place a stop. Blue line visualizes the route path.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
                   Stop Name
                 </label>
 
@@ -1332,9 +1498,35 @@ export default function RoutesPage() {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Estimated Time
-                </label>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="text-xs font-semibold text-slate-700">
+                    Estimated Time
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const latVal = parseFloat(stopForm.latitude);
+                      const lngVal = parseFloat(stopForm.longitude);
+                      if (!isNaN(latVal) && !isNaN(lngVal)) {
+                        const computed = calculateAutoEstimatedTime(
+                          stopForm.stopOrder,
+                          latVal,
+                          lngVal,
+                          selectedRoute?.startTime || "08:00",
+                          selectedRoute?.smartStops || []
+                        );
+                        if (computed) {
+                          setStopForm((prev) => ({ ...prev, estimatedTime: computed }));
+                        }
+                      } else {
+                        alert("Specify latitude & longitude to calculate estimated arrival time.");
+                      }
+                    }}
+                    className="text-2xs font-bold text-blue-700 hover:underline cursor-pointer"
+                  >
+                    Auto-Calculate
+                  </button>
+                </div>
 
                 <input
                   type="time"
@@ -1485,6 +1677,102 @@ export default function RoutesPage() {
           </div>
         )}
       </Card>
+
+      {/* VRP Optimization Wizard Modal */}
+      {showVRPModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                  <Navigation size={18} className="text-blue-700 animate-pulse" />
+                  VRP Dispatch Optimizer
+                </h3>
+                <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                  Solve Capacitated Vehicle Routing problem automatically.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowVRPModal(false)}
+                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 transition"
+              >
+                <XCircle size={20} />
+              </button>
+            </div>
+
+            {vrpMessage && (
+              <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-3 text-xs font-semibold text-emerald-800">
+                {vrpMessage}
+              </div>
+            )}
+
+            {vrpError && (
+              <div className="rounded-xl bg-red-50 border border-red-100 p-3 text-xs font-semibold text-red-800">
+                {vrpError}
+              </div>
+            )}
+
+            <form onSubmit={handleVRPSubmit} className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                  Target Commute Date
+                </label>
+                <input
+                  type="date"
+                  value={vrpDate}
+                  onChange={(e) => setVrpDate(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                  Select Shift
+                </label>
+                <select
+                  value={vrpShiftType}
+                  onChange={(e) => setVrpShiftType(e.target.value as ShiftType)}
+                  className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                >
+                  {shiftTypes.map((shift) => (
+                    <option key={shift} value={shift}>
+                      {shift}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="rounded-xl bg-slate-50 border border-slate-200/50 p-3 text-3xs text-slate-500 font-medium space-y-1">
+                <p className="font-extrabold text-slate-700 uppercase">Solver parameters:</p>
+                <p>• Starting Node: Company Head Office Depot</p>
+                <p>• Heuristic algorithm: Nearest Neighbor CVRP solver</p>
+                <p>• Fleet limit: Evaluates all ACTIVE vehicles & drivers</p>
+                <p>• Transit speed: 30 km/h with 3-minute passenger boarding buffers</p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setShowVRPModal(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isOptimizingVRP}
+                  className="flex-1 bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 text-white font-extrabold"
+                >
+                  {isOptimizingVRP ? "Optimizing..." : "Execute Solver"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

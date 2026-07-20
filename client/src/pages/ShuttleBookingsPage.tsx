@@ -13,6 +13,7 @@ import {
   XCircle,
   Repeat,
   Trash2,
+  Activity,
 } from "lucide-react";
 import {
   cancelShuttleBooking,
@@ -23,6 +24,8 @@ import {
   deactivateShuttleSubscription,
 } from "../api/shuttleBookings";
 import { getRoutes } from "../api/routes";
+import { getTelemetryByRoute } from "../api/telemetry";
+import MapView from "../components/ui/MapView";
 import { useAuth } from "../auth/AuthContext";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
@@ -43,6 +46,8 @@ interface BookingFormState {
   selectedRouteId: string;
   selectedStopId: string;
   activeDays: number[];
+  latitude: number;
+  longitude: number;
 }
 
 const defaultForm: BookingFormState = {
@@ -54,7 +59,9 @@ const defaultForm: BookingFormState = {
   isRecurring: false,
   selectedRouteId: "",
   selectedStopId: "",
-  activeDays: [1, 2, 3, 4, 5], // Mon-Fri by default
+  activeDays: [1, 2, 3, 4, 5],
+  latitude: 24.8607,
+  longitude: 67.0104,
 };
 
 function getErrorMessage(error: unknown) {
@@ -132,6 +139,76 @@ export default function ShuttleBookingsPage() {
 
   const currentRole = bootstrap?.role;
 
+  const [trackingRouteId, setTrackingRouteId] = useState<string | null>(null);
+  const [trackingLogs, setTrackingLogs] = useState<any[]>([]);
+  const [trackingRoute, setTrackingRoute] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (!trackingRouteId) {
+      setTrackingLogs([]);
+      return;
+    }
+
+    async function fetchTelemetry() {
+      try {
+        const logs = await getTelemetryByRoute(trackingRouteId!);
+        setTrackingLogs(logs || []);
+      } catch (err) {
+        console.error("Failed to fetch live route telemetry:", err);
+      }
+    }
+
+    fetchTelemetry();
+    const interval = setInterval(fetchTelemetry, 5000);
+    return () => clearInterval(interval);
+  }, [trackingRouteId]);
+
+  const trackingMarkers = useMemo(() => {
+    const list: any[] = [];
+    if (!trackingRoute) return list;
+
+    if (trackingRoute.smartStops) {
+      trackingRoute.smartStops.forEach((stop: any) => {
+        list.push({
+          latitude: stop.latitude,
+          longitude: stop.longitude,
+          label: `${stop.stopName} (Order: ${stop.stopOrder}, Arrival: ${stop.estimatedTime || "N/A"})`,
+          color: "bg-emerald-500",
+        });
+      });
+    }
+
+    if (trackingLogs.length > 0) {
+      const latest = trackingLogs[trackingLogs.length - 1];
+      list.push({
+        latitude: latest.latitude,
+        longitude: latest.longitude,
+        label: `Live Shuttle - Speed: ${latest.speed || 0} km/h, Battery: ${latest.batteryLevel || 100}%`,
+        color: "bg-amber-500 animate-pulse",
+        pulse: true,
+      });
+    }
+
+    return list;
+  }, [trackingRoute, trackingLogs]);
+
+  const trackingPolylines = useMemo(() => {
+    if (!trackingRoute || !trackingRoute.smartStops) return [];
+    return [...trackingRoute.smartStops].sort((a, b) => a.stopOrder - b.stopOrder);
+  }, [trackingRoute]);
+
+  const trackingCenter = useMemo(() => {
+    if (trackingLogs.length > 0) {
+      const latest = trackingLogs[trackingLogs.length - 1];
+      return { lat: latest.latitude, lng: latest.longitude };
+    }
+    if (trackingRoute?.smartStops && trackingRoute.smartStops.length > 0) {
+      const firstStop = [...trackingRoute.smartStops].sort((a, b) => a.stopOrder - b.stopOrder)[0];
+      return { lat: firstStop.latitude, lng: firstStop.longitude };
+    }
+    return { lat: 24.8607, lng: 67.0104 };
+  }, [trackingRoute, trackingLogs]);
+
   const shiftTypes = (bootstrap?.formOptions?.shiftTypes ?? [
     "MORNING",
     "AFTERNOON",
@@ -184,6 +261,57 @@ export default function ShuttleBookingsPage() {
     return route?.smartStops ?? [];
   }, [form.selectedRouteId, routes]);
 
+  const recurringMapMarkers = useMemo(() => {
+    return selectedRouteStops.map((stop: any) => ({
+      latitude: stop.latitude,
+      longitude: stop.longitude,
+      label: `Stop ${stop.stopOrder}: ${stop.stopName} (Arrival: ${stop.estimatedTime || "N/A"})`,
+      color: form.selectedStopId === stop.id ? "bg-blue-600 animate-pulse" : "bg-emerald-500",
+      pulse: form.selectedStopId === stop.id,
+    }));
+  }, [selectedRouteStops, form.selectedStopId]);
+
+  const recurringMapCenter = useMemo(() => {
+    if (form.selectedStopId) {
+      const stop = selectedRouteStops.find((s: any) => s.id === form.selectedStopId);
+      if (stop && typeof stop.latitude === "number" && typeof stop.longitude === "number") {
+        return { lat: stop.latitude, lng: stop.longitude };
+      }
+    }
+    if (selectedRouteStops.length > 0) {
+      const first = selectedRouteStops[0];
+      if (typeof first.latitude === "number" && typeof first.longitude === "number") {
+        return { lat: first.latitude, lng: first.longitude };
+      }
+    }
+    return { lat: 24.8607, lng: 67.0104 };
+  }, [selectedRouteStops, form.selectedStopId]);
+
+  const recurringPolylines = useMemo(() => {
+    return selectedRouteStops
+      .filter((stop: any) => typeof stop.latitude === "number" && typeof stop.longitude === "number")
+      .map((stop: any) => ({
+        latitude: stop.latitude as number,
+        longitude: stop.longitude as number,
+      }));
+  }, [selectedRouteStops]);
+
+  const stopMarkers = useMemo(() => {
+    const list: any[] = [];
+    routes.forEach((route) => {
+      route.smartStops?.forEach((stop: any) => {
+        if (stop.latitude && stop.longitude) {
+          list.push({
+            latitude: stop.latitude,
+            longitude: stop.longitude,
+            label: `${route.routeName} (${route.routeCode}) - Stop ${stop.stopOrder}: ${stop.stopName}`,
+          });
+        }
+      });
+    });
+    return list;
+  }, [routes]);
+
   const summary = useMemo(() => {
     return {
       total: bookings.length,
@@ -216,6 +344,43 @@ export default function ShuttleBookingsPage() {
     setError("");
   }
 
+  async function handleMapChange(lat: number, lng: number) {
+    setForm((prev) => ({
+      ...prev,
+      latitude: lat,
+      longitude: lng,
+    }));
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+        {
+          headers: {
+            "User-Agent": "IndusConnect-Application/1.0",
+          },
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        const addressName = data.display_name || "";
+        const areaName =
+          data.address?.suburb ||
+          data.address?.neighbourhood ||
+          data.address?.city_district ||
+          data.address?.town ||
+          "Pinned Location";
+
+        setForm((prev) => ({
+          ...prev,
+          pickupArea: areaName,
+          pickupAddress: addressName,
+        }));
+      }
+    } catch (err) {
+      console.error("Reverse geocoding failed:", err);
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
@@ -246,6 +411,8 @@ export default function ShuttleBookingsPage() {
           pickupArea: form.pickupArea.trim(),
           pickupAddress: form.pickupAddress.trim() || undefined,
           remarks: form.remarks.trim() || undefined,
+          latitude: form.latitude,
+          longitude: form.longitude,
         });
 
         setMessage("Shuttle booking request submitted successfully");
@@ -487,28 +654,47 @@ export default function ShuttleBookingsPage() {
                   </div>
 
                   {form.selectedRouteId && (
-                    <div>
-                      <label className="mb-1 block text-2xs font-bold text-slate-500 uppercase tracking-wider">
-                        Select Pickup Smart Stop
-                      </label>
-                      <select
-                        value={form.selectedStopId}
-                        onChange={(e) =>
-                          setForm((prev) => ({
-                            ...prev,
-                            selectedStopId: e.target.value,
-                          }))
-                        }
-                        required
-                        className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-                      >
-                        <option value="">-- Choose Pickup Stop --</option>
-                        {selectedRouteStops.map((stop: any) => (
-                          <option key={stop.id} value={stop.id}>
-                            Stop {stop.stopOrder}: {stop.stopName}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="mb-1 block text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                          Select Pickup Smart Stop
+                        </label>
+                        <select
+                          value={form.selectedStopId}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              selectedStopId: e.target.value,
+                            }))
+                          }
+                          required
+                          className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                        >
+                          <option value="">-- Choose Pickup Stop --</option>
+                          {selectedRouteStops.map((stop: any) => (
+                            <option key={stop.id} value={stop.id}>
+                              Stop {stop.stopOrder}: {stop.stopName}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="mt-2">
+                        <label className="mb-1 block text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                          Route Stop Layout
+                        </label>
+                        <MapView
+                          latitude={recurringMapCenter.lat}
+                          longitude={recurringMapCenter.lng}
+                          readOnly={true}
+                          markers={recurringMapMarkers}
+                          polylines={recurringPolylines}
+                          height="200px"
+                        />
+                        <p className="text-4xs text-slate-400 font-semibold mt-1">
+                          Map displays sequenced stop coordinates. Selected stop marker is highlighted in blue.
+                        </p>
+                      </div>
                     </div>
                   )}
 
@@ -558,6 +744,22 @@ export default function ShuttleBookingsPage() {
                       }
                       className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
                     />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                      Select Pickup Location Pin
+                    </label>
+                    <MapView
+                      latitude={form.latitude}
+                      longitude={form.longitude}
+                      onChange={handleMapChange}
+                      markers={stopMarkers}
+                      height="240px"
+                    />
+                    <p className="text-4xs text-slate-400 font-semibold mt-1">
+                      Drag pin or click map to locate your pickup point. Emerald dots show active shuttle stops.
+                    </p>
                   </div>
 
                   <div>
@@ -806,17 +1008,33 @@ export default function ShuttleBookingsPage() {
                           )}
                         </td>
                         <td className="rounded-r-2xl px-4 py-4 text-right">
-                          {(booking.status === "PENDING" || booking.status === "ASSIGNED") && (
-                            <Button
-                              type="button"
-                              variant="danger"
-                              disabled={processingId === booking.id}
-                              onClick={() => handleCancel(booking)}
-                            >
-                              <XCircle size={15} className="mr-2" />
-                              {processingId === booking.id ? "Skipping..." : "Skip Ride"}
-                            </Button>
-                          )}
+                          <div className="flex justify-end gap-2">
+                            {booking.status === "ASSIGNED" && booking.routeId && (
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => {
+                                  setTrackingRoute(booking.route);
+                                  setTrackingRouteId(booking.routeId || null);
+                                }}
+                                className="border border-blue-200 text-blue-700 bg-blue-50/50 hover:bg-blue-50"
+                              >
+                                <Activity size={15} className="mr-1.5" />
+                                Track Live
+                              </Button>
+                            )}
+                            {(booking.status === "PENDING" || booking.status === "ASSIGNED") && (
+                              <Button
+                                type="button"
+                                variant="danger"
+                                disabled={processingId === booking.id}
+                                onClick={() => handleCancel(booking)}
+                              >
+                                <XCircle size={15} className="mr-2" />
+                                {processingId === booking.id ? "Skipping..." : "Skip Ride"}
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -835,6 +1053,65 @@ export default function ShuttleBookingsPage() {
           </Card>
         </div>
       </div>
+      {/* Real-time Shuttle Tracking Modal */}
+      {trackingRouteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-3xl rounded-3xl bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  Live Shuttle Tracking
+                </h3>
+                <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                  Route: <strong className="text-slate-800">{trackingRoute?.routeName || "N/A"}</strong> ({trackingRoute?.routeCode || "N/A"}) 
+                  • Driver: <strong className="text-slate-800">{trackingRoute?.driver?.user?.fullName || "N/A"}</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setTrackingRouteId(null);
+                  setTrackingRoute(null);
+                }}
+                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 transition"
+              >
+                <XCircle size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <MapView
+                latitude={trackingCenter.lat}
+                longitude={trackingCenter.lng}
+                readOnly={true}
+                markers={trackingMarkers}
+                polylines={trackingPolylines}
+                height="400px"
+              />
+              <p className="text-4xs text-slate-400 font-bold text-center uppercase tracking-wider">
+                Shuttle coordinates auto-refresh every 5 seconds. Yellow marker indicates live shuttle position.
+              </p>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setTrackingRouteId(null);
+                  setTrackingRoute(null);
+                }}
+              >
+                Close Tracking console
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

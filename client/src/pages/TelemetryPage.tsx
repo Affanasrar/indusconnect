@@ -18,6 +18,7 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
+import MapView from "../components/ui/MapView";
 import {
   createTelemetryLog,
   getLiveLocations,
@@ -249,45 +250,46 @@ export default function TelemetryPage() {
     }
   }, [liveLogs]);
 
-  // Compute map SVG boundary coordinates (bounding Karachi core endpoints)
-  const mapBounds = useMemo(() => {
-    const defaultCoords = [
-      { lat: 24.8765, lng: 67.0321 }, // Garden West
-      { lat: 24.8138, lng: 67.1209 }, // Korangi
-      { lat: 24.8607, lng: 67.0104 }, // Saddar
-    ];
+  const telemetryMapMarkers = useMemo(() => {
+    const list: any[] = [];
+    
+    // Add default landmarks
+    MAP_LANDMARKS.forEach((l) => {
+      list.push({
+        latitude: l.lat,
+        longitude: l.lng,
+        label: `${l.name} (Campus Landmark)`,
+        color: "bg-blue-600",
+      });
+    });
 
-    // Read active coords from logs too to scale map bounding box
-    const activeCoords = liveLogs.map((l) => ({ lat: l.latitude, lng: l.longitude }));
-    const allCoords = [...defaultCoords, ...activeCoords];
+    // Add active live vehicles
+    liveLogs.forEach((log) => {
+      const isEmergency = log.status === "SOS" || log.status === "BREAKDOWN";
+      const markerColor =
+        log.status === "SOS"
+          ? "bg-red-600"
+          : log.status === "BREAKDOWN"
+          ? "bg-amber-600"
+          : log.status === "STOPPED"
+          ? "bg-slate-600"
+          : "bg-emerald-600";
 
-    const lats = allCoords.map((c) => c.lat);
-    const lngs = allCoords.map((c) => c.lng);
+      list.push({
+        latitude: log.latitude,
+        longitude: log.longitude,
+        label: `Vehicle ${log.vehicle?.vehicleNumber || "MOCK"} - Status: ${log.status} (Driver: ${log.driver?.user.fullName || "N/A"})`,
+        color: markerColor,
+        pulse: isEmergency,
+      });
+    });
 
-    return {
-      minLat: Math.min(...lats) - 0.015,
-      maxLat: Math.max(...lats) + 0.015,
-      minLng: Math.min(...lngs) - 0.015,
-      maxLng: Math.max(...lngs) + 0.015,
-    };
+    return list;
   }, [liveLogs]);
 
-  // Scale raw lat/lng coordinates to fit 100% inside SVG Canvas viewBox (600x400)
-  function scaleCoords(lat: number, lng: number) {
-    const w = 600;
-    const h = 400;
-    const padding = 40;
 
-    const latRange = mapBounds.maxLat - mapBounds.minLat;
-    const lngRange = mapBounds.maxLng - mapBounds.minLng;
 
-    // Translate lat to Y axis (note SVG Y coordinate increases downwards)
-    const y = h - (padding + ((lat - mapBounds.minLat) / latRange) * (h - 2 * padding));
-    // Translate lng to X axis
-    const x = padding + ((lng - mapBounds.minLng) / lngRange) * (w - 2 * padding);
 
-    return { x, y };
-  }
 
   function getErrorMessage(error: unknown) {
     if (
@@ -596,74 +598,15 @@ export default function TelemetryPage() {
                   <span className="text-[10px] text-slate-400 font-medium">Karachi Metro Boundaries scaled to SVG canvas</span>
                 </div>
 
-                <div className="relative border border-slate-200 rounded-2xl bg-slate-50 overflow-hidden flex items-center justify-center p-1">
-                  {/* SVG Canvas Map representation */}
-                  <svg className="w-full h-auto min-h-[300px] max-h-[420px]" viewBox="0 0 600 400">
-                    <defs>
-                      <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e2e8f0" strokeWidth="0.5" />
-                      </pattern>
-                    </defs>
-                    <rect width="100%" height="100%" fill="url(#grid)" />
-
-                    {/* Plot Campus Nodes (Landmarks) */}
-                    {MAP_LANDMARKS.map((landmark, idx) => {
-                      const { x, y } = scaleCoords(landmark.lat, landmark.lng);
-                      return (
-                        <g key={idx}>
-                          <circle cx={x} cy={y} r={8} fill={landmark.color} opacity={0.8} />
-                          <circle cx={x} cy={y} r={14} fill="none" stroke={landmark.color} strokeWidth={1} opacity={0.4} />
-                          <text x={x} y={y - 12} fill="#334155" fontSize="9" fontWeight="bold" textAnchor="middle">
-                            {landmark.name}
-                          </text>
-                        </g>
-                      );
-                    })}
-
-                    {/* Plot Active Vehicles */}
-                    {liveLogs.map((log) => {
-                      const { x, y } = scaleCoords(log.latitude, log.longitude);
-                      const isEmergency = log.status === "SOS" || log.status === "BREAKDOWN";
-                      const markerColor =
-                        log.status === "SOS"
-                          ? "#ef4444"
-                          : log.status === "BREAKDOWN"
-                          ? "#f59e0b"
-                          : log.status === "STOPPED"
-                          ? "#64748b"
-                          : "#10b981";
-
-                      return (
-                        <g key={log.id} className="cursor-pointer" onClick={() => setSelectedSimulatorLog(log)}>
-                          {/* Pulsing emergency beacon ring */}
-                          {isEmergency && (
-                            <circle cx={x} cy={y} r={18} fill="none" stroke={markerColor} strokeWidth={2} className="animate-pulse">
-                              <animate attributeName="r" values="8;20" dur="1.2s" repeatCount="indefinite" />
-                              <animate attributeName="opacity" values="1;0" dur="1.2s" repeatCount="indefinite" />
-                            </circle>
-                          )}
-                          
-                          <circle cx={x} cy={y} r={7} fill={markerColor} stroke="#ffffff" strokeWidth={1.5} />
-                          
-                          {/* Speed directional vector pointer line */}
-                          {log.heading !== null && log.heading !== undefined && (
-                            <line
-                              x1={x}
-                              y1={y}
-                              x2={x + 12 * Math.cos(((log.heading - 90) * Math.PI) / 180)}
-                              y2={y + 12 * Math.sin(((log.heading - 90) * Math.PI) / 180)}
-                              stroke={markerColor}
-                              strokeWidth={2}
-                            />
-                          )}
-
-                          <text x={x} y={y + 16} fill="#1e293b" fontSize="8" fontWeight="extrabold" textAnchor="middle">
-                            {log.vehicle?.vehicleNumber || "Active Dev"}
-                          </text>
-                        </g>
-                      );
-                    })}
-                  </svg>
+                <div className="relative border border-slate-200 rounded-2xl overflow-hidden p-1 bg-white z-10">
+                  <MapView
+                    latitude={24.8607}
+                    longitude={67.0104}
+                    readOnly={true}
+                    markers={telemetryMapMarkers}
+                    height="420px"
+                    zoom={12}
+                  />
                 </div>
               </Card>
             </div>

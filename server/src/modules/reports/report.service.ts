@@ -722,6 +722,7 @@ export async function getMyDashboardSummary(userId: string) {
     myApprovedExpenseClaims,
     recentTravelRequests,
     recentExpenseClaims,
+    recentShuttleBookings,
   ] = await Promise.all([
     prisma.shuttleBooking.count({
       where: {
@@ -788,6 +789,20 @@ export async function getMyDashboardSummary(userId: string) {
         createdAt: "desc",
       },
     }),
+
+    prisma.shuttleBooking.findMany({
+      where: {
+        employeeId: userId,
+      },
+      include: {
+        route: true,
+        pickupStop: true,
+      },
+      take: 5,
+      orderBy: {
+        bookingDate: "desc",
+      },
+    }),
   ]);
 
   return {
@@ -807,5 +822,6 @@ export async function getMyDashboardSummary(userId: string) {
     },
     recentTravelRequests,
     recentExpenseClaims,
+    recentShuttleBookings,
   };
 }

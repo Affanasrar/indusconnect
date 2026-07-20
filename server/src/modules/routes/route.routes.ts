@@ -10,6 +10,7 @@ import {
   getRouteByIdController,
   updateRouteController,
   updateSmartStopController,
+  runVRPOptimizationController,
 } from "./route.controller";
 
 const router = Router();
@@ -42,6 +43,12 @@ router.patch(
   "/:id/cancel",
   authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
   cancelRouteController
+);
+
+router.post(
+  "/vrp-optimize",
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  runVRPOptimizationController
 );
 
 // Main route collection

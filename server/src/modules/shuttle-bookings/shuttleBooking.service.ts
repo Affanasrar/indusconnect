@@ -5,6 +5,7 @@ import {
  } from "@prisma/client";
 import { createNotification } from "../notifications/notification.service";
 import prisma from "../../config/prisma";
+import { geocodeAddress, calculateHaversineDistance } from "../../utils/geocoder";
 import {
   AssignShuttleBookingInput,
   CancelShuttleBookingInput,
@@ -59,7 +60,7 @@ const bookingInclude = {
 
 export async function createShuttleBooking(
   employeeId: string,
-  data: CreateShuttleBookingInput
+  data: CreateShuttleBookingInput & { latitude?: number; longitude?: number }
 ) {
   const employee = await prisma.user.findUnique({
     where: {
@@ -74,17 +75,136 @@ export async function createShuttleBooking(
     throw new Error("Employee not found");
   }
 
-  return prisma.shuttleBooking.create({
+  const bookingDate = new Date(data.bookingDate);
+  const startOfDay = new Date(new Date(data.bookingDate).setHours(0, 0, 0, 0));
+  const endOfDay = new Date(new Date(data.bookingDate).setHours(23, 59, 59, 999));
+
+  // Determine user coordinates (from Leaflet Map pin or geocoded pickup name)
+  let userLat = data.latitude;
+  let userLon = data.longitude;
+  if (userLat === undefined || userLon === undefined || userLat === null || userLon === null) {
+    const coords = await geocodeAddress(data.pickupArea);
+    if (coords) {
+      userLat = coords.latitude;
+      userLon = coords.longitude;
+    }
+  }
+
+  let assignedRouteId: string | null = null;
+  let assignedStopId: string | null = null;
+  let assignedSeatNumber: string | null = null;
+  let bookingStatus: ShuttleBookingStatus = ShuttleBookingStatus.PENDING;
+  let autoRouteRemarks: string | null = data.remarks || null;
+
+  // Auto-routing logic
+  if (userLat !== undefined && userLon !== undefined && userLat !== null && userLon !== null) {
+    const activeRoutes = await prisma.transportRoute.findMany({
+      where: {
+        shiftType: data.shiftType,
+        status: { not: "CANCELLED" },
+      },
+      include: {
+        smartStops: true,
+        vehicle: true,
+      },
+    });
+
+    let closestStop: any = null;
+    let closestRoute: any = null;
+    let minDistance = Infinity;
+
+    for (const route of activeRoutes) {
+      for (const stop of route.smartStops) {
+        if (stop.latitude !== null && stop.longitude !== null) {
+          const dist = calculateHaversineDistance(
+            userLat,
+            userLon,
+            stop.latitude,
+            stop.longitude
+          );
+          if (dist < minDistance) {
+            minDistance = dist;
+            closestStop = stop;
+            closestRoute = route;
+          }
+        }
+      }
+    }
+
+    // Distance match constraint: 2.5 kilometers
+    if (closestStop && closestRoute && minDistance <= 2.5) {
+      const bookingsOnRoute = await prisma.shuttleBooking.findMany({
+        where: {
+          routeId: closestRoute.id,
+          bookingDate: {
+            gte: startOfDay,
+            lte: endOfDay,
+          },
+          status: { not: "CANCELLED" },
+        },
+      });
+
+      const maxCapacity = closestRoute.vehicle?.capacity || 20;
+
+      if (bookingsOnRoute.length < maxCapacity) {
+        assignedRouteId = closestRoute.id;
+        assignedStopId = closestStop.id;
+        bookingStatus = ShuttleBookingStatus.ASSIGNED;
+
+        // Allocate seat number sequentially
+        const bookedSeats = bookingsOnRoute
+          .map((b) => b.seatNumber)
+          .filter((s): s is string => !!s);
+        
+        let seatNum = 1;
+        while (bookedSeats.includes(`Seat-${seatNum.toString().padStart(2, "0")}`)) {
+          seatNum++;
+        }
+        assignedSeatNumber = `Seat-${seatNum.toString().padStart(2, "0")}`;
+
+        autoRouteRemarks = `Auto-approved by Engine (Closest Stop: ${
+          closestStop.stopName
+        }, Distance: ${minDistance.toFixed(2)} km)${data.remarks ? " - " + data.remarks : ""}`;
+      } else {
+        autoRouteRemarks = `Proximity matched to Route ${
+          closestRoute.routeName
+        } but vehicle is at maximum capacity.${data.remarks ? " - " + data.remarks : ""}`;
+      }
+    }
+  }
+
+  const booking = await prisma.shuttleBooking.create({
     data: {
       employeeId,
-      bookingDate: new Date(data.bookingDate),
+      routeId: assignedRouteId,
+      pickupStopId: assignedStopId,
+      bookingDate,
       shiftType: data.shiftType,
       pickupArea: data.pickupArea,
       pickupAddress: data.pickupAddress,
-      remarks: data.remarks,
+      seatNumber: assignedSeatNumber,
+      status: bookingStatus,
+      remarks: autoRouteRemarks,
     },
     include: bookingInclude,
   });
+
+  // Dispatch notification for auto-approvals
+  if (bookingStatus === ShuttleBookingStatus.ASSIGNED) {
+    await createNotification(undefined, {
+      recipientId: employeeId,
+      type: NotificationType.SHUTTLE,
+      priority: NotificationPriority.HIGH,
+      title: "Shuttle Ride Auto-Approved",
+      message: `Your shuttle ride is confirmed on Route: ${
+        booking.route?.routeName ?? "N/A"
+      }. Assigned seat: ${assignedSeatNumber ?? "N/A"}.`,
+      entityType: "ShuttleBooking",
+      entityId: booking.id,
+    });
+  }
+
+  return booking;
 }
 
 export async function getMyShuttleBookings(employeeId: string) {
@@ -301,6 +421,42 @@ export async function createShuttleSubscription(
         where: { id: data.pickupStopId },
       });
 
+      const bookingsOnRoute = await prisma.shuttleBooking.findMany({
+        where: {
+          routeId: data.routeId,
+          bookingDate: {
+            gte: startOfTomorrow,
+            lte: endOfTomorrow,
+          },
+          status: { not: "CANCELLED" },
+        },
+      });
+
+      const route = await prisma.transportRoute.findUnique({
+        where: { id: data.routeId },
+        include: { vehicle: true },
+      });
+
+      const maxCapacity = route?.vehicle?.capacity || 20;
+
+      let status: ShuttleBookingStatus = ShuttleBookingStatus.PENDING;
+      let seatNumber: string | null = null;
+      let remarks = "Auto-generated from active commute subscription";
+
+      if (bookingsOnRoute.length < maxCapacity) {
+        status = ShuttleBookingStatus.ASSIGNED;
+        const bookedSeats = bookingsOnRoute
+          .map((b) => b.seatNumber)
+          .filter((s): s is string => !!s);
+        
+        let seatNum = 1;
+        while (bookedSeats.includes(`Seat-${seatNum.toString().padStart(2, "0")}`)) {
+          seatNum++;
+        }
+        seatNumber = `Seat-${seatNum.toString().padStart(2, "0")}`;
+        remarks = `Auto-approved from subscription (Seat: ${seatNumber})`;
+      }
+
       await prisma.shuttleBooking.create({
         data: {
           employeeId,
@@ -310,13 +466,29 @@ export async function createShuttleSubscription(
           shiftType: data.shiftType,
           pickupArea: stop?.stopName ?? "Stop",
           pickupAddress: stop?.stopName ?? "Stop",
-          remarks: "Auto-generated from active commute subscription",
+          seatNumber,
+          remarks,
           isProxyBooking: data.isProxyBooking ?? false,
           proxyCreatedById: data.proxyCreatedById,
           proxyReason: data.proxyReason,
-          status: ShuttleBookingStatus.PENDING,
+          status,
         },
       });
+
+      // Dispatch alert for auto-approved subscriptions
+      if (status === ShuttleBookingStatus.ASSIGNED) {
+        await createNotification(undefined, {
+          recipientId: employeeId,
+          type: NotificationType.SHUTTLE,
+          priority: NotificationPriority.HIGH,
+          title: "Subscription Shuttle Seat Reserved",
+          message: `Your standing subscription has auto-booked your seat (${seatNumber}) on Route: ${
+            route?.routeName ?? "N/A"
+          } for tomorrow.`,
+          entityType: "ShuttleBooking",
+          entityId: "StandingSubscription",
+        });
+      }
     }
   }
 
@@ -425,7 +597,43 @@ export async function generateDailyBookingsFromSubscriptions(targetDate: Date = 
           where: { id: sub.pickupStopId },
         });
 
-        await prisma.shuttleBooking.create({
+        const bookingsOnRoute = await prisma.shuttleBooking.findMany({
+          where: {
+            routeId: sub.routeId,
+            bookingDate: {
+              gte: startOfTarget,
+              lte: endOfTarget,
+            },
+            status: { not: "CANCELLED" },
+          },
+        });
+
+        const route = await prisma.transportRoute.findUnique({
+          where: { id: sub.routeId },
+          include: { vehicle: true },
+        });
+
+        const maxCapacity = route?.vehicle?.capacity || 20;
+
+        let status: ShuttleBookingStatus = ShuttleBookingStatus.PENDING;
+        let seatNumber: string | null = null;
+        let remarks = "Auto-generated from active commute subscription";
+
+        if (bookingsOnRoute.length < maxCapacity) {
+          status = ShuttleBookingStatus.ASSIGNED;
+          const bookedSeats = bookingsOnRoute
+            .map((b) => b.seatNumber)
+            .filter((s): s is string => !!s);
+          
+          let seatNum = 1;
+          while (bookedSeats.includes(`Seat-${seatNum.toString().padStart(2, "0")}`)) {
+            seatNum++;
+          }
+          seatNumber = `Seat-${seatNum.toString().padStart(2, "0")}`;
+          remarks = `Auto-approved from subscription (Seat: ${seatNumber})`;
+        }
+
+        const newBooking = await prisma.shuttleBooking.create({
           data: {
             employeeId: sub.employeeId,
             routeId: sub.routeId,
@@ -434,13 +642,29 @@ export async function generateDailyBookingsFromSubscriptions(targetDate: Date = 
             shiftType: sub.shiftType,
             pickupArea: stop?.stopName ?? "Stop",
             pickupAddress: stop?.stopName ?? "Stop",
-            remarks: "Auto-generated from active commute subscription",
+            seatNumber,
+            remarks,
             isProxyBooking: sub.isProxyBooking,
             proxyCreatedById: sub.proxyCreatedById,
             proxyReason: sub.proxyReason,
-            status: ShuttleBookingStatus.PENDING,
+            status,
           },
         });
+
+        // Dispatch alert for auto-approved daily subscription booking
+        if (status === ShuttleBookingStatus.ASSIGNED) {
+          await createNotification(undefined, {
+            recipientId: sub.employeeId,
+            type: NotificationType.SHUTTLE,
+            priority: NotificationPriority.HIGH,
+            title: "Daily Commute Seat Reserved",
+            message: `Your standing subscription has auto-confirmed seat: ${seatNumber} on Route: ${
+              route?.routeName ?? "N/A"
+            } for today.`,
+            entityType: "ShuttleBooking",
+            entityId: newBooking.id,
+          });
+        }
 
         createdCount++;
       }

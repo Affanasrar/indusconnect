@@ -31,7 +31,7 @@ const telemetryInclude = {
 };
 
 async function getCurrentDriver(userId: string) {
-  const driver = await prisma.driver.findUnique({
+  let driver = await prisma.driver.findUnique({
     where: {
       userId,
     },
@@ -40,6 +40,22 @@ async function getCurrentDriver(userId: string) {
       vehicle: true,
     },
   });
+
+  if (!driver) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+
+    if (user && (user.role.name === "SUPER_ADMIN" || user.role.name === "TRANSPORT_ADMIN")) {
+      driver = await prisma.driver.findFirst({
+        include: {
+          user: true,
+          vehicle: true,
+        },
+      });
+    }
+  }
 
   if (!driver) {
     throw new Error("Driver profile not found for this user");
@@ -242,7 +258,10 @@ export async function getEmergencyTelemetryEvents() {
   });
 }
 
-export async function getTelemetryByRoute(routeId: string) {
+export async function getTelemetryByRoute(
+  routeId: string,
+  currentUser?: { userId: string; role: string }
+) {
   const route = await prisma.transportRoute.findUnique({
     where: {
       id: routeId,
@@ -251,6 +270,30 @@ export async function getTelemetryByRoute(routeId: string) {
 
   if (!route) {
     throw new Error("Route not found");
+  }
+
+  // Restrict telemetry access to route booking assignment
+  if (currentUser && currentUser.role === "EMPLOYEE") {
+    const today = new Date();
+    const startOfToday = new Date(today.setHours(0, 0, 0, 0));
+    const endOfTomorrow = new Date(new Date().setDate(today.getDate() + 1));
+    endOfTomorrow.setHours(23, 59, 59, 999);
+
+    const activeBooking = await prisma.shuttleBooking.findFirst({
+      where: {
+        employeeId: currentUser.userId,
+        routeId,
+        bookingDate: {
+          gte: startOfToday,
+          lte: endOfTomorrow,
+        },
+        status: { in: ["ASSIGNED", "COMPLETED"] },
+      },
+    });
+
+    if (!activeBooking) {
+      throw new Error("Forbidden: You do not have an approved shuttle booking on this route.");
+    }
   }
 
   return prisma.vehicleTelemetryLog.findMany({

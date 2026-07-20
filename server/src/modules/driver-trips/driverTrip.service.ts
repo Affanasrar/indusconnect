@@ -52,7 +52,7 @@ const routeInclude = {
 };
 
 async function getCurrentDriver(userId: string) {
-  const driver = await prisma.driver.findUnique({
+  let driver = await prisma.driver.findUnique({
     where: {
       userId,
     },
@@ -61,6 +61,22 @@ async function getCurrentDriver(userId: string) {
       vehicle: true,
     },
   });
+
+  if (!driver) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+
+    if (user && (user.role.name === "SUPER_ADMIN" || user.role.name === "TRANSPORT_ADMIN")) {
+      driver = await prisma.driver.findFirst({
+        include: {
+          user: true,
+          vehicle: true,
+        },
+      });
+    }
+  }
 
   if (!driver) {
     throw new Error("Driver profile not found for this user");
