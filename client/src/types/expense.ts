@@ -57,6 +57,10 @@ export interface ExpenseClaim {
   paymentReference?: string | null;
   paidAt?: string | null;
 
+  payrollSyncStatus?: string;
+  exportedAt?: string | null;
+  payrollExportId?: string | null;
+
   createdAt?: string;
   updatedAt?: string;
 }

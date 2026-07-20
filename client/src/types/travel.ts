@@ -69,6 +69,10 @@ export interface TravelRequest {
   proxyCreatedBy?: UserProfile | null;
   proxyReason?: string | null;
 
+  allowancePayrollSyncStatus?: string;
+  allowanceExportedAt?: string | null;
+  allowancePayrollExportId?: string | null;
+
   createdAt?: string;
   updatedAt?: string;
 }
