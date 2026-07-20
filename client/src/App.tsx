@@ -19,6 +19,7 @@ import TelemetryPage from "./pages/TelemetryPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import ProxyBookingsPage from "./pages/ProxyBookingsPage";
 import PoliciesPage from "./pages/PoliciesPage";
+import MaintenancePage from "./pages/MaintenancePage";
 
 export default function App() {
   return (
@@ -59,7 +60,7 @@ export default function App() {
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/proxy-bookings" element={<ProxyBookingsPage />} />
           <Route path="/policies" element={<PoliciesPage />} />
-          <Route path="/maintenance" element={<ModulePlaceholderPage />} />
+          <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/erp-exports" element={<ModulePlaceholderPage />} />
           <Route path="/reports" element={<ModulePlaceholderPage />} />
           <Route path="/audit-logs" element={<ModulePlaceholderPage />} />
