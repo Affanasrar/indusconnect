@@ -15,26 +15,57 @@ import {
 const router = Router();
 
 router.use(authMiddleware);
-router.use(authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"));
 
 /*
  * Specific nested routes should come before generic "/:id" routes.
  */
 
 // Smart-stop routes
-router.post("/:routeId/stops", addSmartStopController);
-router.patch("/stops/:stopId", updateSmartStopController);
-router.delete("/stops/:stopId", deleteSmartStopController);
+router.post(
+  "/:routeId/stops",
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  addSmartStopController
+);
+router.patch(
+  "/stops/:stopId",
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  updateSmartStopController
+);
+router.delete(
+  "/stops/:stopId",
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  deleteSmartStopController
+);
 
 // Specific route action
-router.patch("/:id/cancel", cancelRouteController);
+router.patch(
+  "/:id/cancel",
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  cancelRouteController
+);
 
 // Main route collection
-router.get("/", getAllRoutesController);
-router.post("/", createRouteController);
+router.get(
+  "/",
+  authorizeRoles("EMPLOYEE", "DRIVER", "SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  getAllRoutesController
+);
+router.post(
+  "/",
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  createRouteController
+);
 
 // Generic route ID endpoints
-router.get("/:id", getRouteByIdController);
-router.patch("/:id", updateRouteController);
+router.get(
+  "/:id",
+  authorizeRoles("EMPLOYEE", "DRIVER", "SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  getRouteByIdController
+);
+router.patch(
+  "/:id",
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  updateRouteController
+);
 
 export default router;
