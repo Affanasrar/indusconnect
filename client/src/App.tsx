@@ -3,7 +3,6 @@ import ProtectedRoute from "./auth/ProtectedRoute";
 import AppLayout from "./components/layout/AppLayout";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
-import ModulePlaceholderPage from "./pages/ModulePlaceholderPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import UsersPage from "./pages/UsersPage";
 import VehiclesPage from "./pages/VehiclesPage";
@@ -22,6 +21,7 @@ import PoliciesPage from "./pages/PoliciesPage";
 import MaintenancePage from "./pages/MaintenancePage";
 import ErpExportsPage from "./pages/ErpExportsPage";
 import ReportsPage from "./pages/ReportsPage";
+import AuditLogsPage from "./pages/AuditLogsPage";
 
 export default function App() {
   return (
@@ -65,7 +65,7 @@ export default function App() {
           <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/erp-exports" element={<ErpExportsPage />} />
           <Route path="/reports" element={<ReportsPage />} />
-          <Route path="/audit-logs" element={<ModulePlaceholderPage />} />
+          <Route path="/audit-logs" element={<AuditLogsPage />} />
         </Route>
       </Route>
 
