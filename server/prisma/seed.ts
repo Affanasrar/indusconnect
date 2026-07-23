@@ -64,9 +64,36 @@ async function main() {
     },
   });
 
+  const demoPassword = await bcrypt.hash("Demo@123", 10);
+
+  const demoUsers = [
+    { email: "employee@indusconnect.com", fullName: "Demo Employee", roleName: RoleName.EMPLOYEE },
+    { email: "manager@indusconnect.com", fullName: "Demo Manager", roleName: RoleName.MANAGER },
+    { email: "transport@indusconnect.com", fullName: "Demo Transport Admin", roleName: RoleName.TRANSPORT_ADMIN },
+    { email: "accommodation@indusconnect.com", fullName: "Demo Accommodation Admin", roleName: RoleName.ACCOMMODATION_ADMIN },
+    { email: "finance@indusconnect.com", fullName: "Demo Finance Officer", roleName: RoleName.FINANCE_OFFICER },
+    { email: "driver@indusconnect.com", fullName: "Demo Driver", roleName: RoleName.DRIVER },
+    { email: "security@indusconnect.com", fullName: "Demo Security Officer", roleName: RoleName.SECURITY_OFFICER },
+  ];
+
+  for (const user of demoUsers) {
+    const role = await prisma.role.findUniqueOrThrow({ where: { name: user.roleName } });
+    await prisma.user.upsert({
+      where: { email: user.email },
+      update: {},
+      create: {
+        fullName: user.fullName,
+        email: user.email,
+        password: demoPassword,
+        roleId: role.id,
+      },
+    });
+  }
+
   console.log("Database seeded successfully.");
   console.log("Admin Email: admin@indusconnect.com");
   console.log("Admin Password: Admin@123");
+  console.log("Demo Users created with password: Demo@123");
 }
 
 main()
