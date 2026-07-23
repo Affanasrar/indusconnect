@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import type { FormEvent } from "react";
 import {
   RefreshCcw,
   AlertOctagon,
   BatteryCharging,
-  Compass,
   CheckCircle,
   XCircle,
   Truck,
@@ -27,7 +25,7 @@ import {
   getMyTelemetryLogs,
 } from "../api/telemetry";
 import { getRoutes } from "../api/routes";
-import type { VehicleTelemetryLog, TelemetryStatus, TelemetrySource } from "../types/telemetry";
+import type { VehicleTelemetryLog, TelemetryStatus } from "../types/telemetry";
 import type { TransportRoute } from "../types/transport";
 
 // Campuses/smart stops coordinates for drawing visual SVG map scaling
@@ -54,26 +52,72 @@ export default function TelemetryPage() {
   const [selectedRouteId, setSelectedRouteId] = useState("");
   const [routeHistory, setRouteHistory] = useState<VehicleTelemetryLog[]>([]);
 
-  // Simulation controls
-  const [selectedSimulatorLog, setSelectedSimulatorLog] = useState<VehicleTelemetryLog | null>(null);
-  
-  // Mock form state
-  const [mockLat, setMockLat] = useState("24.8765");
-  const [mockLng, setMockLng] = useState("67.0321");
-  const [mockSpeed, setMockSpeed] = useState("40");
-  const [mockHeading, setMockHeading] = useState("90");
-  const [mockStatus, setMockStatus] = useState<TelemetryStatus>("MOVING");
-  const [mockBattery, setMockBattery] = useState("80");
-  const [mockRemarks, setMockRemarks] = useState("");
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [gpsLat, setGpsLat] = useState<number | null>(null);
+  const [gpsLng, setGpsLng] = useState<number | null>(null);
+  const [gpsSyncedCount, setGpsSyncedCount] = useState(0);
+
+  async function syncGPSCoordinates(lat: number, lng: number, status: TelemetryStatus = "MOVING", remarks?: string) {
+    try {
+      await createTelemetryLog({
+        latitude: lat,
+        longitude: lng,
+        speed: 35,
+        status: status,
+        source: "MOBILE_GPS",
+        remarks: remarks || "Automated live GPS coordinate update.",
+      });
+      setGpsSyncedCount((prev) => prev + 1);
+    } catch (err) {
+      console.error("GPS Sync failed:", err);
+    }
+  }
+
+  useEffect(() => {
+    if (isSyncing) {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            setGpsLat(lat);
+            setGpsLng(lng);
+            syncGPSCoordinates(lat, lng);
+          },
+          (err) => console.error(err)
+        );
+
+        const id = setInterval(() => {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const lat = position.coords.latitude;
+              const lng = position.coords.longitude;
+              setGpsLat(lat);
+              setGpsLng(lng);
+              syncGPSCoordinates(lat, lng);
+            },
+            (err) => console.error(err)
+          );
+        }, 10000);
+
+        return () => clearInterval(id);
+      } else {
+        setError("HTML5 Geolocation is not supported by your browser");
+        setIsSyncing(false);
+      }
+    }
+  }, [isSyncing]);
+
+  // Selected active log details
+  const [selectedLiveLog, setSelectedLiveLog] = useState<VehicleTelemetryLog | null>(null);
 
   // UI state
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
 
-  // Audio simulation ref for pulsing emergencies
+  // Audio warning ref for pulsing emergencies
   const audioContextRef = useRef<AudioContext | null>(null);
 
   // Load telemetry logs
@@ -84,11 +128,8 @@ export default function TelemetryPage() {
       
       if (isDriver) {
         const myLogs = await getMyTelemetryLogs();
-        // Construct a mock default location if driver has no logs yet
         if (myLogs.length > 0) {
           setLiveLogs(myLogs);
-          setMockLat(myLogs[0].latitude.toString());
-          setMockLng(myLogs[0].longitude.toString());
         }
       } else {
         const [live, emergenciesList, routesList] = await Promise.all([
@@ -149,75 +190,7 @@ export default function TelemetryPage() {
     }
   }
 
-  // Handle telemetry update submit
-  async function handleSendTelemetry(e?: FormEvent) {
-    if (e) e.preventDefault();
-    setError("");
-    setMessage("");
-    setIsSubmitting(true);
-
-    try {
-      const latVal = parseFloat(mockLat);
-      const lngVal = parseFloat(mockLng);
-      const speedVal = parseFloat(mockSpeed);
-      const headingVal = parseFloat(mockHeading);
-      const batteryVal = parseInt(mockBattery);
-
-      if (isNaN(latVal) || isNaN(lngVal)) {
-        throw new Error("Latitude and Longitude must be valid decimal coordinates");
-      }
-
-      // If updating from driver view, route info is fetched from their active assignment in the backend
-      const input = {
-        routeId: !isDriver ? selectedSimulatorLog?.routeId || undefined : undefined,
-        vehicleId: !isDriver ? selectedSimulatorLog?.vehicleId || undefined : undefined,
-        latitude: latVal,
-        longitude: lngVal,
-        speed: isNaN(speedVal) ? undefined : speedVal,
-        heading: isNaN(headingVal) ? undefined : headingVal,
-        status: mockStatus,
-        source: "MOCK_GPS" as TelemetrySource,
-        batteryLevel: isNaN(batteryVal) ? undefined : batteryVal,
-        remarks: mockRemarks.trim() || undefined,
-      };
-
-      await createTelemetryLog(input);
-      setMessage("Telemetry data pinged successfully");
-      
-      // Auto increment coordinates slightly to simulate path motion
-      setMockLat((latVal + 0.001 * Math.cos((headingVal * Math.PI) / 180)).toFixed(5));
-      setMockLng((lngVal + 0.001 * Math.sin((headingVal * Math.PI) / 180)).toFixed(5));
-      setMockRemarks("");
-
-      await loadTelemetry();
-    } catch (err) {
-      setError(getErrorMessage(err) || "Failed to send telemetry update");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  // Mock preset selections
-  function applyPreset(preset: "MOVING" | "SOS" | "BREAKDOWN" | "STOPPED") {
-    setMockStatus(preset);
-    if (preset === "SOS") {
-      setMockRemarks("EMERGENCY: Driver requesting immediate medical/security assistance!");
-      setMockSpeed("0");
-      triggerBeepAlert();
-    } else if (preset === "BREAKDOWN") {
-      setMockRemarks("VEHICLE FAILURE: Engine overheating, smoke from radiator.");
-      setMockSpeed("0");
-      triggerBeepAlert();
-    } else if (preset === "STOPPED") {
-      setMockRemarks("Shuttle stopped at smart stop waiting for boarding passengers.");
-      setMockSpeed("0");
-    } else {
-      setMockRemarks("Shuttle in motion. Route traffic is normal.");
-      setMockSpeed("45");
-    }
-  }
-
-  // Synthesize warning beep for emergency drills
+  // Synthesize warning beep for emergency alarms
   function triggerBeepAlert() {
     if (isMuted) return;
     try {
@@ -387,201 +360,118 @@ export default function TelemetryPage() {
           <p className="mt-4 text-sm font-medium">Loading telemetry dashboard...</p>
         </div>
       ) : isDriver ? (
-        /* DRIVER SIMULATION PAGE */
+        /* DRIVER LIVE GPS SYNCS PANEL */
         <div className="grid gap-6 md:grid-cols-2">
-          {/* Driver Simulation details */}
           <Card className="space-y-4">
-            <h2 className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
-              <Truck className="text-blue-700" size={18} /> Driver Telemetry Dashboard
+            <h2 className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Truck className="text-blue-700" size={18} /> Driver Telemetry Console
+              </span>
+              {isSyncing && (
+                <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
+              )}
             </h2>
 
-            {liveLogs.length > 0 ? (
-              <div className="space-y-3.5 text-sm text-slate-700">
-                <p>
-                  <strong>Active Route:</strong> {liveLogs[0].route?.routeName || "General Route"}
-                </p>
-                <p>
-                  <strong>Route Code:</strong>{" "}
-                  <span className="font-mono bg-slate-50 px-2 py-1 rounded text-xs">
-                    {liveLogs[0].route?.routeCode || "-"}
-                  </span>
-                </p>
-                <p>
-                  <strong>Assigned Vehicle:</strong> {liveLogs[0].vehicle?.vehicleNumber || "Unknown"}
-                </p>
-                <p className="flex items-center gap-1.5">
-                  <strong>Last Status:</strong>
-                  <span
-                    className={`rounded px-2 py-0.5 text-xs font-bold ${
-                      liveLogs[0].status === "SOS"
-                        ? "bg-red-100 text-red-800"
-                        : liveLogs[0].status === "BREAKDOWN"
-                        ? "bg-amber-100 text-amber-800"
-                        : "bg-emerald-100 text-emerald-800"
-                    }`}
-                  >
-                    {liveLogs[0].status}
-                  </span>
-                </p>
-                <p>
-                  <strong>Telemetry Source:</strong>{" "}
-                  <span className="text-slate-500 font-semibold">{liveLogs[0].source}</span>
-                </p>
-                <p>
-                  <strong>Last Ping:</strong> {new Date(liveLogs[0].recordedAt).toLocaleString()}
-                </p>
-              </div>
-            ) : (
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-center">
-                <p className="text-slate-500 text-sm">No telemetry records registered yet for your profile.</p>
-                <p className="text-slate-400 text-xs mt-1">Use the simulator form to log your first coordinates.</p>
+            {liveLogs.length > 0 && (
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/50 space-y-2.5 text-xs text-slate-600 font-semibold">
+                <p><strong>Assigned Route:</strong> {liveLogs[0].route?.routeName || "General Route"}</p>
+                <p><strong>Route Code:</strong> <span className="font-mono bg-white px-2 py-0.5 border border-slate-200 rounded text-2xs">{liveLogs[0].route?.routeCode || "-"}</span></p>
+                <p><strong>Assigned Vehicle:</strong> {liveLogs[0].vehicle?.vehicleNumber || "Unknown"}</p>
               </div>
             )}
-          </Card>
 
-          {/* Telemetry Simulator Form */}
-          <Card>
-            <h2 className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
-              <Compass className="text-blue-700" size={18} /> GPS Coordinate Simulator
-            </h2>
-
-            <form onSubmit={handleSendTelemetry} className="mt-4 space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
+            <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100/50 space-y-4">
+              <div className="flex items-center justify-between">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Latitude (mock)
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={mockLat}
-                    onChange={(e) => setMockLat(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-600 transition"
-                  />
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    GPS Tracking status
+                  </p>
+                  <p className="text-xs font-extrabold text-slate-700 mt-1">
+                    {isSyncing ? "🔵 Live Tracking Active" : "⚪ Off (Standby)"}
+                  </p>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Longitude (mock)
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={mockLng}
-                    onChange={(e) => setMockLng(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-600 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Speed (km/h)
-                  </label>
-                  <input
-                    type="number"
-                    value={mockSpeed}
-                    onChange={(e) => setMockSpeed(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-600 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Heading (degrees)
-                  </label>
-                  <input
-                    type="number"
-                    value={mockHeading}
-                    onChange={(e) => setMockHeading(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-600 transition"
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Telemetry Status
-                  </label>
-                  <select
-                    value={mockStatus}
-                    onChange={(e) => setMockStatus(e.target.value as TelemetryStatus)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-600 transition"
-                  >
-                    <option value="MOVING">Moving</option>
-                    <option value="STOPPED">Stopped</option>
-                    <option value="DELAYED">Delayed</option>
-                    <option value="BREAKDOWN">Breakdown</option>
-                    <option value="SOS">SOS (EMERGENCY)</option>
-                    <option value="OFFLINE">Offline</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Battery Level (%)
-                  </label>
-                  <input
-                    type="number"
-                    value={mockBattery}
-                    onChange={(e) => setMockBattery(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-600 transition"
-                  />
-                </div>
-              </div>
-
-              {/* Status presets shortcuts */}
-              <div className="space-y-1.5 pt-1">
-                <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Quick status presets
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => applyPreset("MOVING")}
-                    className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 border border-blue-100 hover:bg-blue-100"
-                  >
-                    Set Normal Driving
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyPreset("STOPPED")}
-                    className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 border border-slate-200 hover:bg-slate-200"
-                  >
-                    Set Stop Boarding
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyPreset("BREAKDOWN")}
-                    className="rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 border border-amber-100 hover:bg-amber-100"
-                  >
-                    Trigger Breakdown
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyPreset("SOS")}
-                    className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 border border-red-100 hover:bg-red-100"
-                  >
-                    Trigger SOS Alert
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                  Telemetry Remarks / Incident Details
-                </label>
-                <textarea
-                  value={mockRemarks}
-                  onChange={(e) => setMockRemarks(e.target.value)}
-                  rows={2}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-600 transition"
-                  placeholder="Provide details about breakdowns, route traffic delay status, or SOS causes..."
-                />
-              </div>
-
-              <div className="border-t border-slate-100 pt-4 flex justify-end">
-                <Button type="submit" disabled={isSubmitting} className="rounded-xl px-6">
-                  {isSubmitting ? "Ping GPS..." : "Ping Coordinates Update"}
+                <Button
+                  onClick={() => setIsSyncing(!isSyncing)}
+                  className={isSyncing ? "bg-red-600 hover:bg-red-700 text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white"}
+                >
+                  {isSyncing ? "Stop GPS Sync" : "Start GPS Sync"}
                 </Button>
               </div>
-            </form>
+
+              {gpsLat && gpsLng && (
+                <div className="pt-2.5 border-t border-blue-100/50 text-xs font-semibold text-slate-700 space-y-1.5">
+                  <p>Current Latitude: <span className="font-mono text-blue-700">{gpsLat.toFixed(5)}</span></p>
+                  <p>Current Longitude: <span className="font-mono text-blue-700">{gpsLng.toFixed(5)}</span></p>
+                  <p>Synced Coordinates: <span className="text-blue-700 font-bold">{gpsSyncedCount} pings</span></p>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <label className="block text-xs font-bold text-slate-500 uppercase">
+                Report Incident location
+              </label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={() => {
+                    if (gpsLat && gpsLng) {
+                      syncGPSCoordinates(gpsLat, gpsLng, "SOS", "EMERGENCY: Driver flagged immediate safety SOS!");
+                      setMessage("SOS emergency alert flagged to central dispatch!");
+                    } else {
+                      setError("Cannot send SOS: Waiting for GPS lock. Turn on GPS Sync first.");
+                    }
+                  }}
+                  className="flex-1 text-xs"
+                  disabled={!isSyncing}
+                >
+                  Send emergency SOS
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (gpsLat && gpsLng) {
+                      syncGPSCoordinates(gpsLat, gpsLng, "BREAKDOWN", "VEHICLE FAILURE: Driver reported breakdown.");
+                      setMessage("Vehicle failure breakdown flagged to central dispatch.");
+                    } else {
+                      setError("Cannot send Breakdown: Turn on GPS Sync first.");
+                    }
+                  }}
+                  className="flex-1 text-xs bg-amber-600 hover:bg-amber-700 text-white border-0"
+                  disabled={!isSyncing}
+                >
+                  Report Breakdown
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="flex flex-col min-h-[350px]">
+            <h2 className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2 mb-4">
+              <Map className="text-blue-700" size={18} /> Live Location Map
+            </h2>
+            <div className="relative rounded-2xl overflow-hidden border border-slate-200 flex-1 min-h-[280px]">
+              <MapView
+                latitude={gpsLat ?? 24.8607}
+                longitude={gpsLng ?? 67.0104}
+                readOnly={true}
+                markers={
+                  gpsLat && gpsLng
+                    ? [
+                        {
+                          latitude: gpsLat,
+                          longitude: gpsLng,
+                          label: "Your current live location",
+                          color: "bg-blue-600 animate-pulse scale-110",
+                          pulse: true,
+                        },
+                      ]
+                    : []
+                }
+                height="100%"
+              />
+            </div>
           </Card>
         </div>
       ) : (
@@ -625,7 +515,7 @@ export default function TelemetryPage() {
 
                 <div className="space-y-2.5">
                   {liveLogs.map((log) => {
-                    const isSelected = selectedSimulatorLog?.id === log.id;
+                    const isSelected = selectedLiveLog?.id === log.id;
                     const isEmergency = log.status === "SOS" || log.status === "BREAKDOWN";
 
                     const statusColors = {
@@ -640,7 +530,7 @@ export default function TelemetryPage() {
                     return (
                       <div
                         key={log.id}
-                        onClick={() => setSelectedSimulatorLog(log)}
+                        onClick={() => setSelectedLiveLog(log)}
                         className={`rounded-xl border p-3 cursor-pointer transition hover:border-blue-400 ${
                           isSelected
                             ? "border-blue-700 bg-blue-50/20"
@@ -651,7 +541,7 @@ export default function TelemetryPage() {
                       >
                         <div className="flex items-start justify-between gap-1">
                           <div>
-                            <span className="font-extrabold text-slate-800">{log.vehicle?.vehicleNumber || "MOCK DEVICE"}</span>
+                            <span className="font-extrabold text-slate-800">{log.vehicle?.vehicleNumber || "ACTIVE DEVICE"}</span>
                             <span className="block text-[10px] text-slate-400 font-semibold uppercase">
                               {log.driver?.user.fullName}
                             </span>
@@ -689,140 +579,57 @@ export default function TelemetryPage() {
             </div>
           </div>
 
-          {/* Admin simulator controls overlay (Selected vehicle details drawer) */}
-          {selectedSimulatorLog && (
+          {/* Active vehicle details drawer */}
+          {selectedLiveLog && (
             <Card className="border-blue-200 bg-blue-50/5">
               <div className="flex items-start justify-between border-b border-slate-200 pb-3 mb-4">
                 <div>
                   <h3 className="font-bold text-slate-800 text-base">
-                    Device Control: {selectedSimulatorLog.vehicle?.vehicleNumber || "MOCK DEVICE"}
+                    Device Monitor: {selectedLiveLog.vehicle?.vehicleNumber || "ACTIVE DEVICE"}
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Operating on route: <strong>{selectedSimulatorLog.route?.routeName}</strong> • Driver:{" "}
-                    <strong>{selectedSimulatorLog.driver?.user.fullName}</strong>
+                    Operating on route: <strong>{selectedLiveLog.route?.routeName}</strong> • Driver:{" "}
+                    <strong>{selectedLiveLog.driver?.user.fullName}</strong>
                   </p>
                 </div>
                 <button
-                  onClick={() => setSelectedSimulatorLog(null)}
+                  onClick={() => setSelectedLiveLog(null)}
                   className="rounded text-xs font-semibold text-slate-400 hover:text-slate-600"
                 >
                   Clear Selection
                 </button>
               </div>
 
-              <div className="grid gap-6 md:grid-cols-3">
-                {/* Visual state summary */}
-                <div className="space-y-3.5 text-sm text-slate-700">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Device telemetry readings</h4>
-                  <p>
-                    <strong>Coordinates:</strong> {selectedSimulatorLog.latitude.toFixed(5)}, {selectedSimulatorLog.longitude.toFixed(5)}
-                  </p>
-                  <p>
-                    <strong>Velocity:</strong> {selectedSimulatorLog.speed ?? 0} km/h • <strong>Heading:</strong> {selectedSimulatorLog.heading ?? 0}°
-                  </p>
-                  <p>
-                    <strong>Battery level:</strong> {selectedSimulatorLog.batteryLevel ?? "-"}% • <strong>GPS Source:</strong> {selectedSimulatorLog.source}
-                  </p>
-                  {selectedSimulatorLog.remarks && (
-                    <p className="text-xs italic bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-slate-600">
-                      <strong>Remarks:</strong> "{selectedSimulatorLog.remarks}"
-                    </p>
-                  )}
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 text-sm text-slate-700">
+                <div className="bg-white p-3 rounded-xl border border-slate-200/50">
+                  <span className="block text-[10px] text-slate-400 font-bold uppercase">Coordinates</span>
+                  <span className="font-mono font-bold text-slate-850 mt-1 block">
+                    {selectedLiveLog.latitude.toFixed(5)}, {selectedLiveLog.longitude.toFixed(5)}
+                  </span>
                 </div>
-
-                {/* Mock telemetry coordinates form directly on behalf of driver */}
-                <div className="md:col-span-2 border-t border-slate-200 pt-4 md:border-t-0 md:pt-0 md:pl-6 md:border-l space-y-4">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Compass size={14} /> Mock GPS Controller on behalf of Driver
-                  </h4>
-
-                  <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Lat</label>
-                      <input
-                        type="text"
-                        value={mockLat}
-                        onChange={(e) => setMockLat(e.target.value)}
-                        className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs outline-none focus:border-blue-600"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Lng</label>
-                      <input
-                        type="text"
-                        value={mockLng}
-                        onChange={(e) => setMockLng(e.target.value)}
-                        className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs outline-none focus:border-blue-600"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Speed</label>
-                      <input
-                        type="number"
-                        value={mockSpeed}
-                        onChange={(e) => setMockSpeed(e.target.value)}
-                        className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs outline-none focus:border-blue-600"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Heading</label>
-                      <input
-                        type="number"
-                        value={mockHeading}
-                        onChange={(e) => setMockHeading(e.target.value)}
-                        className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs outline-none focus:border-blue-600"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                    <div className="flex gap-2">
-                      <select
-                        value={mockStatus}
-                        onChange={(e) => setMockStatus(e.target.value as TelemetryStatus)}
-                        className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 outline-none"
-                      >
-                        <option value="MOVING">Moving</option>
-                        <option value="STOPPED">Stopped</option>
-                        <option value="DELAYED">Delayed</option>
-                        <option value="BREAKDOWN">Breakdown</option>
-                        <option value="SOS">SOS (EMERGENCY)</option>
-                        <option value="OFFLINE">Offline</option>
-                      </select>
-
-                      <button
-                        type="button"
-                        onClick={() => applyPreset("MOVING")}
-                        className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-1.5 rounded hover:bg-blue-100"
-                      >
-                        Drive
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyPreset("BREAKDOWN")}
-                        className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-1.5 rounded hover:bg-amber-100"
-                      >
-                        Breakdown
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyPreset("SOS")}
-                        className="text-[10px] font-bold text-red-700 bg-red-50 px-2 py-1.5 rounded hover:bg-red-100"
-                      >
-                        SOS
-                      </button>
-                    </div>
-
-                    <Button
-                      variant="primary"
-                      onClick={() => handleSendTelemetry()}
-                      disabled={isSubmitting}
-                      className="rounded-xl text-xs py-1.5 px-4"
-                    >
-                      Ping Update
-                    </Button>
-                  </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-200/50">
+                  <span className="block text-[10px] text-slate-400 font-bold uppercase">Velocity & Heading</span>
+                  <span className="font-bold text-slate-850 mt-1 block">
+                    {selectedLiveLog.speed ?? 0} km/h • {selectedLiveLog.heading ?? 0}°
+                  </span>
                 </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-200/50">
+                  <span className="block text-[10px] text-slate-400 font-bold uppercase">Source & Status</span>
+                  <span className="font-bold text-slate-850 mt-1 block">
+                    {selectedLiveLog.source} • {selectedLiveLog.status}
+                  </span>
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-200/50">
+                  <span className="block text-[10px] text-slate-400 font-bold uppercase">Last Sync Ping</span>
+                  <span className="font-bold text-slate-850 mt-1 block">
+                    {new Date(selectedLiveLog.recordedAt).toLocaleTimeString()}
+                  </span>
+                </div>
+                {selectedLiveLog.remarks && (
+                  <div className="col-span-full bg-white p-3 rounded-xl border border-slate-200/50 text-xs italic text-slate-600">
+                    <strong>Status Remarks:</strong> "{selectedLiveLog.remarks}"
+                  </div>
+                )}
               </div>
             </Card>
           )}
@@ -844,7 +651,7 @@ export default function TelemetryPage() {
                   <div key={event.id} className={`pt-3 ${idx === 0 ? "pt-0 border-t-0" : "border-t border-slate-100"}`}>
                     <div className="flex items-start justify-between">
                       <span className="font-bold text-slate-800 text-xs sm:text-sm">
-                        {event.vehicle?.vehicleNumber || "MOCK VEHICLE"} • {event.status}
+                        {event.vehicle?.vehicleNumber || "ACTIVE VEHICLE"} • {event.status}
                       </span>
                       <span className="text-[10px] text-slate-400">
                         {new Date(event.recordedAt).toLocaleTimeString()}

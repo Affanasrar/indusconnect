@@ -375,14 +375,7 @@ export async function endTrip(userId: string, routeId: string) {
     },
   });
 
-  await prisma.transportRoute.update({
-    where: {
-      id: routeId,
-    },
-    data: {
-      status: RouteStatus.COMPLETED,
-    },
-  });
+  // Parent TransportRoute template status remains ACTIVE to allow future daily trip runs without recreation.
 
   return updatedTrip;
 }

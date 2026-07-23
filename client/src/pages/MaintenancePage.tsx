@@ -150,7 +150,11 @@ export default function MaintenancePage() {
         promises.push(Promise.resolve([]));
       }
 
-      promises.push(getUsers());
+      if (isTransportAdmin || isAccommodationAdmin) {
+        promises.push(getUsers());
+      } else {
+        promises.push(Promise.resolve([]));
+      }
 
       const [vTasks, vList, hTasks, rList, uList] = await Promise.all(promises);
 
@@ -885,23 +889,25 @@ export default function MaintenancePage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Assign To Mechanic/Staff
-                </label>
-                <select
-                  value={vehicleForm.assignedToId}
-                  onChange={(e) => setVehicleForm({ ...vehicleForm, assignedToId: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-600 transition"
-                >
-                  <option value="">Select Mechanic...</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.fullName} ({u.role?.name.replace(/_/g, " ")})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {isTransportAdmin && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    Assign To Mechanic/Staff
+                  </label>
+                  <select
+                    value={vehicleForm.assignedToId}
+                    onChange={(e) => setVehicleForm({ ...vehicleForm, assignedToId: e.target.value })}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-600 transition"
+                  >
+                    <option value="">Select Mechanic...</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.fullName} ({u.role?.name.replace(/_/g, " ")})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="flex justify-end gap-2 border-t border-slate-100 pt-4 mt-6">
                 <Button

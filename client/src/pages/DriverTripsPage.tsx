@@ -26,8 +26,11 @@ import {
   startDriverTrip,
   submitDriverSafetyChecklist,
 } from "../api/driverTrips";
+import { createTelemetryLog } from "../api/telemetry";
+import MapView from "../components/ui/MapView";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
+import { useAuth } from "../auth/AuthContext";
 import type {
   AssignedDriverRoute,
   DriverRouteManifest,
@@ -181,29 +184,34 @@ function normalizeManifest(
 }
 
 export default function DriverTripsPage() {
+  const { bootstrap } = useAuth();
+  const currentRole = bootstrap?.role;
+
+  if (currentRole === "EMPLOYEE") {
+    return (
+      <div className="flex h-[60vh] flex-col items-center justify-center text-center">
+        <ShieldAlert size={48} className="text-red-500 mb-4 animate-bounce" />
+        <h2 className="text-xl font-bold text-slate-800">Forbidden</h2>
+        <p className="text-sm text-slate-500 mt-1 max-w-sm font-medium">
+          You do not have permission to access driver operations. This resource is restricted to drivers and transport administrators.
+        </p>
+      </div>
+    );
+  }
+
   const [routes, setRoutes] = useState<AssignedDriverRoute[]>([]);
-  const [manifest, setManifest] =
-    useState<DriverRouteManifest | null>(null);
-
-  const [selectedRouteId, setSelectedRouteId] =
-    useState<string | null>(null);
-
-  const [checklist, setChecklist] =
-    useState<ChecklistFormState>(defaultChecklist);
-
-  const [issueForm, setIssueForm] =
-    useState<IssueFormState>(defaultIssueForm);
+  const [manifest, setManifest] = useState<DriverRouteManifest | null>(null);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [checklist, setChecklist] = useState<ChecklistFormState>(defaultChecklist);
+  const [issueForm, setIssueForm] = useState<IssueFormState>(defaultIssueForm);
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoadingRoutes, setIsLoadingRoutes] = useState(true);
   const [isLoadingManifest, setIsLoadingManifest] = useState(false);
-  const [isSubmittingChecklist, setIsSubmittingChecklist] =
-    useState(false);
-  const [isSubmittingIssue, setIsSubmittingIssue] =
-    useState(false);
-  const [processingAction, setProcessingAction] =
-    useState<string | null>(null);
+  const [isSubmittingChecklist, setIsSubmittingChecklist] = useState(false);
+  const [isSubmittingIssue, setIsSubmittingIssue] = useState(false);
+  const [processingAction, setProcessingAction] = useState<string | null>(null);
 
   const selectedRoute = useMemo(() => {
     return (
@@ -213,6 +221,105 @@ export default function DriverTripsPage() {
   }, [routes, selectedRouteId]);
 
   const trip = manifest?.trip ?? null;
+
+  // Driver location telemetry states & handlers
+  const [driverLat, setDriverLat] = useState(24.8607);
+  const [driverLng, setDriverLng] = useState(67.0104);
+  const [isSyncingTelemetry, setIsSyncingTelemetry] = useState(false);
+  const [syncedCount, setSyncedCount] = useState(0);
+
+  async function syncDriverCoordinates(lat: number, lng: number) {
+    if (!selectedRouteId || !trip?.id) return;
+    try {
+      setIsSyncingTelemetry(true);
+      await createTelemetryLog({
+        routeId: selectedRouteId,
+        transportTripId: trip.id,
+        latitude: lat,
+        longitude: lng,
+        speed: 30,
+        status: "MOVING",
+        source: "MOBILE_GPS",
+      });
+      setSyncedCount((prev) => prev + 1);
+    } catch (err) {
+      console.error("Telemetry sync error:", err);
+    } finally {
+      setIsSyncingTelemetry(false);
+    }
+  }
+
+  useEffect(() => {
+    if (trip?.status !== "IN_PROGRESS") return;
+
+    let intervalId: any = null;
+
+    intervalId = setInterval(() => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            setDriverLat(lat);
+            setDriverLng(lng);
+            syncDriverCoordinates(lat, lng);
+          },
+          (err) => {
+            console.error("Device GPS unavailable:", err);
+          }
+        );
+      }
+    }, 5000);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [trip?.status, selectedRouteId, trip?.id]);
+
+  const driverMapMarkers = useMemo(() => {
+    const list: any[] = [];
+    list.push({
+      latitude: driverLat,
+      longitude: driverLng,
+      label: "Your Live Location (Pulsing yellow icon)",
+      color: "bg-yellow-500 border-yellow-800 animate-pulse scale-110",
+      pulse: true,
+    });
+
+    const stops = manifest?.smartStops ?? [];
+    stops.forEach((stop: any) => {
+      if (stop.latitude && stop.longitude) {
+        list.push({
+          latitude: stop.latitude,
+          longitude: stop.longitude,
+          label: `Stop ${stop.stopOrder}: ${stop.stopName} (Arrival: ${stop.estimatedTime || "N/A"})`,
+          color: "bg-emerald-500",
+        });
+      }
+    });
+
+    return list;
+  }, [driverLat, driverLng, manifest?.smartStops]);
+
+  const driverMapPolylines = useMemo(() => {
+    return (manifest?.smartStops ?? [])
+      .filter((stop: any) => typeof stop.latitude === "number" && typeof stop.longitude === "number")
+      .map((stop: any) => ({
+        latitude: stop.latitude as number,
+        longitude: stop.longitude as number,
+      }));
+  }, [manifest?.smartStops]);
+
+  const driverMapCenter = useMemo(() => {
+    if (driverLat !== 24.8607 || driverLng !== 67.0104) {
+      return { lat: driverLat, lng: driverLng };
+    }
+    const stops = manifest?.smartStops ?? [];
+    if (stops.length > 0 && stops[0].latitude && stops[0].longitude) {
+      return { lat: stops[0].latitude, lng: stops[0].longitude };
+    }
+    return { lat: 24.8607, lng: 67.0104 };
+  }, [driverLat, driverLng, manifest?.smartStops]);
 
   const passengers = useMemo(() => {
     return manifest?.bookings ?? [];
@@ -372,9 +479,46 @@ export default function DriverTripsPage() {
       setMessage("");
       setError("");
 
-      await startDriverTrip(selectedRouteId);
+      let lat = driverLat;
+      let lng = driverLng;
+
+      if (navigator.geolocation) {
+        await new Promise<void>((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              lat = position.coords.latitude;
+              lng = position.coords.longitude;
+              setDriverLat(lat);
+              setDriverLng(lng);
+              resolve();
+            },
+            (err) => {
+              console.error("GPS fetch failed on start:", err);
+              resolve();
+            },
+            { timeout: 3000 }
+          );
+        });
+      }
+
+      const updatedTrip = await startDriverTrip(selectedRouteId);
 
       setMessage("Trip started successfully");
+
+      try {
+        await createTelemetryLog({
+          routeId: selectedRouteId,
+          transportTripId: updatedTrip.id,
+          latitude: lat,
+          longitude: lng,
+          speed: 0,
+          status: "STOPPED",
+          source: "MOBILE_GPS",
+        });
+        setSyncedCount((prev) => prev + 1);
+      } catch (telErr) {
+        console.error("Starting telemetry sync error:", telErr);
+      }
 
       await refreshCurrentRoute();
     } catch (requestError) {
@@ -896,6 +1040,47 @@ export default function DriverTripsPage() {
                     </div>
                   </div>
                 )}
+              </Card>
+
+              {/* LIVE JOURNEY MAP CARD */}
+              <Card>
+                <div className="mb-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-2xl bg-blue-50 p-3 text-blue-700">
+                      <Navigation size={22} className={trip?.status === "IN_PROGRESS" ? "animate-pulse" : ""} />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        Live Journey Map
+                        {trip?.status === "IN_PROGRESS" && (
+                          <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping" />
+                        )}
+                      </h2>
+                      <p className="text-xs text-slate-500 font-semibold">
+                        Real-time transit tracker synced with database.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-4 text-xs">
+                    {syncedCount > 0 && (
+                      <span className="rounded-full bg-blue-50 border border-blue-100 px-2.5 py-1 text-3xs font-extrabold text-blue-700 uppercase">
+                        {isSyncingTelemetry ? "Syncing..." : `${syncedCount} Synced`}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="relative rounded-2xl overflow-hidden border border-slate-200">
+                  <MapView
+                    latitude={driverMapCenter.lat}
+                    longitude={driverMapCenter.lng}
+                    readOnly={true}
+                    markers={driverMapMarkers}
+                    polylines={driverMapPolylines}
+                    height="320px"
+                  />
+                </div>
               </Card>
 
               <div className="grid min-w-0 gap-6 2xl:grid-cols-2">

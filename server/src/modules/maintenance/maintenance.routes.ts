@@ -33,43 +33,43 @@ router.post(
 
 router.get(
   "/vehicle-tasks",
-  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN", "DRIVER"),
   getAllVehicleMaintenanceTasksController
 );
 
 router.get(
   "/vehicle-tasks/open",
-  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN", "DRIVER"),
   getOpenVehicleMaintenanceTasksController
 );
 
 router.get(
   "/vehicle-tasks/:id",
-  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN", "DRIVER"),
   getVehicleMaintenanceTaskByIdController
 );
 
 router.patch(
   "/vehicle-tasks/:id",
-  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN", "DRIVER"),
   updateVehicleMaintenanceTaskController
 );
 
 router.patch(
   "/vehicle-tasks/:id/start",
-  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN", "DRIVER"),
   startVehicleMaintenanceTaskController
 );
 
 router.patch(
   "/vehicle-tasks/:id/resolve",
-  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN", "DRIVER"),
   resolveVehicleMaintenanceTaskController
 );
 
 router.patch(
   "/vehicle-tasks/:id/cancel",
-  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN", "DRIVER"),
   cancelVehicleMaintenanceTaskController
 );
 

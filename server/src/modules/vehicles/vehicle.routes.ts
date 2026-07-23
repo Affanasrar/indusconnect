@@ -12,12 +12,11 @@ import {
 const router = Router();
 
 router.use(authMiddleware);
-router.use(authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"));
 
-router.get("/", getAllVehiclesController);
-router.get("/:id", getVehicleByIdController);
-router.post("/", createVehicleController);
-router.patch("/:id", updateVehicleController);
-router.patch("/:id/deactivate", deactivateVehicleController);
+router.get("/", authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN", "DRIVER"), getAllVehiclesController);
+router.get("/:id", authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN", "DRIVER"), getVehicleByIdController);
+router.post("/", authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"), createVehicleController);
+router.patch("/:id", authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"), updateVehicleController);
+router.patch("/:id/deactivate", authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"), deactivateVehicleController);
 
 export default router;
