@@ -111,7 +111,15 @@ const menuItems = [
     key: "shuttleBookings",
     title: "Shuttle Bookings",
     path: "/shuttle-bookings",
-    roles: ["SUPER_ADMIN", "EMPLOYEE", "MANAGER", "TRANSPORT_ADMIN"],
+    roles: [
+      "SUPER_ADMIN",
+      "EMPLOYEE",
+      "MANAGER",
+      "TRANSPORT_ADMIN",
+      "ACCOMMODATION_ADMIN",
+      "FINANCE_OFFICER",
+      "SECURITY_OFFICER",
+    ],
   },
   {
     key: "driverTrips",
@@ -130,19 +138,25 @@ const menuItems = [
       "TRANSPORT_ADMIN",
       "ACCOMMODATION_ADMIN",
       "FINANCE_OFFICER",
+      "SECURITY_OFFICER",
     ],
   },
   {
     key: "accommodation",
     title: "Accommodation",
     path: "/accommodation",
-    roles: ["SUPER_ADMIN", "ACCOMMODATION_ADMIN", "MANAGER"],
+    roles: ["SUPER_ADMIN", "ACCOMMODATION_ADMIN"],
   },
   {
     key: "expenses",
     title: "Expense Claims",
     path: "/expenses",
-    roles: ["SUPER_ADMIN", "EMPLOYEE", "MANAGER", "FINANCE_OFFICER"],
+    roles: [
+      "SUPER_ADMIN",
+      "EMPLOYEE",
+      "MANAGER",
+      "FINANCE_OFFICER",
+    ],
   },
   {
     key: "vendors",
@@ -185,7 +199,6 @@ const menuItems = [
       "SUPER_ADMIN",
       "MANAGER",
       "TRANSPORT_ADMIN",
-      "ACCOMMODATION_ADMIN",
       "FINANCE_OFFICER",
     ],
   },
@@ -361,6 +374,11 @@ export function getDashboardCards(role: string) {
   const cardsByRole: Record<string, any[]> = {
     SUPER_ADMIN: [
       {
+        key: "myDashboard",
+        title: "My Personal Employee Desk",
+        api: "/api/reports/my",
+      },
+      {
         key: "overview",
         title: "System Overview",
         api: "/api/reports/dashboard",
@@ -415,6 +433,11 @@ export function getDashboardCards(role: string) {
 
     TRANSPORT_ADMIN: [
       {
+        key: "myDashboard",
+        title: "My Personal Employee Desk",
+        api: "/api/reports/my",
+      },
+      {
         key: "transportSummary",
         title: "Transport Summary",
         api: "/api/reports/transport",
@@ -433,6 +456,11 @@ export function getDashboardCards(role: string) {
 
     ACCOMMODATION_ADMIN: [
       {
+        key: "myDashboard",
+        title: "My Personal Employee Desk",
+        api: "/api/reports/my",
+      },
+      {
         key: "accommodationSummary",
         title: "Accommodation Summary",
         api: "/api/reports/accommodation",
@@ -445,6 +473,11 @@ export function getDashboardCards(role: string) {
     ],
 
     FINANCE_OFFICER: [
+      {
+        key: "myDashboard",
+        title: "My Personal Employee Desk",
+        api: "/api/reports/my",
+      },
       {
         key: "expenseSummary",
         title: "Expense Summary",
@@ -464,14 +497,29 @@ export function getDashboardCards(role: string) {
 
     MANAGER: [
       {
-        key: "travelSummary",
-        title: "Travel Summary",
-        api: "/api/reports/travel",
+        key: "myDashboard",
+        title: "My Personal Employee Desk",
+        api: "/api/reports/my",
+      },
+      {
+        key: "myTravelRequests",
+        title: "My Travel Requests",
+        api: "/api/travel-requests/my",
+      },
+      {
+        key: "myExpenseClaims",
+        title: "My Expense Claims",
+        api: "/api/expenses/my",
       },
       {
         key: "pendingApprovals",
         title: "Pending Approvals",
         api: "/api/reports/pending-approvals",
+      },
+      {
+        key: "travelSummary",
+        title: "Travel Summary",
+        api: "/api/reports/travel",
       },
       {
         key: "proxyBookings",
@@ -482,9 +530,19 @@ export function getDashboardCards(role: string) {
 
     SECURITY_OFFICER: [
       {
+        key: "myDashboard",
+        title: "My Personal Employee Desk",
+        api: "/api/reports/my",
+      },
+      {
         key: "emergencyEvents",
         title: "Emergency Events",
         api: "/api/telemetry/emergency",
+      },
+      {
+        key: "liveTracking",
+        title: "Live Tracking",
+        api: "/api/telemetry/live",
       },
     ],
   };

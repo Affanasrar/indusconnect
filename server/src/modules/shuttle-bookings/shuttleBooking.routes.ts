@@ -18,15 +18,25 @@ const router = Router();
 
 router.use(authMiddleware);
 
+const allStaffRoles = [
+  "EMPLOYEE",
+  "MANAGER",
+  "TRANSPORT_ADMIN",
+  "ACCOMMODATION_ADMIN",
+  "FINANCE_OFFICER",
+  "SECURITY_OFFICER",
+  "SUPER_ADMIN",
+];
+
 router.post(
   "/",
-  authorizeRoles("EMPLOYEE"),
+  authorizeRoles(...allStaffRoles),
   createShuttleBookingController
 );
 
 router.get(
   "/my",
-  authorizeRoles("EMPLOYEE"),
+  authorizeRoles(...allStaffRoles),
   getMyShuttleBookingsController
 );
 
@@ -44,40 +54,32 @@ router.patch(
 
 router.patch(
   "/:id/cancel",
-  authorizeRoles(
-    "EMPLOYEE",
-    "SUPER_ADMIN",
-    "TRANSPORT_ADMIN"
-  ),
+  authorizeRoles(...allStaffRoles),
   cancelShuttleBookingController
 );
 
 router.get(
   "/:id",
-  authorizeRoles(
-    "EMPLOYEE",
-    "SUPER_ADMIN",
-    "TRANSPORT_ADMIN"
-  ),
+  authorizeRoles(...allStaffRoles),
   getShuttleBookingByIdController
 );
 
 // SUB-ROUTES FOR COMMUTE SUBSCRIPTIONS
 router.post(
   "/subscriptions",
-  authorizeRoles("EMPLOYEE"),
+  authorizeRoles(...allStaffRoles),
   createShuttleSubscriptionController
 );
 
 router.get(
   "/subscriptions/my",
-  authorizeRoles("EMPLOYEE"),
+  authorizeRoles(...allStaffRoles),
   getMyShuttleSubscriptionsController
 );
 
 router.patch(
   "/subscriptions/:id/deactivate",
-  authorizeRoles("EMPLOYEE", "SUPER_ADMIN", "TRANSPORT_ADMIN"),
+  authorizeRoles(...allStaffRoles),
   deactivateShuttleSubscriptionController
 );
 

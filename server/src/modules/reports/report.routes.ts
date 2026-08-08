@@ -37,7 +37,7 @@ router.get(
 
 router.get(
   "/travel",
-  authorizeRoles("SUPER_ADMIN", "MANAGER", "TRANSPORT_ADMIN", "ACCOMMODATION_ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "MANAGER"),
   getTravelSummaryController
 );
 

@@ -16,15 +16,25 @@ const router = Router();
 
 router.use(authMiddleware);
 
+const allStaffRoles = [
+  "EMPLOYEE",
+  "MANAGER",
+  "TRANSPORT_ADMIN",
+  "ACCOMMODATION_ADMIN",
+  "FINANCE_OFFICER",
+  "SECURITY_OFFICER",
+  "SUPER_ADMIN",
+];
+
 router.post(
   "/",
-  authorizeRoles("EMPLOYEE"),
+  authorizeRoles(...allStaffRoles),
   createTravelRequestController
 );
 
 router.get(
   "/my",
-  authorizeRoles("EMPLOYEE"),
+  authorizeRoles(...allStaffRoles),
   getMyTravelRequestsController
 );
 
@@ -54,17 +64,13 @@ router.patch(
 
 router.patch(
   "/:id/cancel",
-  authorizeRoles("EMPLOYEE", "SUPER_ADMIN"),
+  authorizeRoles(...allStaffRoles),
   cancelTravelRequestController
 );
 
 router.get(
   "/:id",
-  authorizeRoles(
-    "EMPLOYEE",
-    "MANAGER",
-    "SUPER_ADMIN"
-  ),
+  authorizeRoles(...allStaffRoles),
   getTravelRequestByIdController
 );
 

@@ -482,21 +482,23 @@ export default function DashboardPage() {
     }
   }
 
+  const personalCardKeys = ["myDashboard", "myTravelRequests", "myExpenseClaims", "notifications"];
+  const personalCards = cards.filter((c) => personalCardKeys.includes(c.key));
+  const managementCards = cards.filter((c) => !personalCardKeys.includes(c.key));
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Welcome Banner */}
       <div className="rounded-3xl bg-gradient-to-r from-blue-800 to-blue-600 p-8 text-white shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-blue-200">
-            Welcome back
+            Enterprise Mobility & Logistics
           </p>
           <h1 className="mt-2 text-3xl font-black tracking-tight">
-            {user?.fullName ?? "IndusConnect User"}
+            Welcome, {user?.fullName ?? "User"}
           </h1>
           <p className="mt-2.5 max-w-3xl text-sm text-blue-100/90 leading-relaxed font-semibold">
-            You are logged in as{" "}
-            <span className="font-extrabold underline decoration-amber-400 decoration-2">{bootstrap?.role ?? user?.role?.name}</span>.
-            Your permissions, menu selections, and analytics widgets are dynamically synced with backend security templates.
+            Manage your daily shuttle commutes, official business travel, lodging reservations, and operational workflows from your enterprise console.
           </p>
         </div>
         <div className="shrink-0 flex gap-2">
@@ -507,78 +509,41 @@ export default function DashboardPage() {
             className="rounded-2xl border-0 bg-white/10 hover:bg-white/20 text-white text-xs font-bold py-2.5"
           >
             <RefreshCcw size={14} className={`mr-1.5 ${isLoading ? "animate-spin" : ""}`} />
-            Refresh stats
+            Refresh Overview
           </Button>
         </div>
       </div>
 
-      {/* Info Stats row */}
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="bg-gradient-to-br from-white to-slate-50">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Sync role</p>
-              <p className="mt-2 text-base font-extrabold text-slate-800 truncate max-w-[180px]">
-                {bootstrap?.role ?? "-"}
-              </p>
-            </div>
-            <div className="rounded-2xl bg-blue-50 p-3.5 text-blue-700">
-              <UserCircle size={18} />
-            </div>
+      {/* SECTION 1: Personal Employee Mobility Desk */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+          <div>
+            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <UserCircle className="text-blue-700" size={20} /> My Personal Mobility & Requests Desk
+            </h2>
+            <p className="text-xs text-slate-500 font-medium">Your personal shuttle bookings, travel requests, and expense claim statuses.</p>
           </div>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-white to-slate-50">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Authorized menus</p>
-              <p className="mt-2 text-xl font-black text-slate-800">
-                {bootstrap?.menu?.length ?? 0} options
-              </p>
-            </div>
-            <div className="rounded-2xl bg-emerald-50 p-3.5 text-emerald-700">
-              <Activity size={18} />
-            </div>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/shuttle-bookings">
+              <Button variant="secondary" className="rounded-xl text-3xs py-1.5 border border-slate-200">
+                + Book Shuttle
+              </Button>
+            </Link>
+            <Link to="/travel-requests">
+              <Button variant="secondary" className="rounded-xl text-3xs py-1.5 border border-slate-200">
+                + Request Travel
+              </Button>
+            </Link>
+            <Link to="/expenses">
+              <Button variant="secondary" className="rounded-xl text-3xs py-1.5 border border-slate-200">
+                + Claim Expense
+              </Button>
+            </Link>
           </div>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-white to-slate-50">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Platform Alerts</p>
-              <p className="mt-2 text-xl font-black text-slate-800">
-                {bootstrap?.notificationSummary?.unread ?? 0} unread
-              </p>
-            </div>
-            <div className="rounded-2xl bg-amber-50 p-3.5 text-amber-700">
-              <Bell size={18} />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-white to-slate-50">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Security sync</p>
-              <p className="mt-2 text-base font-extrabold text-emerald-700 flex items-center gap-1">
-                Connected
-              </p>
-            </div>
-            <div className="rounded-2xl bg-violet-50 p-3.5 text-violet-700">
-              <Database size={18} />
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Dynamic dashboard cards */}
-      <div>
-        <h2 className="mb-4 text-lg font-black text-slate-900 flex items-center gap-2">
-          Your analytical command widgets
-        </h2>
+        </div>
 
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {cards.map((card) => (
+          {personalCards.map((card) => (
             <Card key={card.key} className="hover:shadow-md transition duration-300 border border-slate-100 flex flex-col justify-between min-h-[160px]">
               <div className="flex items-start gap-3.5">
                 <div className={`rounded-2xl p-3 shrink-0 ${getCardTheme(card.key)}`}>
@@ -592,16 +557,37 @@ export default function DashboardPage() {
               </div>
             </Card>
           ))}
-
-          {cards.length === 0 && (
-            <Card className="col-span-full border border-dashed border-slate-200 text-center py-10 bg-slate-50">
-              <p className="text-sm text-slate-500 font-semibold italic">
-                No active widgets are registered on this profile grade.
-              </p>
-            </Card>
-          )}
         </div>
       </div>
+
+      {/* SECTION 2: Management & Operational Desk */}
+      {managementCards.length > 0 && (
+        <div className="space-y-4 pt-2">
+          <div className="border-b border-slate-200 pb-3">
+            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <ShieldAlert className="text-amber-600" size={20} /> Management & Operational Desk
+            </h2>
+            <p className="text-xs text-slate-500 font-medium">Administrative tools, approval pipelines, and operational monitoring for your role.</p>
+          </div>
+
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {managementCards.map((card) => (
+              <Card key={card.key} className="hover:shadow-md transition duration-300 border border-slate-100 flex flex-col justify-between min-h-[160px]">
+                <div className="flex items-start gap-3.5">
+                  <div className={`rounded-2xl p-3 shrink-0 ${getCardTheme(card.key)}`}>
+                    {getCardIcon(card.key)}
+                  </div>
+
+                  <div className="w-full">
+                    <h3 className="font-extrabold text-slate-900 text-sm sm:text-base leading-tight">{card.title}</h3>
+                    {renderCardContent(card)}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

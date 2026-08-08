@@ -12,7 +12,6 @@ import {
   RefreshCcw,
   Search,
   Send,
-  ShieldAlert,
   UserRound,
   XCircle,
 } from "lucide-react";
@@ -1753,6 +1752,7 @@ function ManagerTravelApprovalPage() {
 
 export default function TravelRequestsPage() {
   const { bootstrap, user } = useAuth();
+  const [activeTab, setActiveTab] = useState<"personal" | "approvals">("personal");
 
   const role = bootstrap?.role ?? user?.role?.name;
 
@@ -1778,39 +1778,39 @@ export default function TravelRequestsPage() {
     role === "MANAGER" ||
     role === "SUPER_ADMIN"
   ) {
-    return <ManagerTravelApprovalPage />;
+    return (
+      <div className="min-w-0 space-y-6">
+        <div className="flex border-b border-slate-200">
+          <button
+            onClick={() => setActiveTab("personal")}
+            className={`px-6 py-3 text-sm font-extrabold transition border-b-2 ${
+              activeTab === "personal"
+                ? "border-blue-700 text-blue-700"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            My Personal Travel Requests
+          </button>
+          <button
+            onClick={() => setActiveTab("approvals")}
+            className={`px-6 py-3 text-sm font-extrabold transition border-b-2 ${
+              activeTab === "approvals"
+                ? "border-blue-700 text-blue-700"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Team Pending Approvals
+          </button>
+        </div>
+
+        {activeTab === "personal" ? (
+          <EmployeeTravelRequestsPage />
+        ) : (
+          <ManagerTravelApprovalPage />
+        )}
+      </div>
+    );
   }
 
-  return (
-    <div className="min-w-0 space-y-6">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
-          Official Travel
-        </p>
-
-        <h1 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
-          Travel Requests
-        </h1>
-      </div>
-
-      <Card>
-        <div className="py-12 text-center">
-          <ShieldAlert
-            size={44}
-            className="mx-auto text-amber-500"
-          />
-
-          <h2 className="mt-4 text-lg font-bold text-slate-900">
-            Limited access
-          </h2>
-
-          <p className="mx-auto mt-2 max-w-xl text-sm text-slate-500">
-            Travel request creation is available to employees,
-            while approval access is available to managers and
-            Super Admin.
-          </p>
-        </div>
-      </Card>
-    </div>
-  );
+  return <EmployeeTravelRequestsPage />;
 }

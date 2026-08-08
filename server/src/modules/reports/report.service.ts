@@ -271,7 +271,26 @@ prisma.notification.count({
   };
 }
 
-export async function getPendingApprovalsSummary() {
+export interface CurrentUserContext {
+  userId: string;
+  email: string;
+  role: string;
+}
+
+export async function getPendingApprovalsSummary(currentUser?: CurrentUserContext) {
+  let userDepartment: string | null = null;
+  if (currentUser?.role === "MANAGER" && currentUser.userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: currentUser.userId },
+      select: { department: true },
+    });
+    userDepartment = user?.department ?? null;
+  }
+
+  const departmentFilter = (currentUser?.role === "MANAGER" && userDepartment)
+    ? { employee: { department: userDepartment } }
+    : {};
+
   const [
     pendingTravelRequests,
     pendingExpenseClaims,
@@ -281,6 +300,7 @@ export async function getPendingApprovalsSummary() {
     prisma.travelRequest.findMany({
       where: {
         status: TravelRequestStatus.PENDING,
+        ...departmentFilter,
       },
       include: {
         employee: {
@@ -289,6 +309,7 @@ export async function getPendingApprovalsSummary() {
             fullName: true,
             email: true,
             phone: true,
+            department: true,
           },
         },
       },
@@ -300,6 +321,7 @@ export async function getPendingApprovalsSummary() {
     prisma.expenseClaim.findMany({
       where: {
         status: ExpenseClaimStatus.PENDING,
+        ...departmentFilter,
       },
       include: {
         employee: {
@@ -308,6 +330,7 @@ export async function getPendingApprovalsSummary() {
             fullName: true,
             email: true,
             phone: true,
+            department: true,
           },
         },
         travelRequest: true,
@@ -327,6 +350,7 @@ export async function getPendingApprovalsSummary() {
             anomalyStatus: ExpenseAnomalyStatus.ANOMALY_REVIEW_REQUIRED,
           },
         ],
+        ...departmentFilter,
       },
       include: {
         employee: {
@@ -335,6 +359,7 @@ export async function getPendingApprovalsSummary() {
             fullName: true,
             email: true,
             phone: true,
+            department: true,
           },
         },
         travelRequest: true,
@@ -347,6 +372,7 @@ export async function getPendingApprovalsSummary() {
     prisma.shuttleBooking.findMany({
       where: {
         status: ShuttleBookingStatus.PENDING,
+        ...departmentFilter,
       },
       include: {
         employee: {
@@ -355,6 +381,7 @@ export async function getPendingApprovalsSummary() {
             fullName: true,
             email: true,
             phone: true,
+            department: true,
           },
         },
         route: true,
@@ -373,6 +400,7 @@ export async function getPendingApprovalsSummary() {
       flaggedExpenseClaims: flaggedExpenseClaims.length,
       pendingShuttleBookings: pendingShuttleBookings.length,
     },
+    managerDepartment: userDepartment,
     pendingTravelRequests,
     pendingExpenseClaims,
     flaggedExpenseClaims,
@@ -449,7 +477,20 @@ export async function getTransportSummary() {
   };
 }
 
-export async function getTravelSummary() {
+export async function getTravelSummary(currentUser?: CurrentUserContext) {
+  let userDepartment: string | null = null;
+  if (currentUser?.role === "MANAGER" && currentUser.userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: currentUser.userId },
+      select: { department: true },
+    });
+    userDepartment = user?.department ?? null;
+  }
+
+  const departmentFilter = (currentUser?.role === "MANAGER" && userDepartment)
+    ? { employee: { department: userDepartment } }
+    : {};
+
   const [
     total,
     pending,
@@ -457,29 +498,36 @@ export async function getTravelSummary() {
     rejected,
     cancelled,
     recentRequests,
+    budgetAgg,
+    typeGroups,
   ] = await Promise.all([
-    prisma.travelRequest.count(),
+    prisma.travelRequest.count({ where: departmentFilter }),
     prisma.travelRequest.count({
       where: {
         status: TravelRequestStatus.PENDING,
+        ...departmentFilter,
       },
     }),
     prisma.travelRequest.count({
       where: {
         status: TravelRequestStatus.APPROVED,
+        ...departmentFilter,
       },
     }),
     prisma.travelRequest.count({
       where: {
         status: TravelRequestStatus.REJECTED,
+        ...departmentFilter,
       },
     }),
     prisma.travelRequest.count({
       where: {
         status: TravelRequestStatus.CANCELLED,
+        ...departmentFilter,
       },
     }),
     prisma.travelRequest.findMany({
+      where: departmentFilter,
       take: 10,
       include: {
         employee: {
@@ -487,6 +535,7 @@ export async function getTravelSummary() {
             id: true,
             fullName: true,
             email: true,
+            department: true,
           },
         },
         approvedBy: {
@@ -501,16 +550,50 @@ export async function getTravelSummary() {
         createdAt: "desc",
       },
     }),
+    prisma.travelRequest.aggregate({
+      where: departmentFilter,
+      _sum: {
+        estimatedBudget: true,
+      },
+    }),
+    prisma.travelRequest.groupBy({
+      by: ["travelType"],
+      where: departmentFilter,
+      _count: {
+        _all: true,
+      },
+    }),
   ]);
 
+  const estimatedTotal = budgetAgg._sum.estimatedBudget ?? 0;
+  const averagePerTrip = total > 0 ? estimatedTotal / total : 0;
+
+  const byType = {
+    INTER_CAMPUS: 0,
+    WITHIN_CITY: 0,
+    INTER_CITY: 0,
+    INTERNATIONAL: 0,
+  };
+
+  for (const group of typeGroups) {
+    if (group.travelType in byType) {
+      byType[group.travelType as keyof typeof byType] = group._count._all;
+    }
+  }
+
   return {
-    counts: {
+    budgets: {
+      estimatedTotal,
+      averagePerTrip,
+    },
+    travelRequests: {
       total,
       pending,
       approved,
       rejected,
       cancelled,
     },
+    byType,
     recentRequests,
   };
 }
@@ -612,8 +695,11 @@ export async function getExpenseSummary() {
     rejected,
     flagged,
     cancelled,
-    approvedAmount,
-    pendingAmount,
+    paidCount,
+    totalAmountAgg,
+    approvedAmountAgg,
+    paidAmountAgg,
+    categoryGroups,
     recentClaims,
   ] = await Promise.all([
     prisma.expenseClaim.count(),
@@ -649,7 +735,17 @@ export async function getExpenseSummary() {
         status: ExpenseClaimStatus.CANCELLED,
       },
     }),
+    prisma.expenseClaim.count({
+      where: {
+        payrollSyncStatus: "EXPORTED",
+      },
+    }),
 
+    prisma.expenseClaim.aggregate({
+      _sum: {
+        amount: true,
+      },
+    }),
     prisma.expenseClaim.aggregate({
       where: {
         status: ExpenseClaimStatus.APPROVED,
@@ -658,11 +754,17 @@ export async function getExpenseSummary() {
         amount: true,
       },
     }),
-
     prisma.expenseClaim.aggregate({
       where: {
-        status: ExpenseClaimStatus.PENDING,
+        payrollSyncStatus: "EXPORTED",
       },
+      _sum: {
+        amount: true,
+      },
+    }),
+
+    prisma.expenseClaim.groupBy({
+      by: ["category"],
       _sum: {
         amount: true,
       },
@@ -693,19 +795,36 @@ export async function getExpenseSummary() {
     }),
   ]);
 
+  const byCategory = {
+    TRAVEL: 0,
+    MEAL: 0,
+    ACCOMMODATION: 0,
+    FUEL: 0,
+    OTHER: 0,
+  };
+
+  for (const group of categoryGroups) {
+    if (group.category in byCategory) {
+      byCategory[group.category as keyof typeof byCategory] = group._sum.amount ?? 0;
+    }
+  }
+
   return {
-    counts: {
+    amounts: {
+      totalAmount: totalAmountAgg._sum.amount ?? 0,
+      approvedAmount: approvedAmountAgg._sum.amount ?? 0,
+      paidAmount: paidAmountAgg._sum.amount ?? 0,
+    },
+    claims: {
       total,
       pending,
       approved,
       rejected,
       flagged,
       cancelled,
+      paid: paidCount,
     },
-    amounts: {
-      approvedAmount: approvedAmount._sum.amount ?? 0,
-      pendingAmount: pendingAmount._sum.amount ?? 0,
-    },
+    byCategory,
     recentClaims,
   };
 }

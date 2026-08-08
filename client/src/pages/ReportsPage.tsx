@@ -82,7 +82,7 @@ export default function ReportsPage() {
       }
 
       // Travel
-      if (isTransport || isAccommodation || isAdminOrManager) {
+      if (isAdminOrManager) {
         promises.push(getTravelSummary());
       } else {
         promises.push(Promise.resolve(null));
@@ -206,7 +206,7 @@ export default function ReportsPage() {
             Transport Fleet
           </button>
         )}
-        {(isTransport || isAccommodation || isAdminOrManager) && (
+        {isAdminOrManager && (
           <button
             onClick={() => setActiveReportTab("TRAVEL")}
             className={`px-4 py-2 rounded-lg text-xs font-extrabold tracking-tight transition ${

@@ -13,8 +13,19 @@ const router = Router();
 
 router.use(authMiddleware);
 
-router.get("/", authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN", "DRIVER"), getAllVehiclesController);
-router.get("/:id", authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN", "DRIVER"), getVehicleByIdController);
+const allStaffRoles = [
+  "EMPLOYEE",
+  "MANAGER",
+  "TRANSPORT_ADMIN",
+  "ACCOMMODATION_ADMIN",
+  "FINANCE_OFFICER",
+  "SECURITY_OFFICER",
+  "SUPER_ADMIN",
+  "DRIVER",
+];
+
+router.get("/", authorizeRoles(...allStaffRoles), getAllVehiclesController);
+router.get("/:id", authorizeRoles(...allStaffRoles), getVehicleByIdController);
 router.post("/", authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"), createVehicleController);
 router.patch("/:id", authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"), updateVehicleController);
 router.patch("/:id/deactivate", authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"), deactivateVehicleController);

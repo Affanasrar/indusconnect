@@ -217,6 +217,12 @@ export async function approveExpenseClaim(
     throw new Error("Rejected or cancelled claim cannot be approved");
   }
 
+  if (claim.employeeId === financeOfficerId) {
+    throw new Error(
+      "Finance officers cannot self-approve their own expense claims. Approval must be conducted by another finance officer or Super Admin."
+    );
+  }
+
   const updatedClaim = await prisma.expenseClaim.update({
   where: {
     id,

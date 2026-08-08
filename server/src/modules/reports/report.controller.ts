@@ -33,11 +33,12 @@ export async function getDashboardSummaryController(
 }
 
 export async function getPendingApprovalsSummaryController(
-  _req: Request,
+  req: Request,
   res: Response
 ) {
   try {
-    const summary = await getPendingApprovalsSummary();
+    const currentUser = (req as any).user;
+    const summary = await getPendingApprovalsSummary(currentUser);
 
     return res.status(200).json({
       success: true,
@@ -79,11 +80,12 @@ export async function getTransportSummaryController(
 }
 
 export async function getTravelSummaryController(
-  _req: Request,
+  req: Request,
   res: Response
 ) {
   try {
-    const summary = await getTravelSummary();
+    const currentUser = (req as any).user;
+    const summary = await getTravelSummary(currentUser);
 
     return res.status(200).json({
       success: true,

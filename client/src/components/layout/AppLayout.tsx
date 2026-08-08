@@ -64,10 +64,12 @@ export default function AppLayout() {
 
               <div className="min-w-0">
                 <h2 className="truncate text-base font-bold text-slate-900 sm:text-lg">
-                  Role-Based Dashboard
+                  Enterprise Operations Hub
                 </h2>
-                <p className="truncate text-xs text-slate-500 sm:text-sm">
-                  {bootstrap?.role ?? user?.role?.name ?? "Authenticated User"}
+                <p className="truncate text-xs text-slate-500 sm:text-sm capitalize font-semibold">
+                  {(bootstrap?.role ?? user?.role?.name ?? "Authenticated User")
+                    .replace(/_/g, " ")
+                    .toLowerCase()}
                 </p>
               </div>
             </div>

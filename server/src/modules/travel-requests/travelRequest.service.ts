@@ -179,6 +179,12 @@ export async function approveTravelRequest(
     throw new Error("Only pending travel requests can be approved");
   }
 
+  if (request.employeeId === managerId) {
+    throw new Error(
+      "Managers cannot self-approve their own travel requests. Approval must be conducted by another manager or Super Admin."
+    );
+  }
+
   const updatedRequest = await prisma.travelRequest.update({
   where: {
     id,

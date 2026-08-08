@@ -15,7 +15,19 @@ export function authorizeRoles(...allowedRoles: string[]) {
       return next();
     }
 
-    if (!allowedRoles.includes(user.role)) {
+    const internalEmployeeRoles = [
+      "EMPLOYEE",
+      "MANAGER",
+      "TRANSPORT_ADMIN",
+      "ACCOMMODATION_ADMIN",
+      "FINANCE_OFFICER",
+      "SECURITY_OFFICER",
+      "DRIVER"
+    ];
+
+    const hasEmployeePrivilege = allowedRoles.includes("EMPLOYEE") && internalEmployeeRoles.includes(user.role);
+
+    if (!allowedRoles.includes(user.role) && !hasEmployeePrivilege) {
       return res.status(403).json({
         success: false,
         message: "Forbidden. You do not have permission to access this resource.",

@@ -11,11 +11,9 @@ import {
 const router = Router();
 
 router.use(authMiddleware);
-router.use(authorizeRoles("SUPER_ADMIN"));
-
-router.get("/", getAllUsersController);
-router.get("/:id", getUserByIdController);
-router.post("/", createUserController);
-router.patch("/:id", updateUserController);
+router.get("/", authorizeRoles("SUPER_ADMIN", "MANAGER", "TRANSPORT_ADMIN", "ACCOMMODATION_ADMIN", "FINANCE_OFFICER"), getAllUsersController);
+router.get("/:id", authorizeRoles("SUPER_ADMIN", "MANAGER", "TRANSPORT_ADMIN", "ACCOMMODATION_ADMIN", "FINANCE_OFFICER"), getUserByIdController);
+router.post("/", authorizeRoles("SUPER_ADMIN"), createUserController);
+router.patch("/:id", authorizeRoles("SUPER_ADMIN"), updateUserController);
 
 export default router;

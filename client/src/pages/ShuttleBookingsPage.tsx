@@ -226,10 +226,6 @@ export default function ShuttleBookingsPage() {
   ]) as ShuttleBookingStatus[];
 
   async function loadData() {
-    if (currentRole && currentRole !== "EMPLOYEE") {
-      setIsLoading(false);
-      return;
-    }
     try {
       setIsLoading(true);
       setError("");
@@ -476,32 +472,6 @@ export default function ShuttleBookingsPage() {
         ? prev.activeDays.filter((d) => d !== dayValue)
         : [...prev.activeDays, dayValue],
     }));
-  }
-
-  if (currentRole && currentRole !== "EMPLOYEE") {
-    return (
-      <div className="min-w-0 space-y-6">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
-            Shuttle Management
-          </p>
-          <h1 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
-            Shuttle Bookings
-          </h1>
-        </div>
-        <Card>
-          <div className="py-10 text-center">
-            <BusFront size={44} className="mx-auto text-slate-300" />
-            <h2 className="mt-4 text-lg font-bold text-slate-900">
-              Employee booking view
-            </h2>
-            <p className="mx-auto mt-2 max-w-xl text-sm text-slate-500">
-              This screen is designed for employee shuttle bookings.
-            </p>
-          </div>
-        </Card>
-      </div>
-    );
   }
 
   return (

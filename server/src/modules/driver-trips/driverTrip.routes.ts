@@ -15,7 +15,7 @@ import {
 const router = Router();
 
 router.use(authMiddleware);
-router.use(authorizeRoles("DRIVER"));
+router.use(authorizeRoles("DRIVER", "TRANSPORT_ADMIN"));
 
 router.get(
   "/routes",
