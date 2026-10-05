@@ -1,4 +1,4 @@
-﻿# IndusConnect
+# IndusConnect
 
 Unified enterprise mobility and logistics platform for managing shuttle bookings, travel requests, accommodations, driver operations, vehicle fleets, expenses, vendor activity, telemetry, reports, and audit logs.
 
@@ -225,22 +225,14 @@ The backend exposes a dedicated documentation route at `/api/docs` and a health 
 
 For a detailed endpoint reference, see [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md).
 
-## Deployment
+## Production Deployment
 
-This project is a standard split deployment:
+IndusConnect is configured for production deployment across:
+- **Database**: [Neon PostgreSQL](https://neon.tech) (serverless connection pooling + direct migrations)
+- **Backend API**: [Render](https://render.com) (Node.js Express service, Infrastructure-as-Code via `render.yaml`)
+- **Frontend**: [Vercel](https://vercel.com) (React + Vite SPA with `client/vercel.json` rewrite routing)
 
-- Deploy the client as a static SPA build.
-- Deploy the server as a Node.js service.
-- Provision a PostgreSQL database.
-- Set `DATABASE_URL` and `PORT` on the server.
-- Ensure the deployed client origin is allowed by backend CORS settings.
-
-Typical production flow:
-
-1. Build the client with `npm run build` in `client/`.
-2. Build the server with `npm run build` in `server/`.
-3. Start the server from `server/dist/server.js`.
-4. Point the client to the deployed API base URL.
+For complete step-by-step instructions, see the [Production Deployment Guide](docs/DEPLOYMENT.md).
 
 ## License
 

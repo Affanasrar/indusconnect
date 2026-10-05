@@ -1,0 +1,28 @@
+{
+  "name": "indusconnect",
+  "version": "1.0.0",
+  "private": true,
+  "description": "IndusConnect - Smart Enterprise Transport, Travel & Accommodation Platform",
+  "scripts": {
+    "install:all": "npm --prefix server install && npm --prefix client install",
+    "build:server": "npm --prefix server run build",
+    "build:client": "npm --prefix client run build",
+    "build": "npm run build:server && npm run build:client",
+    "start:server": "npm --prefix server start",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "db:generate": "npm --prefix server run prisma:generate",
+    "db:migrate": "npm --prefix server run prisma:deploy",
+    "db:seed": "npm --prefix server run db:seed",
+    "db:setup": "npm --prefix server run db:setup"
+  },
+  "keywords": [
+    "enterprise",
+    "transport-management",
+    "fleet",
+    "shuttle",
+    "accommodation"
+  ],
+  "author": "",
+  "license": "ISC"
+}

@@ -1,0 +1,24 @@
+# Render Blueprint Configuration (Infrastructure-as-Code)
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: indusconnect-backend
+    env: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install && npm run build && npx prisma migrate deploy
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        sync: false
