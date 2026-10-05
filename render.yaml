@@ -7,7 +7,7 @@ services:
     env: node
     plan: free
     rootDir: server
-    buildCommand: npm install && npm run build && npx prisma migrate deploy
+    buildCommand: npm install && npm run build && npx prisma migrate deploy && npm run db:seed
     startCommand: npm start
     healthCheckPath: /health
     autoDeploy: true

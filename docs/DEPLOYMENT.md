@@ -66,13 +66,13 @@ flowchart LR
    - **Runtime**: `Node`
    - **Build Command**:
      ```bash
-     npm install && npm run build && npx prisma migrate deploy
+     npm install && npm run build && npx prisma migrate deploy && npm run db:seed
      ```
    - **Start Command**:
      ```bash
      npm start
      ```
-   - **Plan Type**: `Free` or higher
+   - **Plan Type**: `Free`
 
 4. Under **Advanced**:
    - **Health Check Path**: `/health`
@@ -89,23 +89,23 @@ flowchart LR
 
 6. Click **Create Web Service**.
 
-### Seed the Initial Admin & Demo Users
-Once the backend is deployed and migrations have completed:
-1. Open the Render Web Service dashboard.
-2. Click on the **Shell** tab on the left menu.
-3. Run:
-   ```bash
-   npm run db:seed
+> [!NOTE]
+> **No Paid Render Shell Needed!**
+> The Build Command above automatically runs migrations (`prisma migrate deploy`) and seeds the default admin and demo accounts (`npm run db:seed`) on every deploy for **free**.
+> Because all database seed operations use `upsert`, it is 100% safe, idempotent, and will never create duplicate accounts.
+
+### Alternative (Free): Run Migrations & Seed From Your Local Computer
+Since Neon is a cloud-hosted database accessible over the internet, you can also run migrations and seed directly from your local terminal:
+1. In your local `server/` directory, create or edit `.env`:
+   ```env
+   DATABASE_URL="your-neon-pooled-connection-string"
+   DIRECT_URL="your-neon-direct-connection-string"
    ```
-4. This creates all initial roles and demo users:
-   - **Admin**: `admin@indusconnect.com` / `Admin@123`
-   - **Employee**: `employee@indusconnect.com` / `Demo@123`
-   - **Manager**: `manager@indusconnect.com` / `Demo@123`
-   - **Transport Admin**: `transport@indusconnect.com` / `Demo@123`
-   - **Accommodation Admin**: `accommodation@indusconnect.com` / `Demo@123`
-   - **Finance Officer**: `finance@indusconnect.com` / `Demo@123`
-   - **Driver**: `driver@indusconnect.com` / `Demo@123`
-   - **Security Officer**: `security@indusconnect.com` / `Demo@123`
+2. Run in your terminal:
+   ```bash
+   npm run db:setup
+   ```
+   *(This applies all migrations and seeds users into your Neon database in seconds).*
 
 ---
 
