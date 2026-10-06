@@ -6,12 +6,51 @@ import {
   Menu,
   ShieldCheck,
   UserCircle,
+  Users,
+  Truck,
+  UserCheck,
+  Route as RouteIcon,
+  Navigation,
+  BusFront,
+  Plane,
+  Building2,
+  Receipt,
+  Store,
+  FileText,
+  Radio,
+  CheckSquare,
+  History,
+  BarChart3,
 } from "lucide-react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import Button from "../ui/Button";
 import MobileNavDrawer from "./MobileNavDrawer";
 import MobileBottomBar from "./MobileBottomBar";
+
+function getMenuIcon(key: string, path: string) {
+  const normKey = (key || "").toLowerCase();
+  const normPath = (path || "").toLowerCase();
+
+  if (normKey.includes("dashboard") || normPath.includes("dashboard")) return LayoutDashboard;
+  if (normKey.includes("user") || normPath.includes("user")) return Users;
+  if (normKey.includes("vehicle") || normPath.includes("vehicle")) return Truck;
+  if (normKey.includes("driver") && !normKey.includes("trip")) return UserCheck;
+  if (normKey.includes("drivertrip") || normPath.includes("driver-trip")) return Navigation;
+  if (normKey.includes("shuttle") || normPath.includes("shuttle")) return BusFront;
+  if (normKey.includes("route") || normPath.includes("route")) return RouteIcon;
+  if (normKey.includes("travel") || normPath.includes("travel")) return Plane;
+  if (normKey.includes("accommodation") || normPath.includes("accommodation")) return Building2;
+  if (normKey.includes("expense") || normPath.includes("expense")) return Receipt;
+  if (normKey.includes("vendor") || normPath.includes("vendor")) return Store;
+  if (normKey.includes("policy") || normPath.includes("policy")) return FileText;
+  if (normKey.includes("telemetry") || normPath.includes("telemetry")) return Radio;
+  if (normKey.includes("approval") || normPath.includes("approval")) return CheckSquare;
+  if (normKey.includes("audit") || normPath.includes("audit")) return History;
+  if (normKey.includes("report") || normPath.includes("report")) return BarChart3;
+
+  return LayoutDashboard;
+}
 
 export default function AppLayout() {
   const { bootstrap, user, logout } = useAuth();
@@ -22,41 +61,55 @@ export default function AppLayout() {
   const userRole = bootstrap?.role ?? user?.role?.name ?? "EMPLOYEE";
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-slate-50">
+    <div className="min-h-screen w-full overflow-x-hidden bg-slate-50 font-sans antialiased">
       {/* Desktop Persistent Left Sidebar (>= xl) */}
-      <aside className="fixed left-0 top-0 z-30 hidden h-screen w-64 border-r border-slate-200 bg-white xl:block">
-        <div className="flex h-20 items-center gap-3 border-b border-slate-200 px-5">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-700 text-white shadow-xs">
-            <ShieldCheck size={24} />
+      <aside className="fixed left-0 top-0 z-30 hidden h-screen w-64 border-r border-slate-200/80 bg-white/95 backdrop-blur-md xl:block">
+        <div className="flex h-20 items-center gap-3 border-b border-slate-100 px-5 bg-gradient-to-r from-blue-900 to-slate-900 text-white">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-600/30 border border-blue-400/40 text-blue-300 shadow-md">
+            <ShieldCheck size={24} className="text-blue-400" />
           </div>
 
           <div className="min-w-0">
-            <h1 className="truncate text-lg font-bold text-slate-900 leading-tight">
+            <h1 className="truncate text-base font-black tracking-tight text-white leading-tight">
               IndusConnect
             </h1>
-            <p className="truncate text-xs text-slate-500 font-medium">
-              Mobility & Logistics
+            <p className="truncate text-2xs text-blue-300 font-bold uppercase tracking-wider">
+              Transit & Fleet Ops
             </p>
           </div>
         </div>
 
-        <nav className="h-[calc(100vh-80px)] space-y-1 overflow-y-auto p-4">
-          {menu.map((item) => (
-            <NavLink
-              key={item.key}
-              to={item.path}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${
-                  isActive
-                    ? "bg-blue-50 text-blue-700 font-bold border-l-4 border-blue-700"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                }`
-              }
-            >
-              <LayoutDashboard size={18} className="shrink-0" />
-              <span className="truncate">{item.title}</span>
-            </NavLink>
-          ))}
+        <nav className="h-[calc(100vh-80px)] space-y-1 overflow-y-auto p-3 scrollbar-thin">
+          {menu.map((item) => {
+            const Icon = getMenuIcon(item.key, item.path);
+            return (
+              <NavLink
+                key={item.key}
+                to={item.path}
+                className={({ isActive }) =>
+                  `group flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition ${
+                    isActive
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-600/20 font-bold"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <Icon
+                      size={17}
+                      className={`shrink-0 transition ${
+                        isActive
+                          ? "text-white"
+                          : "text-slate-400 group-hover:text-slate-700"
+                      }`}
+                    />
+                    <span className="truncate">{item.title}</span>
+                  </>
+                )}
+              </NavLink>
+            );
+          })}
         </nav>
       </aside>
 

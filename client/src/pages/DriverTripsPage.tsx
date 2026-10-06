@@ -19,6 +19,7 @@ import {
   Sparkles,
   Eye,
   CheckCircle2,
+  Search,
 } from "lucide-react";
 import {
   endDriverTrip,
@@ -263,6 +264,10 @@ export default function DriverTripsPage() {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [checklist, setChecklist] = useState<ChecklistFormState>(defaultChecklist);
   const [issueForm, setIssueForm] = useState<IssueFormState>(defaultIssueForm);
+
+  const [driverTab, setDriverTab] = useState<"nav" | "manifest" | "checklist" | "issue" | "stops">("nav");
+  const [manifestSearch, setManifestSearch] = useState("");
+  const [manifestFilter, setManifestFilter] = useState<"ALL" | "AWAITING" | "BOARDED" | "NO_SHOW">("ALL");
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -537,6 +542,27 @@ export default function DriverTripsPage() {
       ).length,
     };
   }, [passengers]);
+
+  const filteredPassengers = useMemo(() => {
+    const q = manifestSearch.toLowerCase().trim();
+    return passengers.filter((booking) => {
+      const matchesSearch =
+        !q ||
+        (booking.employee?.fullName && booking.employee.fullName.toLowerCase().includes(q)) ||
+        (booking.employee?.phone && booking.employee.phone.toLowerCase().includes(q)) ||
+        (booking.pickupStop?.stopName && booking.pickupStop.stopName.toLowerCase().includes(q)) ||
+        (booking.pickupArea && booking.pickupArea.toLowerCase().includes(q)) ||
+        (booking.seatNumber && booking.seatNumber.toLowerCase().includes(q));
+
+      const matchesStatus =
+        manifestFilter === "ALL" ||
+        (manifestFilter === "AWAITING" && booking.status === "ASSIGNED") ||
+        (manifestFilter === "BOARDED" && booking.status === "COMPLETED") ||
+        (manifestFilter === "NO_SHOW" && booking.status === "NO_SHOW");
+
+      return Boolean(matchesSearch && matchesStatus);
+    });
+  }, [passengers, manifestSearch, manifestFilter]);
 
   const checklistComplete =
     checklist.fuelChecked &&
@@ -972,329 +998,269 @@ export default function DriverTripsPage() {
         </div>
       )}
 
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <Card>
-          <div className="mb-4">
-            <h2 className="text-lg font-bold text-slate-900">
-              Assigned Routes
-            </h2>
+      {/* 1. TOP HORIZONTAL ROUTE SELECTOR ROSTER */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">
+            Assigned Routes ({routes.length})
+          </p>
+          {isLoadingRoutes && (
+            <span className="text-2xs text-slate-400 animate-pulse">Syncing routes...</span>
+          )}
+        </div>
 
-            <p className="text-sm text-slate-500">
-              {routes.length} routes available
-            </p>
-          </div>
+        <div className="flex items-center gap-3 overflow-x-auto pb-1 no-scrollbar">
+          {routes.map((route) => {
+            const isSelected = selectedRouteId === route.id;
+            const currentTrip = route.trips?.[0] ?? null;
 
-          {isLoadingRoutes ? (
-            <div className="rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500">
-              Loading assigned routes...
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {routes.map((route) => {
-                const currentTrip =
-                  route.trips?.[0] ?? null;
+            return (
+              <button
+                key={route.id}
+                type="button"
+                onClick={() => selectRoute(route)}
+                className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition shrink-0 ${
+                  isSelected
+                    ? "border-blue-600 bg-blue-50/80 shadow-sm ring-2 ring-blue-500/20"
+                    : "border-slate-200 bg-white hover:bg-slate-50"
+                }`}
+              >
+                <div
+                  className={`p-2.5 rounded-xl ${
+                    isSelected ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  <RouteIcon size={18} />
+                </div>
 
-                return (
-                  <button
-                    key={route.id}
-                    type="button"
-                    onClick={() => selectRoute(route)}
-                    className={`w-full rounded-2xl border p-4 text-left transition ${
-                      selectedRouteId === route.id
-                        ? "border-blue-600 bg-blue-50"
-                        : "border-slate-200 bg-white hover:bg-slate-50"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate font-bold text-slate-900">
-                          {route.routeName}
-                        </p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-slate-900 text-sm truncate max-w-[160px] sm:max-w-none">
+                      {route.routeName}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-3xs font-extrabold ${getTripStatusBadge(
+                        currentTrip?.status
+                      )}`}
+                    >
+                      {currentTrip?.status ?? "NOT STARTED"}
+                    </span>
+                  </div>
 
-                        <p className="text-sm text-slate-500">
-                          {route.routeCode}
-                        </p>
-                      </div>
-
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${getTripStatusBadge(
-                          currentTrip?.status
-                        )}`}
-                      >
-                        {currentTrip?.status ??
-                          "NOT STARTED"}
-                      </span>
-                    </div>
-
-                    <div className="mt-3 space-y-1 text-xs text-slate-500">
-                      <p>
-                        {route.startLocation ?? "-"} →{" "}
-                        {route.endLocation ?? "-"}
-                      </p>
-
-                      <p>
-                        {route.startTime ?? "-"} –{" "}
-                        {route.endTime ?? "-"}
-                      </p>
-
-                      <p>
-                        Vehicle:{" "}
-                        {route.vehicle?.vehicleNumber ??
-                          "Not assigned"}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
-
-              {routes.length === 0 && (
-                <div className="rounded-2xl bg-slate-50 px-4 py-10 text-center">
-                  <RouteIcon
-                    size={38}
-                    className="mx-auto text-slate-300"
-                  />
-
-                  <p className="mt-3 text-sm text-slate-500">
-                    No routes are assigned to you.
+                  <p className="text-2xs text-slate-500 font-medium">
+                    {route.routeCode} • {route.vehicle?.vehicleNumber ?? "Vehicle Pending"} • {route.startTime ?? "--"}
                   </p>
                 </div>
-              )}
+              </button>
+            );
+          })}
+
+          {routes.length === 0 && !isLoadingRoutes && (
+            <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 text-xs text-slate-500 font-semibold">
+              No routes currently assigned to you.
             </div>
           )}
+        </div>
+      </div>
+
+      {!selectedRoute || !manifest ? (
+        <Card>
+          <div className="py-14 text-center">
+            <Navigation size={44} className="mx-auto text-slate-300" />
+            <h2 className="mt-4 text-lg font-bold text-slate-900">
+              Select an assigned route
+            </h2>
+            <p className="mt-2 text-sm text-slate-500">
+              Choose a route from the selector above to open live navigation and passenger manifest.
+            </p>
+          </div>
         </Card>
-
-        <div className="min-w-0 space-y-6">
-          {!selectedRoute || !manifest ? (
-            <Card>
-              <div className="py-14 text-center">
-                <Navigation
-                  size={44}
-                  className="mx-auto text-slate-300"
-                />
-
-                <h2 className="mt-4 text-lg font-bold text-slate-900">
-                  Select an assigned route
-                </h2>
-
-                <p className="mt-2 text-sm text-slate-500">
-                  Choose a route to open the passenger manifest
-                  and trip controls.
-                </p>
-              </div>
-            </Card>
-          ) : isLoadingManifest ? (
-            <Card>
-              <div className="py-14 text-center text-sm text-slate-500">
-                Loading route manifest...
-              </div>
-            </Card>
-          ) : (
-            <>
-              <Card>
-                <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-2xl bg-blue-50 p-3 text-blue-700">
-                        <RouteIcon size={22} />
-                      </div>
-
-                      <div className="min-w-0">
-                        <h2 className="truncate text-xl font-bold text-slate-900">
-                          {manifest.route.routeName}
-                        </h2>
-
-                        <p className="text-sm text-slate-500">
-                          {manifest.route.routeCode}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-slate-400">
-                          Date
-                        </p>
-
-                        <p className="mt-1 text-sm font-semibold text-slate-700">
-                          {formatDate(
-                            manifest.route.routeDate
-                          )}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-slate-400">
-                          Schedule
-                        </p>
-
-                        <p className="mt-1 text-sm font-semibold text-slate-700">
-                          {manifest.route.startTime ?? "-"} –{" "}
-                          {manifest.route.endTime ?? "-"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-slate-400">
-                          Vehicle
-                        </p>
-
-                        <p className="mt-1 text-sm font-semibold text-slate-700">
-                          {manifest.vehicle?.vehicleNumber ??
-                            "Not assigned"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-slate-400">
-                          Trip Status
-                        </p>
-
-                        <span
-                          className={`mt-1 inline-flex rounded-full px-3 py-1 text-xs font-bold ${getTripStatusBadge(
-                            trip?.status
-                          )}`}
-                        >
-                          {trip?.status ?? "NOT STARTED"}
-                        </span>
-                      </div>
-                    </div>
+      ) : isLoadingManifest ? (
+        <Card>
+          <div className="py-14 text-center text-sm text-slate-500">
+            Loading route manifest...
+          </div>
+        </Card>
+      ) : (
+        <>
+          {/* 2. COMPACT ROUTE OPERATIONS & STATUS BAR */}
+          <Card>
+            <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+              <div className="min-w-0">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-blue-50 p-2.5 text-blue-700">
+                    <RouteIcon size={20} />
                   </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    {trip?.status === "READY" && (
-                      <Button
-                        onClick={handleStartTrip}
-                        disabled={
-                          processingAction === "start"
-                        }
-                      >
-                        <PlayCircle
-                          size={16}
-                          className="mr-2"
-                        />
-
-                        {processingAction === "start"
-                          ? "Starting..."
-                          : "Start Trip"}
-                      </Button>
-                    )}
-
-                    {trip?.status === "IN_PROGRESS" && (
-                      <Button
-                        onClick={handleEndTrip}
-                        disabled={
-                          processingAction === "end"
-                        }
-                      >
-                        <Flag size={16} className="mr-2" />
-
-                        {processingAction === "end"
-                          ? "Completing..."
-                          : "End Trip"}
-                      </Button>
-                    )}
-
-                    <Button
-                      variant="secondary"
-                      onClick={refreshCurrentRoute}
-                    >
-                      <RefreshCcw
-                        size={16}
-                        className="mr-2"
-                      />
-                      Refresh Manifest
-                    </Button>
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900 truncate">
+                      {manifest.route.routeName}
+                    </h2>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Date: <strong className="text-slate-700">{formatDate(manifest.route.routeDate)}</strong> • Code: <strong className="text-slate-700">{manifest.route.routeCode}</strong> • Schedule:{" "}
+                      <strong className="text-slate-700">{manifest.route.startTime ?? "-"} – {manifest.route.endTime ?? "-"}</strong> • Vehicle:{" "}
+                      <strong className="text-blue-700">{manifest.vehicle?.vehicleNumber ?? "Unassigned"}</strong>
+                    </p>
                   </div>
                 </div>
+              </div>
 
-                {trip?.issueType && (
-                  <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle
-                        size={20}
-                        className="mt-0.5 shrink-0 text-amber-700"
-                      />
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${getTripStatusBadge(trip?.status)}`}>
+                  {trip?.status ?? "NOT STARTED"}
+                </span>
 
-                      <div>
-                        <p className="font-bold text-amber-800">
-                          Latest reported issue:{" "}
-                          {trip.issueType}
-                        </p>
-
-                        <p className="mt-1 text-sm text-amber-700">
-                          {trip.issueDescription ??
-                            "No description provided"}
-                        </p>
-
-                        <p className="mt-1 text-xs text-amber-600">
-                          {formatDateTime(
-                            trip.issueReportedAt
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                {trip?.status === "READY" && (
+                  <Button onClick={handleStartTrip} disabled={processingAction === "start"}>
+                    <PlayCircle size={15} className="mr-1.5" />
+                    {processingAction === "start" ? "Starting..." : "Start Trip"}
+                  </Button>
                 )}
-              </Card>
 
-              {/* CAREEM / INDRIVE DRIVER NAVIGATION HUD & LIVE MAP */}
+                {trip?.status === "IN_PROGRESS" && (
+                  <Button onClick={handleEndTrip} disabled={processingAction === "end"} variant="danger">
+                    <Flag size={15} className="mr-1.5" />
+                    {processingAction === "end" ? "Completing..." : "End Trip"}
+                  </Button>
+                )}
+
+                <Button variant="secondary" onClick={refreshCurrentRoute}>
+                  <RefreshCcw size={15} className="mr-1.5" />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+
+            {trip?.issueType && (
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3.5">
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-700" />
+                  <div>
+                    <p className="text-xs font-bold text-amber-800">
+                      Reported Issue: {trip.issueType}
+                    </p>
+                    <p className="text-2xs text-amber-700">{trip.issueDescription ?? "No description"}</p>
+                    <p className="text-3xs text-amber-600 mt-0.5">{formatDateTime(trip.issueReportedAt)}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* 3. MOBILE-ONLY WORKSPACE TAB CONTROLLER (< xl) */}
+          <div className="flex xl:hidden rounded-2xl bg-slate-100 p-1.5 border border-slate-200 overflow-x-auto no-scrollbar gap-1">
+            <button
+              type="button"
+              onClick={() => setDriverTab("nav")}
+              className={`flex-1 min-w-[105px] py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                driverTab === "nav" ? "bg-white text-blue-800 shadow-sm" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Navigation size={13} />
+              <span>Nav HUD</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDriverTab("manifest")}
+              className={`flex-1 min-w-[115px] py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                driverTab === "manifest" ? "bg-white text-blue-800 shadow-sm" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <UserCheck size={13} />
+              <span>Manifest ({passengers.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDriverTab("checklist")}
+              className={`flex-1 min-w-[95px] py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                driverTab === "checklist" ? "bg-white text-blue-800 shadow-sm" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <ClipboardCheck size={13} />
+              <span>Checklist</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDriverTab("issue")}
+              className={`flex-1 min-w-[85px] py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                driverTab === "issue" ? "bg-white text-red-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <ShieldAlert size={13} />
+              <span>Issue</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDriverTab("stops")}
+              className={`flex-1 min-w-[85px] py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                driverTab === "stops" ? "bg-white text-blue-800 shadow-sm" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <UsersRound size={13} />
+              <span>Stops</span>
+            </button>
+          </div>
+
+          {/* 4. MAIN DUAL-PANE WORKSPACE: Desktop Split vs Mobile Tab */}
+          <div className="grid min-w-0 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+            {/* LEFT PANE: LIVE NAVIGATION HUD & MAP (Always on desktop; on mobile when driverTab === 'nav') */}
+            <div className={`space-y-6 ${driverTab === "nav" ? "block" : "hidden xl:block"}`}>
               <Card>
                 <div className="mb-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                   <div className="flex items-center gap-3">
-                    <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">
+                    <div className="rounded-2xl bg-emerald-50 p-2.5 text-emerald-700">
                       <Navigation
-                        size={22}
+                        size={20}
                         className={trip?.status === "IN_PROGRESS" ? "animate-spin" : ""}
                       />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h2 className="text-lg font-bold text-slate-900">
-                          Driver Navigation & Transit HUD
+                        <h2 className="text-base font-bold text-slate-900">
+                          Navigation & Transit HUD
                         </h2>
                         {trip?.status === "IN_PROGRESS" && (
-                          <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping" />
+                          <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 font-semibold">
-                        Real-time GPS telemetry broadcast • Heading: {driverHeading}° • Speed: {driverSpeed} km/h
+                      <p className="text-3xs text-slate-500 font-semibold">
+                        GPS broadcast • Heading: {driverHeading}° • Speed: {driverSpeed} km/h
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
                     {/* Simulated Driving test toggle */}
                     <button
                       type="button"
                       onClick={() => setIsSimulatingDrive(!isSimulatingDrive)}
-                      className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                      className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-3xs font-bold transition ${
                         isSimulatingDrive
                           ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
                           : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                       }`}
                       title="Toggle simulated driver route drive"
                     >
-                      <Sparkles size={14} className={isSimulatingDrive ? "animate-spin" : "text-amber-500"} />
-                      <span>{isSimulatingDrive ? "Simulating Trip..." : "Simulate Drive"}</span>
+                      <Sparkles size={12} className={isSimulatingDrive ? "animate-spin" : "text-amber-500"} />
+                      <span>{isSimulatingDrive ? "Simulating..." : "Simulate Drive"}</span>
                     </button>
 
                     {/* Camera Lock toggle */}
                     <button
                       type="button"
                       onClick={() => setIsFollowLocked(!isFollowLocked)}
-                      className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                      className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-3xs font-bold transition ${
                         isFollowLocked
                           ? "bg-emerald-600 text-white shadow-sm"
                           : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                       }`}
                     >
-                      <Eye size={14} />
-                      <span>{isFollowLocked ? "Lock: Centered" : "Free Roam"}</span>
+                      <Eye size={12} />
+                      <span>{isFollowLocked ? "Locked" : "Free"}</span>
                     </button>
 
                     {syncedCount > 0 && (
-                      <span className="rounded-full bg-emerald-50 border border-emerald-100 px-2.5 py-1 text-3xs font-extrabold text-emerald-700 uppercase">
-                        {isSyncingTelemetry ? "Syncing..." : `${syncedCount} Fixes Sent`}
+                      <span className="rounded-full bg-emerald-50 border border-emerald-100 px-2 py-0.5 text-4xs font-extrabold text-emerald-700 uppercase">
+                        {isSyncingTelemetry ? "Sync..." : `${syncedCount} Fixes`}
                       </span>
                     )}
                   </div>
@@ -1307,14 +1273,14 @@ export default function DriverTripsPage() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="rounded-md bg-emerald-500/20 px-2 py-0.5 text-2xs font-extrabold uppercase tracking-wider text-emerald-400 border border-emerald-500/30">
-                            Next Waypoint Stop
+                            Next Stop
                           </span>
                           <span className="text-2xs text-slate-400">
                             Stop {nextStop.stopOrder} of {orderedStops.length}
                           </span>
                         </div>
 
-                        <h3 className="mt-1 text-lg font-black text-white truncate">
+                        <h3 className="mt-1 text-base font-black text-white truncate">
                           {nextStop.stopName}
                         </h3>
 
@@ -1323,7 +1289,7 @@ export default function DriverTripsPage() {
                             <Clock3 size={13} />
                             {nextStopDistanceKm < 0.2
                               ? "Arrived at Stop"
-                              : `~${nextStopEtaMins} mins (${Math.round(nextStopDistanceKm * 1000)}m away)`}
+                              : `~${nextStopEtaMins} mins (${Math.round(nextStopDistanceKm * 1000)}m)`}
                           </span>
                           <span>•</span>
                           <span className="text-amber-300 font-semibold flex items-center gap-1">
@@ -1340,10 +1306,10 @@ export default function DriverTripsPage() {
                             href={`https://www.google.com/maps/dir/?api=1&destination=${nextStop.latitude},${nextStop.longitude}&travelmode=driving`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-blue-600/30 transition"
+                            className="flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition"
                           >
-                            <ExternalLink size={14} />
-                            <span>Turn-by-Turn in Google Maps</span>
+                            <ExternalLink size={13} />
+                            <span>Google Maps</span>
                           </a>
                         )}
 
@@ -1355,13 +1321,13 @@ export default function DriverTripsPage() {
                             )
                           }
                           disabled={currentStopIndex >= orderedStops.length - 1}
-                          className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-emerald-600/30 transition"
+                          className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition"
                         >
-                          <CheckCircle2 size={14} />
+                          <CheckCircle2 size={13} />
                           <span>
                             {currentStopIndex >= orderedStops.length - 1
                               ? "Final Destination"
-                              : "Arrived • Next Stop"}
+                              : "Next Stop"}
                           </span>
                         </button>
                       </div>
@@ -1389,76 +1355,410 @@ export default function DriverTripsPage() {
                     enablePresets={false}
                   />
                 </div>
-              </Card>
 
-              <div className="grid min-w-0 gap-6 2xl:grid-cols-2">
-                <Card>
-                  <div className="mb-5 flex items-center gap-3">
-                    <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">
-                      <ClipboardCheck size={22} />
+                {/* IMMEDIATE CURRENT STOP BOARDING TRAY */}
+                {nextStop && (
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-2.5 w-2.5 rounded-full bg-blue-600 animate-pulse" />
+                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
+                          Stop #{nextStop.stopOrder} Boarding: {nextStop.stopName}
+                        </h4>
+                      </div>
+                      <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-3xs font-extrabold text-blue-800">
+                        {passengersAtNextStop.length} Passenger(s) waiting
+                      </span>
                     </div>
 
-                    <div>
-                      <h2 className="text-lg font-bold text-slate-900">
-                        Safety Checklist
-                      </h2>
+                    {passengersAtNextStop.length > 0 ? (
+                      <div className="space-y-2">
+                        {passengersAtNextStop.map((booking: any) => (
+                          <div
+                            key={booking.id}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl bg-white p-3 border border-slate-200 shadow-2xs"
+                          >
+                            <div>
+                              <p className="font-extrabold text-slate-900 text-xs">
+                                {booking.employee?.fullName ?? "Employee"}
+                              </p>
+                              <p className="text-3xs text-slate-500 font-semibold">
+                                Seat: {booking.seatNumber ?? "Unassigned"} • Phone: {booking.employee?.phone ?? "—"}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                disabled={trip?.status !== "IN_PROGRESS" || processingAction === `board-${booking.id}`}
+                                onClick={() => handlePassengerBoarded(booking)}
+                                className="flex items-center gap-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-3xs font-black px-3 py-1.5 shadow-sm transition"
+                              >
+                                <UserCheck size={12} />
+                                <span>{processingAction === `board-${booking.id}` ? "Saving..." : "Boarded"}</span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled={trip?.status !== "IN_PROGRESS" || processingAction === `no-show-${booking.id}`}
+                                onClick={() => handlePassengerNoShow(booking)}
+                                className="flex items-center gap-1 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50 text-3xs font-black px-3 py-1.5 transition"
+                              >
+                                <UserX size={12} />
+                                <span>{processingAction === `no-show-${booking.id}` ? "Saving..." : "No Show"}</span>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-2xs text-slate-400 font-medium italic">
+                        No registered passengers waiting for pickup at this waypoint stop.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </Card>
+            </div>
 
-                      <p className="text-sm text-slate-500">
-                        Required before starting the trip.
+            {/* RIGHT PANE / TABBED WORKSPACES (Always on desktop; on mobile when driverTab !== 'nav') */}
+            <div className={`space-y-6 ${driverTab !== "nav" ? "block" : "hidden xl:block"}`}>
+              {/* Desktop Workspace Tab Controller */}
+              <div className="hidden xl:flex rounded-2xl bg-slate-100 p-1.5 border border-slate-200 gap-1">
+                <button
+                  type="button"
+                  onClick={() => setDriverTab("manifest")}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                    driverTab === "manifest" || driverTab === "nav"
+                      ? "bg-white text-blue-800 shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <UserCheck size={14} />
+                  <span>Manifest ({passengers.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDriverTab("checklist")}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                    driverTab === "checklist"
+                      ? "bg-white text-blue-800 shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <ClipboardCheck size={14} />
+                  <span>Checklist</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDriverTab("issue")}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                    driverTab === "issue"
+                      ? "bg-white text-red-700 shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <ShieldAlert size={14} />
+                  <span>Issue</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDriverTab("stops")}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                    driverTab === "stops"
+                      ? "bg-white text-blue-800 shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <UsersRound size={14} />
+                  <span>Stops</span>
+                </button>
+              </div>
+
+              {/* TAB 1: PASSENGER MANIFEST */}
+              {(driverTab === "manifest" || driverTab === "nav") && (
+                <div className="space-y-4">
+                  {/* Passenger Summary KPI Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <Card className="p-3">
+                      <p className="text-3xs text-slate-400 font-bold uppercase tracking-wider">Total</p>
+                      <p className="mt-1 text-lg font-black text-slate-900">{passengerSummary.total}</p>
+                    </Card>
+                    <Card className="p-3">
+                      <p className="text-3xs text-amber-600 font-bold uppercase tracking-wider">Awaiting</p>
+                      <p className="mt-1 text-lg font-black text-amber-700">{passengerSummary.awaiting}</p>
+                    </Card>
+                    <Card className="p-3">
+                      <p className="text-3xs text-emerald-600 font-bold uppercase tracking-wider">Boarded</p>
+                      <p className="mt-1 text-lg font-black text-emerald-700">{passengerSummary.boarded}</p>
+                    </Card>
+                    <Card className="p-3">
+                      <p className="text-3xs text-slate-400 font-bold uppercase tracking-wider">No Show</p>
+                      <p className="mt-1 text-lg font-black text-slate-700">{passengerSummary.noShow}</p>
+                    </Card>
+                  </div>
+
+                  <Card className="min-w-0">
+                    <div className="mb-4 flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-base font-bold text-slate-900">Passenger Manifest</h3>
+                        <span className="text-xs text-slate-500 font-semibold">
+                          {filteredPassengers.length} of {passengers.length} shown
+                        </span>
+                      </div>
+
+                      {/* Search & Filter pills */}
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="relative flex-1">
+                          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            value={manifestSearch}
+                            onChange={(e) => setManifestSearch(e.target.value)}
+                            placeholder="Filter by name, stop, seat..."
+                            className="w-full rounded-xl border border-slate-300 py-1.5 pl-8 pr-3 text-xs outline-none focus:border-blue-600"
+                          />
+                        </div>
+
+                        <div className="flex overflow-x-auto gap-1 py-0.5 no-scrollbar shrink-0">
+                          {(["ALL", "AWAITING", "BOARDED", "NO_SHOW"] as const).map((st) => (
+                            <button
+                              key={st}
+                              type="button"
+                              onClick={() => setManifestFilter(st)}
+                              className={`px-2.5 py-1 rounded-lg text-3xs font-extrabold uppercase tracking-wider transition ${
+                                manifestFilter === st
+                                  ? "bg-slate-900 text-white shadow-2xs"
+                                  : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                              }`}
+                            >
+                              {st}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Mobile View: Touch-Friendly Passenger Manifest Cards (< md) */}
+                    <div className="block md:hidden space-y-2.5">
+                      {filteredPassengers.length > 0 ? (
+                        filteredPassengers.map((booking) => (
+                          <MobileCard
+                            key={booking.id}
+                            title={booking.employee?.fullName ?? "Employee"}
+                            subtitle={`Seat: ${booking.seatNumber ?? "Unassigned"} • ${booking.pickupStop?.stopName ?? booking.pickupArea}`}
+                            statusBadge={{
+                              label: booking.status,
+                              variant: getPassengerMobileBadgeVariant(booking.status),
+                            }}
+                            fields={[
+                              {
+                                label: "Pickup",
+                                value: booking.pickupStop?.stopName ?? booking.pickupArea,
+                                icon: <MapPin size={12} />,
+                              },
+                              {
+                                label: "Phone",
+                                value: booking.employee?.phone ? (
+                                  <a
+                                    href={`tel:${booking.employee.phone}`}
+                                    className="text-blue-700 underline font-bold"
+                                  >
+                                    {booking.employee.phone}
+                                  </a>
+                                ) : (
+                                  "—"
+                                ),
+                              },
+                              {
+                                label: "Emp Code",
+                                value: booking.employee?.employeeCode ?? "—",
+                              },
+                            ]}
+                            actions={
+                              booking.status === "ASSIGNED" ? (
+                                <div className="flex w-full gap-2">
+                                  <Button
+                                    type="button"
+                                    disabled={
+                                      trip?.status !== "IN_PROGRESS" ||
+                                      processingAction === `board-${booking.id}`
+                                    }
+                                    onClick={() => handlePassengerBoarded(booking)}
+                                    className="flex-1 py-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                                  >
+                                    <UserCheck size={14} className="mr-1" />
+                                    {processingAction === `board-${booking.id}`
+                                      ? "Saving..."
+                                      : "Boarded"}
+                                  </Button>
+
+                                  <Button
+                                    type="button"
+                                    variant="secondary"
+                                    disabled={
+                                      trip?.status !== "IN_PROGRESS" ||
+                                      processingAction === `no-show-${booking.id}`
+                                    }
+                                    onClick={() => handlePassengerNoShow(booking)}
+                                    className="flex-1 py-2 text-xs border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100"
+                                  >
+                                    <UserX size={14} className="mr-1" />
+                                    {processingAction === `no-show-${booking.id}`
+                                      ? "Saving..."
+                                      : "No Show"}
+                                  </Button>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-slate-400 font-medium">
+                                  Status recorded
+                                </span>
+                              )
+                            }
+                          />
+                        ))
+                      ) : (
+                        <div className="rounded-2xl bg-slate-50 p-6 text-center text-xs text-slate-500">
+                          No passengers match current filter.
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Desktop View: Formatted Manifest Table (>= md) */}
+                    <div className="hidden md:block w-full min-w-0 overflow-x-auto">
+                      <table className="w-full min-w-[620px] border-separate border-spacing-y-2">
+                        <thead>
+                          <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
+                            <th className="px-3 py-1.5">Passenger</th>
+                            <th className="px-3 py-1.5">Stop</th>
+                            <th className="px-3 py-1.5">Seat</th>
+                            <th className="px-3 py-1.5">Contact</th>
+                            <th className="px-3 py-1.5">Status</th>
+                            <th className="px-3 py-1.5 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredPassengers.map((booking) => (
+                            <tr key={booking.id} className="bg-slate-50">
+                              <td className="rounded-l-xl px-3 py-2.5">
+                                <p className="font-semibold text-slate-900 text-xs">
+                                  {booking.employee?.fullName ?? "Employee"}
+                                </p>
+                                <p className="text-3xs text-slate-500">
+                                  {booking.employee?.employeeCode ?? "-"}
+                                </p>
+                              </td>
+                              <td className="px-3 py-2.5">
+                                <p className="text-xs font-semibold text-slate-700">
+                                  {booking.pickupStop?.stopName ?? booking.pickupArea}
+                                </p>
+                              </td>
+                              <td className="px-3 py-2.5 text-xs font-bold text-slate-700">
+                                {booking.seatNumber ?? "-"}
+                              </td>
+                              <td className="px-3 py-2.5 text-xs text-slate-600">
+                                {booking.employee?.phone ?? "-"}
+                              </td>
+                              <td className="px-3 py-2.5">
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-3xs font-bold ${getPassengerStatusBadge(
+                                    booking.status
+                                  )}`}
+                                >
+                                  {booking.status}
+                                </span>
+                              </td>
+                              <td className="rounded-r-xl px-3 py-2.5 text-right">
+                                <div className="flex justify-end gap-1.5">
+                                  {booking.status === "ASSIGNED" && (
+                                    <>
+                                      <Button
+                                        type="button"
+                                        disabled={
+                                          trip?.status !== "IN_PROGRESS" ||
+                                          processingAction === `board-${booking.id}`
+                                        }
+                                        onClick={() => handlePassengerBoarded(booking)}
+                                        className="py-1 px-2.5 text-3xs"
+                                      >
+                                        <UserCheck size={12} className="mr-1" />
+                                        Boarded
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="secondary"
+                                        disabled={
+                                          trip?.status !== "IN_PROGRESS" ||
+                                          processingAction === `no-show-${booking.id}`
+                                        }
+                                        onClick={() => handlePassengerNoShow(booking)}
+                                        className="py-1 px-2.5 text-3xs border border-amber-200 text-amber-700"
+                                      >
+                                        <UserX size={12} className="mr-1" />
+                                        No Show
+                                      </Button>
+                                    </>
+                                  )}
+                                  {booking.status !== "ASSIGNED" && (
+                                    <span className="text-3xs text-slate-400">Recorded</span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                          {filteredPassengers.length === 0 && (
+                            <tr>
+                              <td
+                                colSpan={6}
+                                className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-xs text-slate-500"
+                              >
+                                No passengers found.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Card>
+                </div>
+              )}
+
+              {/* TAB 2: SAFETY CHECKLIST */}
+              {driverTab === "checklist" && (
+                <Card>
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="rounded-2xl bg-emerald-50 p-2.5 text-emerald-700">
+                      <ClipboardCheck size={20} />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-bold text-slate-900">Safety Checklist</h2>
+                      <p className="text-xs text-slate-500">
+                        Required safety verifications before trip initiation.
                       </p>
                     </div>
                   </div>
 
-                  <form
-                    onSubmit={handleChecklistSubmit}
-                    className="space-y-3"
-                  >
+                  <form onSubmit={handleChecklistSubmit} className="space-y-3">
                     {[
-                      {
-                        key: "fuelChecked",
-                        label: "Fuel level checked",
-                      },
-                      {
-                        key: "tiresChecked",
-                        label: "Tyres checked",
-                      },
-                      {
-                        key: "brakesChecked",
-                        label: "Brakes checked",
-                      },
-                      {
-                        key: "lightsChecked",
-                        label: "Lights checked",
-                      },
+                      { key: "fuelChecked", label: "Fuel level verified sufficient" },
+                      { key: "tiresChecked", label: "Tyres condition and pressure checked" },
+                      { key: "brakesChecked", label: "Brakes and hydraulic responsiveness tested" },
+                      { key: "lightsChecked", label: "Headlights, indicators, and hazard lights operational" },
                     ].map((item) => (
                       <label
                         key={item.key}
-                        className="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 p-4 hover:bg-slate-50"
+                        className="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 p-3.5 hover:bg-slate-50"
                       >
                         <input
                           type="checkbox"
-                          checked={
-                            checklist[
-                              item.key as keyof ChecklistFormState
-                            ]
-                          }
-                          disabled={
-                            trip?.status === "IN_PROGRESS" ||
-                            trip?.status === "COMPLETED"
-                          }
-                          onChange={(event) =>
+                          checked={checklist[item.key as keyof ChecklistFormState]}
+                          disabled={trip?.status === "IN_PROGRESS" || trip?.status === "COMPLETED"}
+                          onChange={(e) =>
                             setChecklist({
                               ...checklist,
-                              [item.key]:
-                                event.target.checked,
+                              [item.key]: e.target.checked,
                             })
                           }
-                          className="h-5 w-5 rounded border-slate-300"
+                          className="h-4 w-4 rounded border-slate-300 text-blue-600"
                         />
-
-                        <span className="text-sm font-semibold text-slate-700">
-                          {item.label}
-                        </span>
+                        <span className="text-xs font-semibold text-slate-700">{item.label}</span>
                       </label>
                     ))}
 
@@ -1471,445 +1771,175 @@ export default function DriverTripsPage() {
                         trip?.status === "COMPLETED"
                       }
                     >
-                      <SquareCheckBig
-                        size={16}
-                        className="mr-2"
-                      />
-
+                      <SquareCheckBig size={15} className="mr-2" />
                       {isSubmittingChecklist
                         ? "Submitting..."
                         : trip?.status === "READY"
-                          ? "Checklist Completed"
-                          : "Submit Safety Checklist"}
+                        ? "Checklist Completed"
+                        : "Submit Safety Checklist"}
                     </Button>
                   </form>
                 </Card>
+              )}
 
+              {/* TAB 3: REPORT ISSUE */}
+              {driverTab === "issue" && (
                 <Card>
-                  <div className="mb-5 flex items-center gap-3">
-                    <div className="rounded-2xl bg-red-50 p-3 text-red-700">
-                      <ShieldAlert size={22} />
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="rounded-2xl bg-red-50 p-2.5 text-red-700">
+                      <ShieldAlert size={20} />
                     </div>
-
                     <div>
-                      <h2 className="text-lg font-bold text-slate-900">
-                        Report Trip Issue
-                      </h2>
-
-                      <p className="text-sm text-slate-500">
-                        Report delay, breakdown, emergency,
-                        or another problem.
+                      <h2 className="text-base font-bold text-slate-900">Report Trip Issue</h2>
+                      <p className="text-xs text-slate-500">
+                        Report traffic delay, mechanical breakdown, or emergency.
                       </p>
                     </div>
                   </div>
 
-                  <form
-                    onSubmit={handleIssueSubmit}
-                    className="space-y-4"
-                  >
+                  <form onSubmit={handleIssueSubmit} className="space-y-3">
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      <label className="mb-1 block text-2xs font-bold text-slate-500 uppercase">
                         Issue Type
                       </label>
-
                       <select
                         value={issueForm.issueType}
-                        onChange={(event) =>
-                          setIssueForm({
-                            ...issueForm,
-                            issueType: event.target
-                              .value as TripIssueType,
-                          })
+                        onChange={(e) =>
+                          setIssueForm({ ...issueForm, issueType: e.target.value as TripIssueType })
                         }
-                        className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
+                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs outline-none focus:border-blue-600"
                       >
                         <option value="DELAY">DELAY</option>
-                        <option value="BREAKDOWN">
-                          BREAKDOWN
-                        </option>
-                        <option value="SOS">SOS</option>
+                        <option value="BREAKDOWN">BREAKDOWN</option>
+                        <option value="SOS">SOS (EMERGENCY)</option>
                         <option value="OTHER">OTHER</option>
                       </select>
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      <label className="mb-1 block text-2xs font-bold text-slate-500 uppercase">
                         Description
                       </label>
-
                       <textarea
                         rows={3}
                         value={issueForm.issueDescription}
-                        onChange={(event) =>
-                          setIssueForm({
-                            ...issueForm,
-                            issueDescription:
-                              event.target.value,
-                          })
+                        onChange={(e) =>
+                          setIssueForm({ ...issueForm, issueDescription: e.target.value })
                         }
-                        placeholder="Describe the issue"
-                        className="w-full resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
+                        placeholder="Explain the circumstance..."
+                        className="w-full resize-none rounded-xl border border-slate-300 px-3 py-2 text-xs outline-none focus:border-blue-600"
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2">
                       <input
                         type="number"
                         step="any"
                         value={issueForm.issueLatitude}
-                        onChange={(event) =>
-                          setIssueForm({
-                            ...issueForm,
-                            issueLatitude:
-                              event.target.value,
-                          })
+                        onChange={(e) =>
+                          setIssueForm({ ...issueForm, issueLatitude: e.target.value })
                         }
                         placeholder="Latitude"
-                        className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
+                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs outline-none"
                       />
-
                       <input
                         type="number"
                         step="any"
                         value={issueForm.issueLongitude}
-                        onChange={(event) =>
-                          setIssueForm({
-                            ...issueForm,
-                            issueLongitude:
-                              event.target.value,
-                          })
+                        onChange={(e) =>
+                          setIssueForm({ ...issueForm, issueLongitude: e.target.value })
                         }
                         placeholder="Longitude"
-                        className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
+                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs outline-none"
                       />
                     </div>
 
                     <Button
                       type="button"
                       variant="secondary"
-                      className="w-full"
+                      className="w-full text-xs"
                       onClick={useCurrentLocation}
                     >
-                      <MapPin size={16} className="mr-2" />
-                      Use Current Location
+                      <MapPin size={14} className="mr-1.5" />
+                      Auto-Fill Current GPS Coordinates
                     </Button>
 
                     <Button
-                      className="w-full"
-                      variant={
-                        issueForm.issueType === "SOS"
-                          ? "danger"
-                          : "primary"
-                      }
+                      className="w-full text-xs"
+                      variant={issueForm.issueType === "SOS" ? "danger" : "primary"}
                       disabled={isSubmittingIssue}
                     >
-                      <AlertTriangle
-                        size={16}
-                        className="mr-2"
-                      />
-
+                      <AlertTriangle size={14} className="mr-1.5" />
                       {isSubmittingIssue
                         ? "Reporting..."
                         : issueForm.issueType === "SOS"
-                          ? "Send Emergency SOS"
-                          : "Report Issue"}
+                        ? "Broadcast Emergency SOS"
+                        : "Submit Report"}
                     </Button>
                   </form>
                 </Card>
-              </div>
+              )}
 
-              <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {/* TAB 4: ROUTE STOPS SEQUENCE */}
+              {driverTab === "stops" && (
                 <Card>
-                  <p className="text-sm text-slate-500">
-                    Total Passengers
-                  </p>
-                  <p className="mt-2 text-2xl font-bold text-slate-900">
-                    {passengerSummary.total}
-                  </p>
-                </Card>
-
-                <Card>
-                  <p className="text-sm text-slate-500">
-                    Awaiting
-                  </p>
-                  <p className="mt-2 text-2xl font-bold text-amber-700">
-                    {passengerSummary.awaiting}
-                  </p>
-                </Card>
-
-                <Card>
-                  <p className="text-sm text-slate-500">
-                    Boarded
-                  </p>
-                  <p className="mt-2 text-2xl font-bold text-emerald-700">
-                    {passengerSummary.boarded}
-                  </p>
-                </Card>
-
-                <Card>
-                  <p className="text-sm text-slate-500">
-                    No Show
-                  </p>
-                  <p className="mt-2 text-2xl font-bold text-slate-700">
-                    {passengerSummary.noShow}
-                  </p>
-                </Card>
-              </div>
-
-              <Card className="min-w-0">
-                <div className="mb-5">
-                  <h2 className="text-lg font-bold text-slate-900">
-                    Passenger Manifest
-                  </h2>
-
-                  <p className="text-sm text-slate-500">
-                    Mark passenger boarding status during the
-                    active trip.
-                  </p>
-                </div>
-
-                {/* Mobile View: Touch-Friendly Passenger Manifest Cards (< md) */}
-                <div className="block md:hidden space-y-3 mb-4">
-                  {passengers.length > 0 ? (
-                    passengers.map((booking) => (
-                      <MobileCard
-                        key={booking.id}
-                        title={booking.employee?.fullName ?? "Employee"}
-                        subtitle={`Seat: ${booking.seatNumber ?? "Unassigned"} • ${booking.pickupStop?.stopName ?? booking.pickupArea}`}
-                        statusBadge={{
-                          label: booking.status,
-                          variant: getPassengerMobileBadgeVariant(booking.status),
-                        }}
-                        fields={[
-                          {
-                            label: "Pickup Location",
-                            value: booking.pickupStop?.stopName ?? booking.pickupArea,
-                            icon: <MapPin size={13} />,
-                          },
-                          {
-                            label: "Phone / Contact",
-                            value: booking.employee?.phone ? (
-                              <a
-                                href={`tel:${booking.employee.phone}`}
-                                className="text-blue-700 underline font-bold"
-                              >
-                                {booking.employee.phone}
-                              </a>
-                            ) : (
-                              "—"
-                            ),
-                          },
-                          {
-                            label: "Employee Code",
-                            value: booking.employee?.employeeCode ?? "—",
-                          },
-                          {
-                            label: "Address Detail",
-                            value: booking.pickupAddress ?? "Standard Stop",
-                          },
-                        ]}
-                        actions={
-                          booking.status === "ASSIGNED" ? (
-                            <div className="flex w-full gap-2">
-                              <Button
-                                type="button"
-                                disabled={
-                                  trip?.status !== "IN_PROGRESS" ||
-                                  processingAction === `board-${booking.id}`
-                                }
-                                onClick={() => handlePassengerBoarded(booking)}
-                                className="flex-1 py-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                              >
-                                <UserCheck size={16} className="mr-1.5" />
-                                {processingAction === `board-${booking.id}`
-                                  ? "Saving..."
-                                  : "Boarded"}
-                              </Button>
-
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                disabled={
-                                  trip?.status !== "IN_PROGRESS" ||
-                                  processingAction === `no-show-${booking.id}`
-                                }
-                                onClick={() => handlePassengerNoShow(booking)}
-                                className="flex-1 py-2.5 text-xs border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100"
-                              >
-                                <UserX size={16} className="mr-1.5" />
-                                {processingAction === `no-show-${booking.id}`
-                                  ? "Saving..."
-                                  : "No Show"}
-                              </Button>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400 font-medium">
-                              Boarding recorded
-                            </span>
-                          )
-                        }
-                      />
-                    ))
-                  ) : (
-                    <div className="rounded-2xl bg-slate-50 p-6 text-center text-xs text-slate-500">
-                      No passengers assigned to this route.
+                  <div className="mb-4 flex items-center gap-3">
+                    <UsersRound size={20} className="text-blue-700" />
+                    <div>
+                      <h2 className="text-base font-bold text-slate-900">Route Waypoint Sequence</h2>
+                      <p className="text-xs text-slate-500">
+                        Total {orderedStops.length} stops scheduled on this route.
+                      </p>
                     </div>
-                  )}
-                </div>
+                  </div>
 
-                {/* Desktop View: Wide Manifest Table (>= md) */}
-                <div className="hidden md:block w-full min-w-0 overflow-x-auto">
-                  <table className="w-full min-w-[980px] border-separate border-spacing-y-2">
-                    <thead>
-                      <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
-                        <th className="px-4 py-2">Passenger</th>
-                        <th className="px-4 py-2">Pickup Stop</th>
-                        <th className="px-4 py-2">Seat</th>
-                        <th className="px-4 py-2">Contact</th>
-                        <th className="px-4 py-2">Status</th>
-                        <th className="px-4 py-2 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {passengers.map((booking) => (
-                        <tr key={booking.id} className="bg-slate-50">
-                          <td className="rounded-l-2xl px-4 py-4">
-                            <p className="font-semibold text-slate-900">
-                              {booking.employee?.fullName ?? "Employee"}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {booking.employee?.employeeCode ?? "-"}
-                            </p>
-                          </td>
-                          <td className="px-4 py-4">
-                            <p className="text-sm font-semibold text-slate-700">
-                              {booking.pickupStop?.stopName ?? booking.pickupArea}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {booking.pickupAddress ?? "-"}
-                            </p>
-                          </td>
-                          <td className="px-4 py-4 text-sm font-bold text-slate-700">
-                            {booking.seatNumber ?? "-"}
-                          </td>
-                          <td className="px-4 py-4">
-                            <p className="text-sm text-slate-600">
-                              {booking.employee?.phone ?? "-"}
-                            </p>
-                          </td>
-                          <td className="px-4 py-4">
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-bold ${getPassengerStatusBadge(
-                                booking.status
-                              )}`}
-                            >
-                              {booking.status}
-                            </span>
-                          </td>
-                          <td className="rounded-r-2xl px-4 py-4">
-                            <div className="flex justify-end gap-2">
-                              {booking.status === "ASSIGNED" && (
-                                <>
-                                  <Button
-                                    type="button"
-                                    disabled={
-                                      trip?.status !== "IN_PROGRESS" ||
-                                      processingAction === `board-${booking.id}`
-                                    }
-                                    onClick={() => handlePassengerBoarded(booking)}
-                                  >
-                                    <UserCheck size={15} className="mr-2" />
-                                    {processingAction === `board-${booking.id}`
-                                      ? "Saving..."
-                                      : "Boarded"}
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="secondary"
-                                    disabled={
-                                      trip?.status !== "IN_PROGRESS" ||
-                                      processingAction === `no-show-${booking.id}`
-                                    }
-                                    onClick={() => handlePassengerNoShow(booking)}
-                                  >
-                                    <UserX size={15} className="mr-2" />
-                                    {processingAction === `no-show-${booking.id}`
-                                      ? "Saving..."
-                                      : "No Show"}
-                                  </Button>
-                                </>
-                              )}
-                              {booking.status !== "ASSIGNED" && (
-                                <span className="text-xs text-slate-400">
-                                  Status recorded
-                                </span>
-                              )}
+                  <div className="space-y-2">
+                    {orderedStops.map((stop: any, idx: number) => {
+                      const isTarget = idx === currentStopIndex;
+                      return (
+                        <div
+                          key={stop.id}
+                          className={`rounded-2xl p-3 border transition ${
+                            isTarget
+                              ? "bg-blue-50/80 border-blue-400 shadow-2xs"
+                              : "bg-slate-50 border-slate-200/80"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <span
+                                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                                  isTarget ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-700"
+                                }`}
+                              >
+                                {stop.stopOrder}
+                              </span>
+                              <div>
+                                <p className="font-bold text-slate-800 text-xs">
+                                  {stop.stopName}
+                                </p>
+                                <p className="text-3xs text-slate-500 flex items-center gap-1 mt-0.5">
+                                  <Clock3 size={11} /> Est: {stop.estimatedTime ?? "N/A"}
+                                </p>
+                              </div>
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {passengers.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan={6}
-                            className="rounded-2xl bg-slate-50 px-4 py-10 text-center text-sm text-slate-500"
-                          >
-                            No passengers are assigned to this route.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
 
-              <Card>
-                <div className="mb-4 flex items-center gap-3">
-                  <UsersRound
-                    size={22}
-                    className="text-violet-700"
-                  />
-
-                  <h2 className="text-lg font-bold text-slate-900">
-                    Route Stops
-                  </h2>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {[...(manifest.smartStops ?? [])]
-                    .sort(
-                      (first, second) =>
-                        first.stopOrder - second.stopOrder
-                    )
-                    .map((stop) => (
-                      <div
-                        key={stop.id}
-                        className="rounded-2xl bg-slate-50 p-4"
-                      >
-                        <div className="flex items-start gap-3">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-700 text-xs font-bold text-white">
-                            {stop.stopOrder}
-                          </span>
-
-                          <div>
-                            <p className="font-semibold text-slate-800">
-                              {stop.stopName}
-                            </p>
-
-                            <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
-                              <Clock3 size={13} />
-                              {stop.estimatedTime ?? "-"}
-                            </p>
+                            {isTarget && (
+                              <span className="rounded-full bg-blue-600 text-white px-2 py-0.5 text-4xs font-black uppercase">
+                                Current
+                              </span>
+                            )}
                           </div>
                         </div>
-                      </div>
-                    ))}
-                </div>
-              </Card>
-            </>
-          )}
-        </div>
-      </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

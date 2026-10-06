@@ -7,16 +7,21 @@ import {
   XCircle,
   Truck,
   Activity,
-  Map,
   History,
   BellRing,
   Volume2,
   VolumeX,
+  Search,
+  Compass,
+  Radio,
+  ExternalLink,
+  Zap,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
-import MapView from "../components/ui/MapView";
+import MapView, { type MapMarkerItem } from "../components/ui/MapView";
 import {
   createTelemetryLog,
   getLiveLocations,
@@ -28,16 +33,17 @@ import { getRoutes } from "../api/routes";
 import type { VehicleTelemetryLog, TelemetryStatus } from "../types/telemetry";
 import type { TransportRoute } from "../types/transport";
 
-// Campuses/smart stops coordinates for drawing visual SVG map scaling
+// Karachi Landmarks for spatial reference
 const MAP_LANDMARKS = [
-  { name: "Garden West Stop", lat: 24.8765, lng: 67.0321, color: "#3b82f6" },
-  { name: "Saddar Stop", lat: 24.8607, lng: 67.0104, color: "#a855f7" },
-  { name: "Korangi Campus Gate", lat: 24.8138, lng: 67.1209, color: "#10b981" },
+  { name: "Garden West Hub", lat: 24.8765, lng: 67.0321 },
+  { name: "Saddar Commute Terminus", lat: 24.8607, lng: 67.0104 },
+  { name: "Korangi Campus Gate", lat: 24.8138, lng: 67.1209 },
+  { name: "Port Qasim Facility", lat: 24.7831, lng: 67.3321 },
 ];
 
 export default function TelemetryPage() {
   const { bootstrap } = useAuth();
-  
+
   // Roles
   const isDriver = bootstrap?.role === "DRIVER";
   const isAdminOrSecurity =
@@ -52,13 +58,35 @@ export default function TelemetryPage() {
   const [selectedRouteId, setSelectedRouteId] = useState("");
   const [routeHistory, setRouteHistory] = useState<VehicleTelemetryLog[]>([]);
 
+  // Driver GPS Broadcaster States
   const [isSyncing, setIsSyncing] = useState(false);
   const [gpsLat, setGpsLat] = useState<number | null>(null);
   const [gpsLng, setGpsLng] = useState<number | null>(null);
   const [gpsSyncedCount, setGpsSyncedCount] = useState(0);
-  const [mobileTab, setMobileTab] = useState<"map" | "list">("map");
 
-  async function syncGPSCoordinates(lat: number, lng: number, status: TelemetryStatus = "MOVING", remarks?: string) {
+  // UI & Filter States
+  const [mobileTab, setMobileTab] = useState<"map" | "list">("map");
+  const [statusFilter, setStatusFilter] = useState<
+    "ALL" | "MOVING" | "STOPPED" | "EMERGENCY"
+  >("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedLiveLog, setSelectedLiveLog] =
+    useState<VehicleTelemetryLog | null>(null);
+
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
+
+  // Audio warning ref for pulsing emergencies
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  async function syncGPSCoordinates(
+    lat: number,
+    lng: number,
+    status: TelemetryStatus = "MOVING",
+    remarks?: string
+  ) {
     try {
       await createTelemetryLog({
         latitude: lat,
@@ -74,62 +102,42 @@ export default function TelemetryPage() {
     }
   }
 
+  // Driver Continuous Location Watcher
   useEffect(() => {
-    if (isSyncing) {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            setGpsLat(lat);
-            setGpsLng(lng);
-            syncGPSCoordinates(lat, lng);
-          },
-          (err) => console.error(err)
-        );
+    if (!isSyncing) return;
 
-        const id = setInterval(() => {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              const lat = position.coords.latitude;
-              const lng = position.coords.longitude;
-              setGpsLat(lat);
-              setGpsLng(lng);
-              syncGPSCoordinates(lat, lng);
-            },
-            (err) => console.error(err)
-          );
-        }, 10000);
-
-        return () => clearInterval(id);
-      } else {
-        setError("HTML5 Geolocation is not supported by your browser");
-        setIsSyncing(false);
-      }
+    if (!navigator.geolocation) {
+      setError("HTML5 Geolocation is not supported by your browser");
+      setIsSyncing(false);
+      return;
     }
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        setGpsLat(lat);
+        setGpsLng(lng);
+        syncGPSCoordinates(lat, lng);
+      },
+      (err) => console.warn("Driver GPS watch error:", err),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
   }, [isSyncing]);
-
-  // Selected active log details
-  const [selectedLiveLog, setSelectedLiveLog] = useState<VehicleTelemetryLog | null>(null);
-
-  // UI state
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isMuted, setIsMuted] = useState(false);
-
-  // Audio warning ref for pulsing emergencies
-  const audioContextRef = useRef<AudioContext | null>(null);
 
   // Load telemetry logs
   async function loadTelemetry() {
     try {
       setIsLoading(true);
       setError("");
-      
+
       if (isDriver) {
         const myLogs = await getMyTelemetryLogs();
-        if (myLogs.length > 0) {
+        if (myLogs && myLogs.length > 0) {
           setLiveLogs(myLogs);
         }
       } else {
@@ -151,16 +159,16 @@ export default function TelemetryPage() {
 
   useEffect(() => {
     loadTelemetry();
-    
-    // Auto-refresh telemetry every 10 seconds for real-time monitoring feel
+
+    // Fast 5-second auto-refresh for real-time telemetry feed
     const interval = setInterval(() => {
       if (!isDriver) {
         silentRefresh();
       }
-    }, 10000);
+    }, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isDriver]);
 
   // Silent update in background
   async function silentRefresh() {
@@ -196,87 +204,141 @@ export default function TelemetryPage() {
     if (isMuted) return;
     try {
       if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        audioContextRef.current = new (
+          window.AudioContext || (window as any).webkitAudioContext
+        )();
       }
       const ctx = audioContextRef.current;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      
+
       osc.type = "sawtooth";
-      osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 note alarm pitch
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
-      
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
+
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
-      osc.stop(ctx.currentTime + 0.8);
+      osc.stop(ctx.currentTime + 0.6);
     } catch (e) {
-      console.warn("Audio Context beep initialization blocked by browser autoplay policy.");
+      console.warn("Audio Context beep initialization blocked by browser policy.");
     }
   }
 
-  // Monitor logs for play trigger on SOS
+  // Monitor logs for trigger on SOS
   useEffect(() => {
-    const hasEmergency = liveLogs.some((l) => l.status === "SOS" || l.status === "BREAKDOWN");
+    const hasEmergency = liveLogs.some(
+      (l) => l.status === "SOS" || l.status === "BREAKDOWN"
+    );
     if (hasEmergency) {
       triggerBeepAlert();
     }
-  }, [liveLogs]);
+  }, [liveLogs, isMuted]);
 
+  // Filtered live fleet roster
+  const filteredLiveLogs = useMemo(() => {
+    let result = [...liveLogs];
+
+    // Status filter
+    if (statusFilter === "MOVING") {
+      result = result.filter((l) => l.status === "MOVING");
+    } else if (statusFilter === "STOPPED") {
+      result = result.filter(
+        (l) => l.status === "STOPPED" || l.status === "DELAYED"
+      );
+    } else if (statusFilter === "EMERGENCY") {
+      result = result.filter(
+        (l) => l.status === "SOS" || l.status === "BREAKDOWN"
+      );
+    }
+
+    // Search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(
+        (l) =>
+          l.vehicle?.vehicleNumber?.toLowerCase().includes(q) ||
+          l.driver?.user.fullName?.toLowerCase().includes(q) ||
+          l.route?.routeName?.toLowerCase().includes(q) ||
+          l.route?.routeCode?.toLowerCase().includes(q)
+      );
+    }
+
+    return result;
+  }, [liveLogs, statusFilter, searchQuery]);
+
+  // Dynamic Fleet Telemetry Map Markers with Orientation
   const telemetryMapMarkers = useMemo(() => {
-    const list: any[] = [];
-    
-    // Add default landmarks
+    const list: MapMarkerItem[] = [];
+
+    // Static Landmarks
     MAP_LANDMARKS.forEach((l) => {
       list.push({
         latitude: l.lat,
         longitude: l.lng,
-        label: `${l.name} (Campus Landmark)`,
-        color: "bg-blue-600",
+        label: `${l.name} (Hub)`,
+        color: "bg-slate-700",
       });
     });
 
-    // Add active live vehicles
-    liveLogs.forEach((log) => {
+    // Active Live Vehicles with Heading & Speed
+    filteredLiveLogs.forEach((log) => {
       const isEmergency = log.status === "SOS" || log.status === "BREAKDOWN";
-      const markerColor =
-        log.status === "SOS"
-          ? "bg-red-600"
-          : log.status === "BREAKDOWN"
-          ? "bg-amber-600"
-          : log.status === "STOPPED"
-          ? "bg-slate-600"
-          : "bg-emerald-600";
-
       list.push({
         latitude: log.latitude,
         longitude: log.longitude,
-        label: `Vehicle ${log.vehicle?.vehicleNumber || "MOCK"} - Status: ${log.status} (Driver: ${log.driver?.user.fullName || "N/A"})`,
-        color: markerColor,
+        label: `${log.vehicle?.vehicleNumber || "Vehicle"} • ${log.status}`,
+        subLabel: `${log.driver?.user.fullName || "Captain"} • ${
+          log.route?.routeName || "En route"
+        }`,
+        type: "vehicle",
+        heading: log.heading || 0,
+        speed: log.speed || 0,
         pulse: isEmergency,
       });
     });
 
     return list;
+  }, [filteredLiveLogs]);
+
+  // Selected map center
+  const mapCenter = useMemo(() => {
+    if (selectedLiveLog) {
+      return { lat: selectedLiveLog.latitude, lng: selectedLiveLog.longitude };
+    }
+    if (filteredLiveLogs.length > 0) {
+      return {
+        lat: filteredLiveLogs[0].latitude,
+        lng: filteredLiveLogs[0].longitude,
+      };
+    }
+    return { lat: 24.8607, lng: 67.0104 };
+  }, [selectedLiveLog, filteredLiveLogs]);
+
+  // Fleet Statistics
+  const stats = useMemo(() => {
+    const total = liveLogs.length;
+    const moving = liveLogs.filter((l) => l.status === "MOVING").length;
+    const stopped = liveLogs.filter(
+      (l) => l.status === "STOPPED" || l.status === "DELAYED"
+    ).length;
+    const emergency = liveLogs.filter(
+      (l) => l.status === "SOS" || l.status === "BREAKDOWN"
+    ).length;
+    const speeds = liveLogs.map((l) => l.speed || 0).filter((s) => s > 0);
+    const avgSpeed =
+      speeds.length > 0
+        ? Math.round(speeds.reduce((a, b) => a + b, 0) / speeds.length)
+        : 0;
+
+    return { total, moving, stopped, emergency, avgSpeed };
   }, [liveLogs]);
 
-
-
-
-
   function getErrorMessage(error: unknown) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "response" in error
-    ) {
+    if (typeof error === "object" && error !== null && "response" in error) {
       const responseError = error as {
-        response?: {
-          data?: {
-            message?: string;
-          };
-        };
+        response?: { data?: { message?: string } };
       };
       return responseError.response?.data?.message;
     }
@@ -287,23 +349,34 @@ export default function TelemetryPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header section */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="min-w-0 space-y-6">
+      {/* Page Header with Telemetry Signal Beacon */}
+      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-            Live Telemetry Command Center
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-3 w-3 rounded-full bg-emerald-500 animate-ping" />
+            <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-2xs font-extrabold uppercase tracking-wider text-emerald-700 border border-emerald-500/20">
+              Satellite Radar Active
+            </span>
+          </div>
+          <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
+            Live Fleet Telemetry Radar
           </h1>
-          <p className="text-sm text-slate-500">
-            Track active employee transport routes, monitor GPS coordinates, and resolve emergency telemetry alerts.
+          <p className="mt-1 text-sm text-slate-500 max-w-3xl">
+            Enterprise GPS tracking, heading orientations, velocity telemetry,
+            and real-time transit safety command center.
           </p>
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex flex-wrap items-center gap-2">
           {isAdminOrSecurity && (
             <button
+              type="button"
               onClick={() => setIsMuted(!isMuted)}
-              className={`rounded-xl border p-2.5 transition ${
-                isMuted ? "bg-red-50 text-red-700 border-red-200" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+              className={`rounded-xl border p-2.5 transition shadow-sm ${
+                isMuted
+                  ? "bg-red-50 text-red-700 border-red-200"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
               }`}
               title={isMuted ? "Unmute alarm sound" : "Mute alarm sound"}
             >
@@ -319,456 +392,530 @@ export default function TelemetryPage() {
               loadTelemetry();
             }}
             disabled={isLoading}
-            className="rounded-xl border border-slate-200"
+            className="rounded-xl border border-slate-200 font-bold"
           >
-            <RefreshCcw size={16} className={`mr-2 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCcw
+              size={15}
+              className={`mr-2 ${isLoading ? "animate-spin" : ""}`}
+            />
             Sync Feeds
           </Button>
         </div>
       </div>
 
+      {/* Critical SOS Alarm Banner */}
+      {isAdminOrSecurity && emergencies.length > 0 && (
+        <div className="flex items-center justify-between rounded-2xl bg-red-600 p-4 text-white shadow-xl shadow-red-600/20 border border-red-700 animate-pulse">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white font-black">
+              <BellRing size={22} className="animate-bounce" />
+            </div>
+            <div>
+              <p className="font-extrabold text-sm sm:text-base">
+                CRITICAL FLEET ALARM: {emergencies.length} Active Emergency Event(s)!
+              </p>
+              <p className="text-xs text-red-100 mt-0.5">
+                Immediate attention required. Captain flagged distress signal on
+                commute routes.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Messages */}
       {message && (
-        <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 p-4 text-emerald-800 border border-emerald-100">
+        <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 p-4 text-emerald-800 border border-emerald-200">
           <CheckCircle size={20} className="shrink-0" />
           <p className="text-sm font-medium">{message}</p>
         </div>
       )}
-
       {error && (
-        <div className="flex items-center gap-3 rounded-2xl bg-red-50 p-4 text-red-800 border border-red-100">
+        <div className="flex items-center gap-3 rounded-2xl bg-red-50 p-4 text-red-800 border border-red-200">
           <XCircle size={20} className="shrink-0" />
           <p className="text-sm font-medium">{error}</p>
         </div>
       )}
 
-      {/* Emergency pulsing banner for Admin / Security */}
-      {isAdminOrSecurity && liveLogs.some((l) => l.status === "SOS") && (
-        <div className="flex items-center justify-between rounded-2xl bg-red-600 p-4 text-white shadow-lg border border-red-700 animate-pulse">
-          <div className="flex items-center gap-3">
-            <BellRing size={24} className="shrink-0" />
-            <div>
-              <p className="font-extrabold text-sm sm:text-base">CRITICAL ALARM: Active Driver SOS Triggered!</p>
-              <p className="text-xs text-red-100 mt-0.5">Please consult the Emergency Logs registry below to assign maintenance or dispatch security dispatchers.</p>
+      {/* Top Telemetry KPI Metric Cards */}
+      <div className="grid min-w-0 gap-3.5 grid-cols-2 lg:grid-cols-5">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">
+              Total Monitored
+            </span>
+            <Truck size={17} className="text-slate-500" />
+          </div>
+          <p className="mt-2 text-2xl font-black text-slate-900">{stats.total}</p>
+          <span className="text-3xs font-semibold text-slate-400">Active Fleet</span>
+        </div>
+
+        <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/50 p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-2xs font-extrabold uppercase tracking-wider text-emerald-700">
+              Moving Live
+            </span>
+            <Activity size={17} className="text-emerald-600 animate-pulse" />
+          </div>
+          <p className="mt-2 text-2xl font-black text-emerald-700">
+            {stats.moving}
+          </p>
+          <span className="text-3xs font-semibold text-emerald-600">En Route</span>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">
+              Idle / Stopped
+            </span>
+            <Compass size={17} className="text-slate-400" />
+          </div>
+          <p className="mt-2 text-2xl font-black text-slate-700">{stats.stopped}</p>
+          <span className="text-3xs font-semibold text-slate-400">At Waypoint</span>
+        </div>
+
+        <div className="rounded-2xl border border-red-200/80 bg-red-50/50 p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-2xs font-extrabold uppercase tracking-wider text-red-700">
+              Emergencies
+            </span>
+            <AlertOctagon size={17} className="text-red-600" />
+          </div>
+          <p className="mt-2 text-2xl font-black text-red-700">
+            {stats.emergency}
+          </p>
+          <span className="text-3xs font-semibold text-red-600">SOS / Breakdown</span>
+        </div>
+
+        <div className="col-span-2 lg:col-span-1 rounded-2xl border border-blue-200/80 bg-blue-50/50 p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-2xs font-extrabold uppercase tracking-wider text-blue-700">
+              Avg Speed
+            </span>
+            <Zap size={17} className="text-blue-600" />
+          </div>
+          <p className="mt-2 text-2xl font-black text-blue-800">
+            {stats.avgSpeed} <span className="text-sm font-semibold">km/h</span>
+          </p>
+          <span className="text-3xs font-semibold text-blue-600">Transit Flow</span>
+        </div>
+      </div>
+
+      {/* DRIVER SPECIALIZED BROADCASTING COCKPIT */}
+      {isDriver && (
+        <Card className="border-blue-200 bg-gradient-to-r from-blue-900 to-slate-900 text-white shadow-xl">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                <Radio size={24} className={isSyncing ? "animate-ping" : ""} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-white">
+                    Captain GPS Transmitter Cockpit
+                  </h3>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-3xs font-extrabold uppercase ${
+                      isSyncing
+                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                        : "bg-slate-700 text-slate-300"
+                    }`}
+                  >
+                    {isSyncing ? "Transmitting Live" : "Standby"}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  Stream your vehicle's live coordinates, compass orientation, and
+                  speed to IndusConnect dispatchers and passengers.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                onClick={() => setIsSyncing(!isSyncing)}
+                className={`font-bold text-xs ${
+                  isSyncing
+                    ? "bg-red-600 hover:bg-red-500 text-white"
+                    : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                }`}
+              >
+                {isSyncing ? "Stop GPS Broadcast" : "Start Live GPS Broadcast"}
+              </Button>
+
+              <Link
+                to="/driver-trips"
+                className="flex items-center gap-1.5 rounded-xl bg-white/10 hover:bg-white/20 px-3.5 py-2 text-xs font-bold text-white transition border border-white/20"
+              >
+                <span>Trip Manifest HUD</span>
+                <ExternalLink size={13} />
+              </Link>
             </div>
           </div>
-        </div>
+
+          {gpsLat && gpsLng && (
+            <div className="mt-4 pt-3 border-t border-white/10 flex flex-wrap items-center gap-4 text-xs font-medium text-slate-300">
+              <span>
+                Lat: <strong className="text-white font-mono">{gpsLat.toFixed(5)}</strong>
+              </span>
+              <span>
+                Lng: <strong className="text-white font-mono">{gpsLng.toFixed(5)}</strong>
+              </span>
+              <span>
+                Pings Synced: <strong className="text-emerald-400">{gpsSyncedCount}</strong>
+              </span>
+            </div>
+          )}
+        </Card>
       )}
 
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-          <RefreshCcw size={40} className="animate-spin text-blue-700" />
-          <p className="mt-4 text-sm font-medium">Loading telemetry dashboard...</p>
+      {/* UNIFIED COMMAND CENTER STAGE (Desktop Split / Mobile Tabs) */}
+      <div className="space-y-4">
+        {/* Mobile View Tab Switcher (< lg) */}
+        <div className="flex lg:hidden gap-1 p-1 rounded-2xl bg-slate-200/80 border border-slate-200">
+          <button
+            type="button"
+            onClick={() => setMobileTab("map")}
+            className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+              mobileTab === "map"
+                ? "bg-white text-blue-700 shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            🗺️ Live Fleet Radar
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab("list")}
+            className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+              mobileTab === "list"
+                ? "bg-white text-blue-700 shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            🚐 Active Roster ({filteredLiveLogs.length})
+          </button>
         </div>
-      ) : isDriver ? (
-        /* DRIVER LIVE GPS SYNCS PANEL */
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card className="space-y-4">
-            <h2 className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <Truck className="text-blue-700" size={18} /> Driver Telemetry Console
-              </span>
-              {isSyncing && (
-                <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
-              )}
-            </h2>
 
-            {liveLogs.length > 0 && (
-              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/50 space-y-2.5 text-xs text-slate-600 font-semibold">
-                <p><strong>Assigned Route:</strong> {liveLogs[0].route?.routeName || "General Route"}</p>
-                <p><strong>Route Code:</strong> <span className="font-mono bg-white px-2 py-0.5 border border-slate-200 rounded text-2xs">{liveLogs[0].route?.routeCode || "-"}</span></p>
-                <p><strong>Assigned Vehicle:</strong> {liveLogs[0].vehicle?.vehicleNumber || "Unknown"}</p>
-              </div>
-            )}
-
-            <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100/50 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                    GPS Tracking status
-                  </p>
-                  <p className="text-xs font-extrabold text-slate-700 mt-1">
-                    {isSyncing ? "🔵 Live Tracking Active" : "⚪ Off (Standby)"}
-                  </p>
-                </div>
-                <Button
-                  onClick={() => setIsSyncing(!isSyncing)}
-                  className={isSyncing ? "bg-red-600 hover:bg-red-700 text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white"}
-                >
-                  {isSyncing ? "Stop GPS Sync" : "Start GPS Sync"}
-                </Button>
-              </div>
-
-              {gpsLat && gpsLng && (
-                <div className="pt-2.5 border-t border-blue-100/50 text-xs font-semibold text-slate-700 space-y-1.5">
-                  <p>Current Latitude: <span className="font-mono text-blue-700">{gpsLat.toFixed(5)}</span></p>
-                  <p>Current Longitude: <span className="font-mono text-blue-700">{gpsLng.toFixed(5)}</span></p>
-                  <p>Synced Coordinates: <span className="text-blue-700 font-bold">{gpsSyncedCount} pings</span></p>
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-3 pt-2">
-              <label className="block text-xs font-bold text-slate-500 uppercase">
-                Report Incident location
-              </label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="danger"
-                  onClick={() => {
-                    if (gpsLat && gpsLng) {
-                      syncGPSCoordinates(gpsLat, gpsLng, "SOS", "EMERGENCY: Driver flagged immediate safety SOS!");
-                      setMessage("SOS emergency alert flagged to central dispatch!");
-                    } else {
-                      setError("Cannot send SOS: Waiting for GPS lock. Turn on GPS Sync first.");
-                    }
-                  }}
-                  className="flex-1 text-xs"
-                  disabled={!isSyncing}
-                >
-                  Send emergency SOS
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    if (gpsLat && gpsLng) {
-                      syncGPSCoordinates(gpsLat, gpsLng, "BREAKDOWN", "VEHICLE FAILURE: Driver reported breakdown.");
-                      setMessage("Vehicle failure breakdown flagged to central dispatch.");
-                    } else {
-                      setError("Cannot send Breakdown: Turn on GPS Sync first.");
-                    }
-                  }}
-                  className="flex-1 text-xs bg-amber-600 hover:bg-amber-700 text-white border-0"
-                  disabled={!isSyncing}
-                >
-                  Report Breakdown
-                </Button>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="flex flex-col min-h-[350px]">
-            <h2 className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2 mb-4">
-              <Map className="text-blue-700" size={18} /> Live Location Map
-            </h2>
-            <div className="relative rounded-2xl overflow-hidden border border-slate-200 flex-1 min-h-[280px]">
-              <MapView
-                latitude={gpsLat ?? 24.8607}
-                longitude={gpsLng ?? 67.0104}
-                readOnly={true}
-                markers={
-                  gpsLat && gpsLng
-                    ? [
-                        {
-                          latitude: gpsLat,
-                          longitude: gpsLng,
-                          label: "Your current live location",
-                          color: "bg-blue-600 animate-pulse scale-110",
-                          pulse: true,
-                        },
-                      ]
-                    : []
-                }
-                height="100%"
-              />
-            </div>
-          </Card>
-        </div>
-      ) : (
-        /* ADMINISTRATOR COMMAND CENTER VIEW */
-        <div className="space-y-6">
-          {/* Mobile View Toggle Switcher (< xl) */}
-          <div className="flex xl:hidden gap-1 p-1 rounded-2xl bg-slate-200/80 border border-slate-200">
-            <button
-              type="button"
-              onClick={() => setMobileTab("map")}
-              className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
-                mobileTab === "map"
-                  ? "bg-white text-blue-700 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              🗺️ Map View
-            </button>
-            <button
-              type="button"
-              onClick={() => setMobileTab("list")}
-              className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
-                mobileTab === "list"
-                  ? "bg-white text-blue-700 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              🚐 Fleet List ({liveLogs.length})
-            </button>
-          </div>
-
-          <div className="grid gap-6 xl:grid-cols-3">
-            {/* Visual Tracking Map */}
-            <div
-              className={`xl:col-span-2 space-y-4 ${
-                mobileTab === "map" ? "block" : "hidden xl:block"
-              }`}
-            >
-              <Card className="flex flex-col justify-between">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-2">
-                  <h3 className="font-bold text-slate-800 text-sm sm:text-base flex items-center gap-1.5">
-                    <Map className="text-blue-700" size={18} /> Spatial Route Telemetry Mapper
-                  </h3>
-                  <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
-                    Karachi Metro Boundaries
-                  </span>
-                </div>
-
-                <div className="relative border border-slate-200 rounded-2xl overflow-hidden p-1 bg-white z-10">
-                  <MapView
-                    latitude={selectedLiveLog?.latitude || 24.8607}
-                    longitude={selectedLiveLog?.longitude || 67.0104}
-                    readOnly={true}
-                    markers={telemetryMapMarkers}
-                    height="420px"
-                    zoom={12}
-                    enableFullscreenToggle={true}
+        {/* Command Center Main Grid */}
+        <div className="grid gap-6 lg:grid-cols-12 min-w-0">
+          {/* Main Interactive Map Radar (8 Cols on Desktop) */}
+          <div
+            className={`lg:col-span-8 min-w-0 ${
+              mobileTab === "map" ? "block" : "hidden lg:block"
+            }`}
+          >
+            <div className="relative rounded-3xl overflow-hidden border border-slate-200 shadow-md bg-white">
+              {/* Overlaid Glassmorphic Map Control Toolbar */}
+              <div className="absolute top-3 left-3 right-3 z-20 flex flex-col sm:flex-row items-center justify-between gap-2 pointer-events-none">
+                {/* Search Bar */}
+                <div className="pointer-events-auto w-full sm:w-72 relative">
+                  <Search
+                    size={15}
+                    className="absolute left-3.5 top-3 text-slate-400"
+                  />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search vehicle, captain, route..."
+                    className="w-full rounded-2xl bg-slate-900/85 backdrop-blur-md border border-slate-700/80 pl-9 pr-3 py-2 text-xs text-white placeholder-slate-400 shadow-xl outline-none focus:border-blue-500"
                   />
                 </div>
-              </Card>
-            </div>
 
-            {/* List of active locations sidebar */}
-            <div
-              className={`space-y-4 ${
-                mobileTab === "list" ? "block" : "hidden xl:block"
-              }`}
-            >
-              <Card className="max-h-[500px] overflow-y-auto flex flex-col justify-between">
-                <div className="border-b border-slate-100 pb-3 mb-2 flex items-center justify-between">
-                  <h3 className="font-bold text-slate-800 text-sm sm:text-base flex items-center gap-1.5">
-                    <Activity className="text-blue-700" size={18} /> Active Fleet Locations
-                  </h3>
-                  <span className="rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-xs font-bold font-mono">
-                    {liveLogs.length}
-                  </span>
+                {/* Status Filter Chips */}
+                <div className="pointer-events-auto flex items-center gap-1 overflow-x-auto max-w-full rounded-2xl bg-slate-900/85 backdrop-blur-md border border-slate-700/80 p-1 shadow-xl">
+                  {(
+                    [
+                      { key: "ALL", label: "All" },
+                      { key: "MOVING", label: "Moving" },
+                      { key: "STOPPED", label: "Idle" },
+                      { key: "EMERGENCY", label: "SOS" },
+                    ] as const
+                  ).map((filter) => (
+                    <button
+                      key={filter.key}
+                      type="button"
+                      onClick={() => setStatusFilter(filter.key)}
+                      className={`rounded-xl px-2.5 py-1 text-2xs font-extrabold uppercase tracking-wider transition ${
+                        statusFilter === filter.key
+                          ? "bg-blue-600 text-white shadow-sm"
+                          : "text-slate-300 hover:text-white"
+                      }`}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
                 </div>
+              </div>
 
-                <div className="space-y-2.5">
-                  {liveLogs.map((log) => {
-                    const isSelected = selectedLiveLog?.id === log.id;
-                    const isEmergency = log.status === "SOS" || log.status === "BREAKDOWN";
-
-                    const statusColors = {
-                      MOVING: "bg-emerald-50 text-emerald-700 border-emerald-100",
-                      STOPPED: "bg-slate-100 text-slate-600 border-slate-200",
-                      DELAYED: "bg-amber-50 text-amber-700 border-amber-100",
-                      BREAKDOWN: "bg-amber-50 text-amber-700 border-amber-200 border-dashed animate-pulse",
-                      SOS: "bg-red-50 text-red-700 border-red-200 border-dashed animate-pulse",
-                      OFFLINE: "bg-slate-200 text-slate-700 border-slate-300",
-                    };
-
-                    return (
-                      <div
-                        key={log.id}
-                        onClick={() => {
-                          setSelectedLiveLog(log);
-                          setMobileTab("map");
-                        }}
-                        className={`rounded-xl border p-3 cursor-pointer transition hover:border-blue-400 ${
-                          isSelected
-                            ? "border-blue-700 bg-blue-50/20"
-                            : isEmergency
-                            ? "border-red-400 bg-red-50/10"
-                            : "border-slate-100 bg-white"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-1">
-                          <div>
-                            <span className="font-extrabold text-slate-800">{log.vehicle?.vehicleNumber || "ACTIVE DEVICE"}</span>
-                            <span className="block text-[10px] text-slate-400 font-semibold uppercase">
-                              {log.driver?.user.fullName}
+              {/* Floating Active Vehicle Inspector Card */}
+              {selectedLiveLog && (
+                <div className="absolute bottom-4 left-4 right-4 z-20 pointer-events-none flex justify-center">
+                  <div className="pointer-events-auto w-full max-w-xl rounded-2xl bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 p-4 text-white shadow-2xl animate-fadeIn">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          <Truck size={20} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-black text-sm text-white">
+                              {selectedLiveLog.vehicle?.vehicleNumber || "Active Vehicle"}
+                            </h4>
+                            <span className="rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-3xs font-extrabold text-emerald-400 uppercase">
+                              {selectedLiveLog.status}
                             </span>
                           </div>
-                          <span
-                            className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                              statusColors[log.status]
-                            }`}
-                          >
-                            {log.status}
-                          </span>
-                        </div>
-
-                        <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-500 font-medium">
-                          <span className="flex items-center gap-0.5">
-                            <BatteryCharging size={13} className="text-slate-400" />
-                            {log.batteryLevel ?? "-"}%
-                          </span>
-                          <span>{log.speed ?? 0} km/h</span>
-                          <span className="font-mono text-[9px] text-slate-400">
-                            {log.latitude.toFixed(4)}, {log.longitude.toFixed(4)}
-                          </span>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Captain: <strong className="text-slate-200">{selectedLiveLog.driver?.user.fullName}</strong> • Route: <strong className="text-slate-200">{selectedLiveLog.route?.routeName}</strong>
+                          </p>
                         </div>
                       </div>
-                    );
-                  })}
 
-                  {liveLogs.length === 0 && (
-                    <div className="py-12 text-center text-slate-400 italic text-sm">
-                      No vehicles are currently operating.
+                      <button
+                        type="button"
+                        onClick={() => setSelectedLiveLog(null)}
+                        className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                      >
+                        <XCircle size={17} />
+                      </button>
                     </div>
-                  )}
+
+                    <div className="mt-3 grid grid-cols-4 gap-2 border-t border-slate-800 pt-3 text-center text-xs">
+                      <div className="rounded-xl bg-slate-800/80 p-2">
+                        <span className="text-3xs uppercase text-slate-400 block font-bold">Speed</span>
+                        <span className="font-extrabold text-white mt-0.5 block">{selectedLiveLog.speed || 0} km/h</span>
+                      </div>
+                      <div className="rounded-xl bg-slate-800/80 p-2">
+                        <span className="text-3xs uppercase text-slate-400 block font-bold">Heading</span>
+                        <span className="font-extrabold text-white mt-0.5 block">{selectedLiveLog.heading || 0}°</span>
+                      </div>
+                      <div className="rounded-xl bg-slate-800/80 p-2">
+                        <span className="text-3xs uppercase text-slate-400 block font-bold">Battery</span>
+                        <span className="font-extrabold text-emerald-400 mt-0.5 block">{selectedLiveLog.batteryLevel || 100}%</span>
+                      </div>
+                      <div className="rounded-xl bg-slate-800/80 p-2">
+                        <span className="text-3xs uppercase text-slate-400 block font-bold">Updated</span>
+                        <span className="font-mono text-3xs text-slate-300 mt-1 block">
+                          {new Date(selectedLiveLog.recordedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </Card>
+              )}
+
+              {/* Leaflet Map Stage */}
+              <MapView
+                latitude={mapCenter.lat}
+                longitude={mapCenter.lng}
+                readOnly={true}
+                hideMainPin={true}
+                followCenter={Boolean(selectedLiveLog)}
+                markers={telemetryMapMarkers}
+                height="560px"
+                zoom={12}
+                enableFullscreenToggle={true}
+                enableGPS={false}
+                enableSearch={false}
+                enablePresets={false}
+                className="w-full h-full"
+              />
             </div>
           </div>
 
-          {/* Active vehicle details drawer */}
-          {selectedLiveLog && (
-            <Card className="border-blue-200 bg-blue-50/5">
-              <div className="flex items-start justify-between border-b border-slate-200 pb-3 mb-4">
-                <div>
-                  <h3 className="font-bold text-slate-800 text-base">
-                    Device Monitor: {selectedLiveLog.vehicle?.vehicleNumber || "ACTIVE DEVICE"}
+          {/* Interactive Fleet Roster Side-Panel (4 Cols on Desktop) */}
+          <div
+            className={`lg:col-span-4 min-w-0 ${
+              mobileTab === "list" ? "block" : "hidden lg:block"
+            }`}
+          >
+            <Card className="flex flex-col h-[560px] p-0 overflow-hidden">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <div className="flex items-center gap-2">
+                  <Activity size={18} className="text-blue-700" />
+                  <h3 className="font-bold text-slate-900 text-sm">
+                    Fleet Roster
                   </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Operating on route: <strong>{selectedLiveLog.route?.routeName}</strong> • Driver:{" "}
-                    <strong>{selectedLiveLog.driver?.user.fullName}</strong>
-                  </p>
                 </div>
-                <button
-                  onClick={() => setSelectedLiveLog(null)}
-                  className="rounded text-xs font-semibold text-slate-400 hover:text-slate-600"
-                >
-                  Clear Selection
-                </button>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 text-sm text-slate-700">
-                <div className="bg-white p-3 rounded-xl border border-slate-200/50">
-                  <span className="block text-[10px] text-slate-400 font-bold uppercase">Coordinates</span>
-                  <span className="font-mono font-bold text-slate-850 mt-1 block">
-                    {selectedLiveLog.latitude.toFixed(5)}, {selectedLiveLog.longitude.toFixed(5)}
-                  </span>
-                </div>
-                <div className="bg-white p-3 rounded-xl border border-slate-200/50">
-                  <span className="block text-[10px] text-slate-400 font-bold uppercase">Velocity & Heading</span>
-                  <span className="font-bold text-slate-850 mt-1 block">
-                    {selectedLiveLog.speed ?? 0} km/h • {selectedLiveLog.heading ?? 0}°
-                  </span>
-                </div>
-                <div className="bg-white p-3 rounded-xl border border-slate-200/50">
-                  <span className="block text-[10px] text-slate-400 font-bold uppercase">Source & Status</span>
-                  <span className="font-bold text-slate-850 mt-1 block">
-                    {selectedLiveLog.source} • {selectedLiveLog.status}
-                  </span>
-                </div>
-                <div className="bg-white p-3 rounded-xl border border-slate-200/50">
-                  <span className="block text-[10px] text-slate-400 font-bold uppercase">Last Sync Ping</span>
-                  <span className="font-bold text-slate-850 mt-1 block">
-                    {new Date(selectedLiveLog.recordedAt).toLocaleTimeString()}
-                  </span>
-                </div>
-                {selectedLiveLog.remarks && (
-                  <div className="col-span-full bg-white p-3 rounded-xl border border-slate-200/50 text-xs italic text-slate-600">
-                    <strong>Status Remarks:</strong> "{selectedLiveLog.remarks}"
-                  </div>
-                )}
-              </div>
-            </Card>
-          )}
-
-          {/* Emergency registry log trail */}
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card className="flex flex-col justify-between max-h-[350px] overflow-y-auto">
-              <div className="border-b border-slate-100 pb-2.5 mb-2 flex items-center justify-between">
-                <h3 className="font-bold text-slate-800 text-sm sm:text-base flex items-center gap-1.5 text-red-600">
-                  <AlertOctagon size={18} /> Incident Emergency Audit log
-                </h3>
-                <span className="rounded bg-red-50 text-red-600 px-2 py-0.5 text-xs font-bold font-mono">
-                  {emergencies.length}
+                <span className="rounded-full bg-blue-100/70 text-blue-800 px-2.5 py-0.5 text-xs font-bold font-mono">
+                  {filteredLiveLogs.length} online
                 </span>
               </div>
 
-              <div className="space-y-3 divide-y divide-slate-100">
-                {emergencies.map((event, idx) => (
-                  <div key={event.id} className={`pt-3 ${idx === 0 ? "pt-0 border-t-0" : "border-t border-slate-100"}`}>
-                    <div className="flex items-start justify-between">
-                      <span className="font-bold text-slate-800 text-xs sm:text-sm">
-                        {event.vehicle?.vehicleNumber || "ACTIVE VEHICLE"} • {event.status}
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        {new Date(event.recordedAt).toLocaleTimeString()}
-                      </span>
+              {/* Roster Cards List */}
+              <div className="flex-1 overflow-y-auto p-3 space-y-2.5 scrollbar-thin">
+                {filteredLiveLogs.map((log) => {
+                  const isSelected = selectedLiveLog?.id === log.id;
+                  const isEmergency =
+                    log.status === "SOS" || log.status === "BREAKDOWN";
+
+                  return (
+                    <div
+                      key={log.id}
+                      onClick={() => {
+                        setSelectedLiveLog(log);
+                        setMobileTab("map");
+                      }}
+                      className={`rounded-2xl border p-3.5 cursor-pointer transition ${
+                        isSelected
+                          ? "border-blue-600 bg-blue-50/40 shadow-sm"
+                          : isEmergency
+                          ? "border-red-300 bg-red-50/30"
+                          : "border-slate-200/80 bg-white hover:border-slate-300 hover:shadow-xs"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h4 className="font-black text-sm text-slate-900 truncate">
+                            {log.vehicle?.vehicleNumber || "ACTIVE DEVICE"}
+                          </h4>
+                          <p className="text-xs text-slate-500 font-medium truncate mt-0.5">
+                            {log.driver?.user.fullName || "Captain"}
+                          </p>
+                        </div>
+
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-3xs font-extrabold uppercase ${
+                            log.status === "MOVING"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : isEmergency
+                              ? "bg-red-50 text-red-700 border border-red-200 animate-pulse"
+                              : "bg-slate-100 text-slate-700 border border-slate-200"
+                          }`}
+                        >
+                          {log.status}
+                        </span>
+                      </div>
+
+                      <div className="mt-2.5 flex items-center justify-between text-2xs text-slate-500 font-semibold border-t border-slate-100 pt-2">
+                        <span className="flex items-center gap-1">
+                          <BatteryCharging size={13} className="text-slate-400" />
+                          {log.batteryLevel ?? 100}%
+                        </span>
+                        <span>{log.speed || 0} km/h</span>
+                        <span className="text-blue-700 font-bold hover:underline">
+                          Locate on Map →
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-1 font-medium leading-relaxed">
-                      Driver {event.driver?.user.fullName} reported status: "{event.remarks || "No comments log"}"
-                    </p>
-                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                      Coordinates: {event.latitude.toFixed(5)}, {event.longitude.toFixed(5)}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
 
-                {emergencies.length === 0 && (
-                  <div className="py-12 text-center text-slate-400 italic text-xs">
-                    No active SOS or breakdowns registered.
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {/* Route history trail selector */}
-            <Card className="flex flex-col justify-between max-h-[350px] overflow-y-auto">
-              <div className="border-b border-slate-100 pb-2.5 mb-2">
-                <h3 className="font-bold text-slate-800 text-sm sm:text-base flex items-center gap-1.5">
-                  <History className="text-slate-600" size={18} /> Chronological Route Trails
-                </h3>
-              </div>
-
-              <div className="mb-3">
-                <select
-                  value={selectedRouteId}
-                  onChange={(e) => handleRouteChange(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-blue-600 transition"
-                >
-                  <option value="">Select route to fetch tracking trail...</option>
-                  {routes.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.routeName} ({r.routeCode})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-3.5 divide-y divide-slate-100 overflow-y-auto pr-1">
-                {routeHistory.map((hist, idx) => (
-                  <div key={hist.id} className={`pt-3 flex justify-between text-xs text-slate-600 ${idx === 0 ? "pt-0 border-t-0" : ""}`}>
-                    <div>
-                      <span className="font-semibold text-slate-700">GPS Ping #{routeHistory.length - idx}</span>
-                      <span className="block text-[10px] text-slate-400 font-mono mt-0.5">
-                        {hist.latitude.toFixed(5)}, {hist.longitude.toFixed(5)} • Speed: {hist.speed || 0} km/h
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-slate-400">
-                      {new Date(hist.recordedAt).toLocaleTimeString()}
-                    </span>
-                  </div>
-                ))}
-
-                {selectedRouteId && routeHistory.length === 0 && (
-                  <div className="py-12 text-center text-slate-400 italic text-xs">
-                    No coordinates tracked for this route.
-                  </div>
-                )}
-
-                {!selectedRouteId && (
-                  <div className="py-12 text-center text-slate-400 italic text-xs">
-                    Choose a route from the dropdown to check location points.
+                {filteredLiveLogs.length === 0 && (
+                  <div className="py-20 text-center text-slate-400 italic text-sm">
+                    No vehicles match current filter criteria.
                   </div>
                 )}
               </div>
             </Card>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Incident Emergency Audit & Chronological Route Trails */}
+      <div className="grid gap-6 md:grid-cols-2 min-w-0">
+        {/* Emergency Log */}
+        <Card className="flex flex-col h-[380px] p-0 overflow-hidden">
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-red-50/40">
+            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 text-red-700">
+              <AlertOctagon size={18} /> Emergency Incident Audit Log
+            </h3>
+            <span className="rounded-full bg-red-100 text-red-700 px-2 py-0.5 text-xs font-bold font-mono">
+              {emergencies.length}
+            </span>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 divide-y divide-slate-100 scrollbar-thin">
+            {emergencies.map((event, idx) => (
+              <div
+                key={event.id}
+                className={idx === 0 ? "pt-0" : "pt-3 border-t border-slate-100"}
+              >
+                <div className="flex items-start justify-between">
+                  <span className="font-bold text-slate-900 text-xs sm:text-sm">
+                    {event.vehicle?.vehicleNumber || "Fleet Vehicle"} • {event.status}
+                  </span>
+                  <span className="text-3xs text-slate-400 font-mono">
+                    {new Date(event.recordedAt).toLocaleTimeString()}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 mt-1 font-medium leading-relaxed">
+                  Captain {event.driver?.user.fullName}: "{event.remarks || "No details provided"}"
+                </p>
+                <p className="text-3xs text-slate-400 font-mono mt-0.5">
+                  GPS: {event.latitude.toFixed(5)}, {event.longitude.toFixed(5)}
+                </p>
+              </div>
+            ))}
+
+            {emergencies.length === 0 && (
+              <div className="py-24 text-center text-slate-400 italic text-xs">
+                No active SOS or breakdowns registered.
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Chronological Route Trails */}
+        <Card className="flex flex-col h-[380px] p-0 overflow-hidden">
+          <div className="p-4 border-b border-slate-100 bg-slate-50">
+            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <History size={18} className="text-slate-600" /> Chronological Route Trails
+            </h3>
+            <div className="mt-2.5">
+              <select
+                value={selectedRouteId}
+                onChange={(e) => handleRouteChange(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-600 transition"
+              >
+                <option value="">Choose route to inspect tracking points...</option>
+                {routes.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.routeName} ({r.routeCode})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-2.5 divide-y divide-slate-100 scrollbar-thin">
+            {routeHistory.map((hist, idx) => (
+              <div
+                key={hist.id}
+                className={`flex justify-between text-xs text-slate-600 ${
+                  idx === 0 ? "pt-0" : "pt-2.5 border-t border-slate-100"
+                }`}
+              >
+                <div>
+                  <span className="font-semibold text-slate-800">
+                    Ping #{routeHistory.length - idx} • {hist.speed || 0} km/h
+                  </span>
+                  <span className="block text-3xs text-slate-400 font-mono mt-0.5">
+                    {hist.latitude.toFixed(5)}, {hist.longitude.toFixed(5)}
+                  </span>
+                </div>
+                <span className="text-3xs text-slate-400 font-mono">
+                  {new Date(hist.recordedAt).toLocaleTimeString()}
+                </span>
+              </div>
+            ))}
+
+            {selectedRouteId && routeHistory.length === 0 && (
+              <div className="py-20 text-center text-slate-400 italic text-xs">
+                No coordinates recorded for this route yet.
+              </div>
+            )}
+
+            {!selectedRouteId && (
+              <div className="py-20 text-center text-slate-400 italic text-xs">
+                Select a route above to review chronological coordinate breadcrumbs.
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }

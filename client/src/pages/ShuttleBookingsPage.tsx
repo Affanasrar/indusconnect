@@ -168,14 +168,6 @@ export default function ShuttleBookingsPage() {
     "GENERAL",
   ]) as ShiftType[];
 
-  const bookingStatuses = (bootstrap?.formOptions?.shuttleBookingStatuses ?? [
-    "PENDING",
-    "ASSIGNED",
-    "CANCELLED",
-    "COMPLETED",
-    "NO_SHOW",
-  ]) as ShuttleBookingStatus[];
-
   async function loadData() {
     try {
       setIsLoading(true);
@@ -425,6 +417,16 @@ export default function ShuttleBookingsPage() {
     }));
   }
 
+  const [employeeViewTab, setEmployeeViewTab] = useState<"rides" | "new">("rides");
+
+  const nextActiveBooking = useMemo(() => {
+    const assigned = bookings.find((b) => b.status === "ASSIGNED");
+    if (assigned) return assigned;
+    const pending = bookings.find((b) => b.status === "PENDING");
+    if (pending) return pending;
+    return bookings[0] || null;
+  }, [bookings]);
+
   return (
     <div className="min-w-0 space-y-6">
       {/* Header */}
@@ -440,10 +442,12 @@ export default function ShuttleBookingsPage() {
             Set up a standing weekly commute pass once, or request single-day shuttle rides.
           </p>
         </div>
-        <Button variant="secondary" onClick={loadData}>
-          <RefreshCcw size={16} className="mr-2" />
-          Refresh Registry
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={loadData}>
+            <RefreshCcw size={16} className="mr-2" />
+            Refresh Registry
+          </Button>
+        </div>
       </div>
 
       {/* Alerts */}
@@ -458,60 +462,155 @@ export default function ShuttleBookingsPage() {
         </div>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Rides booked</p>
-              <p className="mt-2 text-2xl font-bold text-slate-800">{summary.total}</p>
+      {/* TODAY'S NEXT COMMUTE HERO BANNER (CAREEM STYLE) */}
+      {nextActiveBooking && (nextActiveBooking.status === "ASSIGNED" || nextActiveBooking.status === "PENDING") && (
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-6 text-white shadow-xl border border-blue-900/40">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping" />
+                <span className="text-2xs font-extrabold uppercase tracking-widest text-emerald-400">
+                  {nextActiveBooking.status === "ASSIGNED" ? "Active Commute Ready" : "Commute Request In Queue"}
+                </span>
+                <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-3xs font-bold text-slate-300">
+                  {formatDate(nextActiveBooking.bookingDate)} • {nextActiveBooking.shiftType}
+                </span>
+              </div>
+
+              <h2 className="mt-2 text-xl font-black text-white sm:text-2xl truncate">
+                {nextActiveBooking.route?.routeName || nextActiveBooking.pickupArea}
+              </h2>
+
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-300">
+                <span className="flex items-center gap-1 font-semibold text-slate-200">
+                  <MapPin size={14} className="text-red-400" />
+                  Stop: <strong className="text-white">{nextActiveBooking.pickupStop?.stopName || nextActiveBooking.pickupArea}</strong>
+                </span>
+                {nextActiveBooking.seatNumber && (
+                  <span className="flex items-center gap-1 font-semibold text-emerald-300">
+                    <TicketCheck size={14} />
+                    Seat: <strong className="text-white">#{nextActiveBooking.seatNumber}</strong>
+                  </span>
+                )}
+                {nextActiveBooking.route?.vehicle && (
+                  <span className="flex items-center gap-1 font-semibold text-blue-300">
+                    <BusFront size={14} />
+                    Vehicle: <strong className="text-white">{nextActiveBooking.route.vehicle.vehicleNumber}</strong>
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="rounded-2xl bg-blue-50 p-3 text-blue-700">
-              <TicketCheck size={22} />
+
+            {/* Primary 1-tap Actions */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {nextActiveBooking.route && (
+                <button
+                  type="button"
+                  onClick={() => setTrackingBooking(nextActiveBooking)}
+                  className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 px-5 py-3 text-xs font-black text-slate-950 shadow-lg shadow-emerald-500/30 transition transform hover:-translate-y-0.5"
+                >
+                  <Activity size={16} className="animate-pulse" />
+                  <span>Track Driver Live (Careem Radar)</span>
+                </button>
+              )}
+
+              {(nextActiveBooking.status === "PENDING" || nextActiveBooking.status === "ASSIGNED") && (
+                <button
+                  type="button"
+                  disabled={processingId === nextActiveBooking.id}
+                  onClick={() => handleCancel(nextActiveBooking)}
+                  className="rounded-2xl border border-white/20 bg-white/10 hover:bg-white/20 px-3.5 py-3 text-xs font-bold text-slate-200 transition"
+                >
+                  {processingId === nextActiveBooking.id ? "Skipping..." : "Skip Ride"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Summary KPI Cards */}
+      <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <Card className="p-3.5 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-3xs sm:text-xs font-bold uppercase tracking-wider text-slate-400">Total Rides</p>
+              <p className="mt-1 sm:mt-2 text-xl sm:text-2xl font-bold text-slate-800">{summary.total}</p>
+            </div>
+            <div className="rounded-xl sm:rounded-2xl bg-blue-50 p-2 sm:p-3 text-blue-700">
+              <TicketCheck size={18} className="sm:h-5 sm:w-5" />
             </div>
           </div>
         </Card>
 
-        <Card>
-          <div className="flex items-center justify-between gap-4">
+        <Card className="p-3.5 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Pending</p>
-              <p className="mt-2 text-2xl font-bold text-slate-800">{summary.pending}</p>
+              <p className="text-3xs sm:text-xs font-bold uppercase tracking-wider text-slate-400">Pending</p>
+              <p className="mt-1 sm:mt-2 text-xl sm:text-2xl font-bold text-slate-800">{summary.pending}</p>
             </div>
-            <div className="rounded-2xl bg-amber-50 p-3 text-amber-700">
-              <Clock3 size={22} />
+            <div className="rounded-xl sm:rounded-2xl bg-amber-50 p-2 sm:p-3 text-amber-700">
+              <Clock3 size={18} className="sm:h-5 sm:w-5" />
             </div>
           </div>
         </Card>
 
-        <Card>
-          <div className="flex items-center justify-between gap-4">
+        <Card className="p-3.5 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Assigned</p>
-              <p className="mt-2 text-2xl font-bold text-slate-800">{summary.assigned}</p>
+              <p className="text-3xs sm:text-xs font-bold uppercase tracking-wider text-slate-400">Assigned</p>
+              <p className="mt-1 sm:mt-2 text-xl sm:text-2xl font-bold text-slate-800">{summary.assigned}</p>
             </div>
-            <div className="rounded-2xl bg-violet-50 p-3 text-violet-700">
-              <UserCheck size={22} />
+            <div className="rounded-xl sm:rounded-2xl bg-violet-50 p-2 sm:p-3 text-violet-700">
+              <UserCheck size={18} className="sm:h-5 sm:w-5" />
             </div>
           </div>
         </Card>
 
-        <Card>
-          <div className="flex items-center justify-between gap-4">
+        <Card className="p-3.5 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Active passes</p>
-              <p className="mt-2 text-2xl font-bold text-emerald-700">{subscriptions.length} active</p>
+              <p className="text-3xs sm:text-xs font-bold uppercase tracking-wider text-slate-400">Active passes</p>
+              <p className="mt-1 sm:mt-2 text-xl sm:text-2xl font-bold text-emerald-700">{subscriptions.length}</p>
             </div>
-            <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">
-              <Repeat size={22} />
+            <div className="rounded-xl sm:rounded-2xl bg-emerald-50 p-2 sm:p-3 text-emerald-700">
+              <Repeat size={18} className="sm:h-5 sm:w-5" />
             </div>
           </div>
         </Card>
       </div>
 
+      {/* Mobile-Only Segmented Controller (< lg) */}
+      <div className="flex lg:hidden rounded-2xl bg-slate-100 p-1.5 border border-slate-200/80">
+        <button
+          type="button"
+          onClick={() => setEmployeeViewTab("rides")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition ${
+            employeeViewTab === "rides"
+              ? "bg-white text-blue-800 shadow-sm"
+              : "text-slate-500 hover:text-slate-900"
+          }`}
+        >
+          <TicketCheck size={14} />
+          <span>My Rides & Passes ({bookings.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setEmployeeViewTab("new")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition ${
+            employeeViewTab === "new"
+              ? "bg-white text-blue-800 shadow-sm"
+              : "text-slate-500 hover:text-slate-900"
+          }`}
+        >
+          <Send size={14} />
+          <span>+ Request / Pass</span>
+        </button>
+      </div>
+
       <div className="grid min-w-0 gap-6 lg:grid-cols-3">
-        {/* LEFT COLUMN: Request Forms */}
-        <div className="space-y-6">
+        {/* LEFT COLUMN: Request Forms (Visible if desktop or tab === 'new') */}
+        <div className={`space-y-6 ${employeeViewTab === "rides" ? "hidden lg:block" : "block"}`}>
           <Card>
             <div className="mb-5 flex items-center gap-3">
               <div className="rounded-2xl bg-blue-50 p-3 text-blue-700">
@@ -790,7 +889,7 @@ export default function ShuttleBookingsPage() {
         </div>
 
         {/* RIGHT COLUMN: Active Passes list and History */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className={`lg:col-span-2 space-y-6 ${employeeViewTab === "new" ? "hidden lg:block" : "block"}`}>
           {/* Active passes standing list */}
           {subscriptions.length > 0 && (
             <Card>
@@ -843,29 +942,33 @@ export default function ShuttleBookingsPage() {
                 <p className="text-xs text-slate-500">{filteredBookings.length} rides logged</p>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="relative">
+              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+                <div className="relative flex-1">
                   <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search history..."
-                    className="w-full rounded-xl border border-slate-300 py-2 pl-9 pr-4 text-xs outline-none focus:border-blue-600 xl:w-56"
+                    className="w-full rounded-xl border border-slate-300 py-2 pl-9 pr-4 text-xs outline-none focus:border-blue-600"
                   />
                 </div>
 
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="rounded-xl border border-slate-300 px-3 py-2 text-xs outline-none focus:border-blue-600 bg-white"
-                >
-                  <option value="ALL">All statuses</option>
-                  {bookingStatuses.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
+                <div className="flex overflow-x-auto gap-1 py-1 no-scrollbar shrink-0">
+                  {["ALL", "ASSIGNED", "PENDING", "COMPLETED"].map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => setStatusFilter(st)}
+                      className={`px-3 py-1.5 rounded-xl text-3xs font-extrabold uppercase tracking-wider transition ${
+                        statusFilter === st
+                          ? "bg-slate-900 text-white shadow-sm"
+                          : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                      }`}
+                    >
+                      {st}
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
             </div>
 
