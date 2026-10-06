@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import type { FormEvent } from "react";
 import {
   AlertTriangle,
@@ -15,6 +15,10 @@ import {
   UserCheck,
   UserX,
   UsersRound,
+  ExternalLink,
+  Sparkles,
+  Eye,
+  CheckCircle2,
 } from "lucide-react";
 import {
   endDriverTrip,
@@ -69,6 +73,43 @@ const defaultIssueForm: IssueFormState = {
   issueLatitude: "",
   issueLongitude: "",
 };
+// Haversine formula in km
+function calculateDistanceKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// Bearing in degrees (0 - 360)
+function calculateHeading(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const y = Math.sin(dLon) * Math.cos((lat2 * Math.PI) / 180);
+  const x =
+    Math.cos((lat1 * Math.PI) / 180) * Math.sin((lat2 * Math.PI) / 180) -
+    Math.sin((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.cos(dLon);
+  const brng = ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+  return Math.round(brng);
+}
 
 function getErrorMessage(error: unknown) {
   if (
@@ -243,10 +284,59 @@ export default function DriverTripsPage() {
   // Driver location telemetry states & handlers
   const [driverLat, setDriverLat] = useState(24.8607);
   const [driverLng, setDriverLng] = useState(67.0104);
+  const [driverHeading, setDriverHeading] = useState(0);
+  const [driverSpeed, setDriverSpeed] = useState(0);
   const [isSyncingTelemetry, setIsSyncingTelemetry] = useState(false);
   const [syncedCount, setSyncedCount] = useState(0);
+  const [currentStopIndex, setCurrentStopIndex] = useState(0);
+  const [isSimulatingDrive, setIsSimulatingDrive] = useState(false);
+  const [isFollowLocked, setIsFollowLocked] = useState(true);
+  const prevCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
-  async function syncDriverCoordinates(lat: number, lng: number) {
+  // Sorted route stops in sequence
+  const orderedStops = useMemo(() => {
+    return [...(manifest?.smartStops ?? [])].sort(
+      (a: any, b: any) => a.stopOrder - b.stopOrder
+    );
+  }, [manifest?.smartStops]);
+
+  // Current target waypoint stop
+  const nextStop = useMemo(() => {
+    if (orderedStops.length === 0) return null;
+    return orderedStops[Math.min(currentStopIndex, orderedStops.length - 1)];
+  }, [orderedStops, currentStopIndex]);
+
+  // Passengers waiting at next stop
+  const passengersAtNextStop = useMemo(() => {
+    if (!nextStop) return [];
+    return (manifest?.bookings ?? []).filter(
+      (b: any) => b.pickupStopId === nextStop.id && b.status === "ASSIGNED"
+    );
+  }, [manifest?.bookings, nextStop]);
+
+  // Distance and ETA to next stop
+  const nextStopDistanceKm = useMemo(() => {
+    if (!nextStop || !nextStop.latitude || !nextStop.longitude) return 0;
+    const dist = calculateDistanceKm(
+      driverLat,
+      driverLng,
+      nextStop.latitude,
+      nextStop.longitude
+    );
+    return parseFloat(dist.toFixed(2));
+  }, [driverLat, driverLng, nextStop]);
+
+  const nextStopEtaMins = useMemo(() => {
+    const speed = Math.max(driverSpeed, 25);
+    return Math.max(1, Math.round((nextStopDistanceKm / speed) * 60));
+  }, [nextStopDistanceKm, driverSpeed]);
+
+  async function syncDriverCoordinates(
+    lat: number,
+    lng: number,
+    heading = driverHeading,
+    speed = driverSpeed
+  ) {
     if (!selectedRouteId || !trip?.id) return;
     try {
       setIsSyncingTelemetry(true);
@@ -255,7 +345,8 @@ export default function DriverTripsPage() {
         transportTripId: trip.id,
         latitude: lat,
         longitude: lng,
-        speed: 30,
+        heading,
+        speed,
         status: "MOVING",
         source: "MOBILE_GPS",
       });
@@ -267,61 +358,147 @@ export default function DriverTripsPage() {
     }
   }
 
+  // Real-time GPS watchPosition broadcasting
   useEffect(() => {
-    if (trip?.status !== "IN_PROGRESS") return;
+    if (trip?.status !== "IN_PROGRESS" || isSimulatingDrive) return;
+    if (!navigator.geolocation) return;
 
-    let intervalId: any = null;
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const speed = position.coords.speed
+          ? Math.round(position.coords.speed * 3.6)
+          : 30;
+        let heading = position.coords.heading ?? 0;
 
-    intervalId = setInterval(() => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            setDriverLat(lat);
-            setDriverLng(lng);
-            syncDriverCoordinates(lat, lng);
-          },
-          (err) => {
-            console.error("Device GPS unavailable:", err);
-          }
-        );
+        if ((!heading || isNaN(heading)) && prevCoordsRef.current) {
+          heading = calculateHeading(
+            prevCoordsRef.current.lat,
+            prevCoordsRef.current.lng,
+            lat,
+            lng
+          );
+        }
+        prevCoordsRef.current = { lat, lng };
+
+        setDriverLat(lat);
+        setDriverLng(lng);
+        setDriverHeading(heading || 0);
+        setDriverSpeed(speed);
+        syncDriverCoordinates(lat, lng, heading || 0, speed);
+      },
+      (err) => {
+        console.warn("Device GPS unavailable:", err);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 3000,
       }
-    }, 5000);
+    );
 
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      navigator.geolocation.clearWatch(watchId);
     };
-  }, [trip?.status, selectedRouteId, trip?.id]);
+  }, [trip?.status, selectedRouteId, trip?.id, isSimulatingDrive, driverHeading, driverSpeed]);
+
+  // Simulated drive along route waypoints
+  useEffect(() => {
+    if (!isSimulatingDrive || orderedStops.length === 0) return;
+
+    const validCoords: Array<{ latitude: number; longitude: number }> = [];
+    orderedStops.forEach((s: any) => {
+      if (typeof s.latitude === "number" && typeof s.longitude === "number") {
+        validCoords.push({ latitude: s.latitude, longitude: s.longitude });
+      }
+    });
+    if (validCoords.length === 0) return;
+
+    let step = currentStopIndex;
+    const interval = setInterval(() => {
+      const fromCoord = validCoords[step % validCoords.length];
+      const toCoord = validCoords[(step + 1) % validCoords.length];
+      const heading = calculateHeading(
+        fromCoord.latitude,
+        fromCoord.longitude,
+        toCoord.latitude,
+        toCoord.longitude
+      );
+
+      setDriverLat(fromCoord.latitude);
+      setDriverLng(fromCoord.longitude);
+      setDriverHeading(heading);
+      setDriverSpeed(36);
+      setCurrentStopIndex((step + 1) % validCoords.length);
+
+      syncDriverCoordinates(fromCoord.latitude, fromCoord.longitude, heading, 36);
+
+      step++;
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [isSimulatingDrive, orderedStops, selectedRouteId, trip?.id, currentStopIndex]);
 
   const driverMapMarkers = useMemo(() => {
     const list: any[] = [];
+
+    // Rotating Driver Vehicle Marker
     list.push({
       latitude: driverLat,
       longitude: driverLng,
-      label: "Your Live Location (Pulsing yellow icon)",
-      color: "bg-yellow-500 border-yellow-800 animate-pulse scale-110",
+      label: "Your Bus / Cab (Captain)",
+      subLabel: nextStop
+        ? `Target: Stop #${nextStop.stopOrder} ${nextStop.stopName}`
+        : "Live Transit",
+      type: "vehicle",
+      heading: driverHeading,
+      speed: driverSpeed,
       pulse: true,
     });
 
-    const stops = manifest?.smartStops ?? [];
-    stops.forEach((stop: any) => {
+    // Smart stops along route
+    orderedStops.forEach((stop: any, idx: number) => {
       if (stop.latitude && stop.longitude) {
+        const isTarget = idx === currentStopIndex;
+        const isFinal = idx === orderedStops.length - 1;
+
         list.push({
           latitude: stop.latitude,
           longitude: stop.longitude,
-          label: `Stop ${stop.stopOrder}: ${stop.stopName} (Arrival: ${stop.estimatedTime || "N/A"})`,
-          color: "bg-emerald-500",
+          label: `Stop ${stop.stopOrder}: ${stop.stopName}`,
+          subLabel: isTarget
+            ? "CURRENT TARGET STOP"
+            : `Est: ${stop.estimatedTime || "N/A"}`,
+          type: isTarget ? "pickup" : isFinal ? "destination" : "standard",
+          color: isTarget
+            ? "bg-blue-600 ring-4 ring-blue-300"
+            : isFinal
+            ? "bg-red-600"
+            : "bg-emerald-600",
+          pulse: isTarget,
         });
       }
     });
 
     return list;
-  }, [driverLat, driverLng, manifest?.smartStops]);
+  }, [
+    driverLat,
+    driverLng,
+    driverHeading,
+    driverSpeed,
+    orderedStops,
+    currentStopIndex,
+    nextStop,
+  ]);
 
   const driverMapPolylines = useMemo(() => {
     return (manifest?.smartStops ?? [])
-      .filter((stop: any) => typeof stop.latitude === "number" && typeof stop.longitude === "number")
+      .filter(
+        (stop: any) =>
+          typeof stop.latitude === "number" &&
+          typeof stop.longitude === "number"
+      )
       .map((stop: any) => ({
         latitude: stop.latitude as number,
         longitude: stop.longitude as number,
@@ -1060,44 +1237,156 @@ export default function DriverTripsPage() {
                 )}
               </Card>
 
-              {/* LIVE JOURNEY MAP CARD */}
+              {/* CAREEM / INDRIVE DRIVER NAVIGATION HUD & LIVE MAP */}
               <Card>
                 <div className="mb-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                   <div className="flex items-center gap-3">
-                    <div className="rounded-2xl bg-blue-50 p-3 text-blue-700">
-                      <Navigation size={22} className={trip?.status === "IN_PROGRESS" ? "animate-pulse" : ""} />
+                    <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">
+                      <Navigation
+                        size={22}
+                        className={trip?.status === "IN_PROGRESS" ? "animate-spin" : ""}
+                      />
                     </div>
                     <div>
-                      <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                        Live Journey Map
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-lg font-bold text-slate-900">
+                          Driver Navigation & Transit HUD
+                        </h2>
                         {trip?.status === "IN_PROGRESS" && (
                           <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping" />
                         )}
-                      </h2>
+                      </div>
                       <p className="text-xs text-slate-500 font-semibold">
-                        Real-time transit tracker synced with database.
+                        Real-time GPS telemetry broadcast • Heading: {driverHeading}° • Speed: {driverSpeed} km/h
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-4 text-xs">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    {/* Simulated Driving test toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setIsSimulatingDrive(!isSimulatingDrive)}
+                      className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                        isSimulatingDrive
+                          ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
+                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      }`}
+                      title="Toggle simulated driver route drive"
+                    >
+                      <Sparkles size={14} className={isSimulatingDrive ? "animate-spin" : "text-amber-500"} />
+                      <span>{isSimulatingDrive ? "Simulating Trip..." : "Simulate Drive"}</span>
+                    </button>
+
+                    {/* Camera Lock toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setIsFollowLocked(!isFollowLocked)}
+                      className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                        isFollowLocked
+                          ? "bg-emerald-600 text-white shadow-sm"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      <Eye size={14} />
+                      <span>{isFollowLocked ? "Lock: Centered" : "Free Roam"}</span>
+                    </button>
+
                     {syncedCount > 0 && (
-                      <span className="rounded-full bg-blue-50 border border-blue-100 px-2.5 py-1 text-3xs font-extrabold text-blue-700 uppercase">
-                        {isSyncingTelemetry ? "Syncing..." : `${syncedCount} Synced`}
+                      <span className="rounded-full bg-emerald-50 border border-emerald-100 px-2.5 py-1 text-3xs font-extrabold text-emerald-700 uppercase">
+                        {isSyncingTelemetry ? "Syncing..." : `${syncedCount} Fixes Sent`}
                       </span>
                     )}
                   </div>
                 </div>
 
+                {/* TURN-BY-TURN / NEXT WAYPOINT GUIDANCE BANNER */}
+                {nextStop && (
+                  <div className="mb-4 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800 p-4 text-white shadow-md">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-md bg-emerald-500/20 px-2 py-0.5 text-2xs font-extrabold uppercase tracking-wider text-emerald-400 border border-emerald-500/30">
+                            Next Waypoint Stop
+                          </span>
+                          <span className="text-2xs text-slate-400">
+                            Stop {nextStop.stopOrder} of {orderedStops.length}
+                          </span>
+                        </div>
+
+                        <h3 className="mt-1 text-lg font-black text-white truncate">
+                          {nextStop.stopName}
+                        </h3>
+
+                        <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-300">
+                          <span className="font-bold text-emerald-400 flex items-center gap-1">
+                            <Clock3 size={13} />
+                            {nextStopDistanceKm < 0.2
+                              ? "Arrived at Stop"
+                              : `~${nextStopEtaMins} mins (${Math.round(nextStopDistanceKm * 1000)}m away)`}
+                          </span>
+                          <span>•</span>
+                          <span className="text-amber-300 font-semibold flex items-center gap-1">
+                            <UserCheck size={13} />
+                            {passengersAtNextStop.length} Passenger(s) to board
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 1-Tap Google Maps Turn-by-Turn + Stop Complete */}
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        {nextStop.latitude && nextStop.longitude && (
+                          <a
+                            href={`https://www.google.com/maps/dir/?api=1&destination=${nextStop.latitude},${nextStop.longitude}&travelmode=driving`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-blue-600/30 transition"
+                          >
+                            <ExternalLink size={14} />
+                            <span>Turn-by-Turn in Google Maps</span>
+                          </a>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCurrentStopIndex((prev) =>
+                              Math.min(prev + 1, orderedStops.length - 1)
+                            )
+                          }
+                          disabled={currentStopIndex >= orderedStops.length - 1}
+                          className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-emerald-600/30 transition"
+                        >
+                          <CheckCircle2 size={14} />
+                          <span>
+                            {currentStopIndex >= orderedStops.length - 1
+                              ? "Final Destination"
+                              : "Arrived • Next Stop"}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Leaflet Map with Live Orientation */}
                 <div className="relative rounded-2xl overflow-hidden border border-slate-200">
                   <MapView
                     latitude={driverMapCenter.lat}
                     longitude={driverMapCenter.lng}
                     readOnly={true}
+                    hideMainPin={true}
+                    followCenter={isFollowLocked}
                     markers={driverMapMarkers}
                     polylines={driverMapPolylines}
-                    height="320px"
+                    polylineColor="#10b981"
+                    polylineDashArray="4, 6"
+                    polylineWeight={5}
+                    height="360px"
                     enableFullscreenToggle={true}
+                    enableGPS={false}
+                    enableSearch={false}
+                    enablePresets={false}
                   />
                 </div>
               </Card>

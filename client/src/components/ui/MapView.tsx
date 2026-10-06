@@ -19,8 +19,13 @@ export interface MapMarkerItem {
   latitude: number;
   longitude: number;
   label?: string;
+  subLabel?: string;
   color?: string; // e.g. "bg-emerald-500", "bg-blue-600", "bg-red-500"
   pulse?: boolean;
+  type?: "standard" | "vehicle" | "pickup" | "destination" | "driver";
+  heading?: number; // 0 - 360 degrees
+  icon?: string;
+  speed?: number;
 }
 
 export interface MapViewProps {
@@ -33,6 +38,11 @@ export interface MapViewProps {
   enableSearch?: boolean;
   enablePresets?: boolean;
   enableFullscreenToggle?: boolean;
+  followCenter?: boolean;
+  hideMainPin?: boolean;
+  polylineColor?: string;
+  polylineDashArray?: string;
+  polylineWeight?: number;
   markers?: MapMarkerItem[];
   polylines?: { latitude: number; longitude: number }[];
   height?: string;
@@ -64,6 +74,11 @@ export default function MapView({
   enableSearch = true,
   enablePresets = true,
   enableFullscreenToggle = true,
+  followCenter = false,
+  hideMainPin = false,
+  polylineColor = "#2563eb",
+  polylineDashArray = "6, 8",
+  polylineWeight = 4,
   markers = [],
   polylines = [],
   height = "340px",
@@ -340,42 +355,44 @@ export default function MapView({
       })
       .addTo(map);
 
-    // Custom pulse marker for main pin
-    const mainPinIcon = L.divIcon({
-      className: "relative flex items-center justify-center",
-      html: `
-        <div class="relative flex items-center justify-center w-7 h-7">
-          <span class="absolute w-7 h-7 rounded-full bg-blue-500 opacity-30 animate-ping"></span>
-          <span class="relative flex items-center justify-center w-6 h-6 rounded-full bg-blue-700 text-white shadow-lg border-2 border-white font-bold text-2xs">
-            📍
-          </span>
-        </div>
-      `,
-      iconSize: [28, 28],
-      iconAnchor: [14, 14],
-    });
-
-    const marker = L.marker([latitude, longitude], {
-      draggable: !readOnly,
-      icon: mainPinIcon,
-    }).addTo(map);
-    mainMarkerRef.current = marker;
-
-    if (!readOnly && onChange) {
-      // Map click handler
-      map.on("click", (e: any) => {
-        const { lat, lng } = e.latlng;
-        marker.setLatLng([lat, lng]);
-        onChange(lat, lng);
-        fetchReverseGeocode(lat, lng);
+    if (!hideMainPin) {
+      // Custom pulse marker for main pin
+      const mainPinIcon = L.divIcon({
+        className: "relative flex items-center justify-center",
+        html: `
+          <div class="relative flex items-center justify-center w-7 h-7">
+            <span class="absolute w-7 h-7 rounded-full bg-blue-500 opacity-30 animate-ping"></span>
+            <span class="relative flex items-center justify-center w-6 h-6 rounded-full bg-blue-700 text-white shadow-lg border-2 border-white font-bold text-2xs">
+              📍
+            </span>
+          </div>
+        `,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
       });
 
-      // Marker dragend handler
-      marker.on("dragend", (e: any) => {
-        const { lat, lng } = e.target.getLatLng();
-        onChange(lat, lng);
-        fetchReverseGeocode(lat, lng);
-      });
+      const marker = L.marker([latitude, longitude], {
+        draggable: !readOnly,
+        icon: mainPinIcon,
+      }).addTo(map);
+      mainMarkerRef.current = marker;
+
+      if (!readOnly && onChange) {
+        // Map click handler
+        map.on("click", (e: any) => {
+          const { lat, lng } = e.latlng;
+          marker.setLatLng([lat, lng]);
+          onChange(lat, lng);
+          fetchReverseGeocode(lat, lng);
+        });
+
+        // Marker dragend handler
+        marker.on("dragend", (e: any) => {
+          const { lat, lng } = e.target.getLatLng();
+          onChange(lat, lng);
+          fetchReverseGeocode(lat, lng);
+        });
+      }
     }
 
     // Invalidate size after layout stabilization
@@ -395,10 +412,20 @@ export default function MapView({
 
   // Sync main marker position when external lat/lng changes
   useEffect(() => {
-    if (mapInstanceRef.current && mainMarkerRef.current) {
+    if (mapInstanceRef.current && mainMarkerRef.current && !hideMainPin) {
       mainMarkerRef.current.setLatLng([latitude, longitude]);
     }
-  }, [latitude, longitude]);
+  }, [latitude, longitude, hideMainPin]);
+
+  // Pan / Follow vehicle when followCenter is enabled
+  useEffect(() => {
+    if (mapInstanceRef.current && followCenter && latitude && longitude) {
+      mapInstanceRef.current.panTo([latitude, longitude], {
+        animate: true,
+        duration: 0.6,
+      });
+    }
+  }, [latitude, longitude, followCenter]);
 
   // Update additional markers
   useEffect(() => {
@@ -408,21 +435,124 @@ export default function MapView({
     stopMarkersRef.current = [];
 
     markers.forEach((m, idx) => {
-      if (m.latitude && m.longitude) {
-        const pulseClass = m.pulse ? "animate-pulse" : "";
-        const bgClass = m.color || "bg-emerald-500";
-        const stopMarker = L.marker([m.latitude, m.longitude], {
+      if (!m.latitude || !m.longitude) return;
+
+      // Careem / inDrive Rotating Vehicle Marker
+      if (m.type === "vehicle" || m.type === "driver") {
+        const headingDeg = typeof m.heading === "number" ? m.heading : 0;
+        const speedVal = typeof m.speed === "number" ? Math.round(m.speed) : 0;
+        const speedLabel = speedVal > 0 ? `${speedVal} km/h` : "Live";
+
+        const vehicleHtml = `
+          <div style="position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;">
+            <!-- Radar ping halo -->
+            <div style="position: absolute; width: 42px; height: 42px; border-radius: 9999px; background: rgba(16, 185, 129, 0.28); animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+            <!-- Heading oriented vehicle body -->
+            <div style="transform: rotate(${headingDeg}deg); transition: transform 0.4s ease-out; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; position: relative;">
+              <!-- Direction pointer needle -->
+              <div style="position: absolute; top: -6px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 8px solid #059669; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));"></div>
+              <!-- Car body -->
+              <div style="width: 34px; height: 34px; border-radius: 12px; background: #0f172a; border: 2.5px solid #10b981; box-shadow: 0 4px 12px rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center;">
+                <svg style="width: 20px; height: 20px; color: #34d399;" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
+                </svg>
+              </div>
+            </div>
+            <!-- Bottom speed pill -->
+            <div style="position: absolute; bottom: -8px; background: #0f172a; color: #34d399; font-size: 8px; font-weight: 800; padding: 1px 5px; border-radius: 6px; border: 1px solid #10b981; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+              ${speedLabel}
+            </div>
+          </div>
+        `;
+
+        const vMarker = L.marker([m.latitude, m.longitude], {
           icon: L.divIcon({
-            className: `${bgClass} border-2 border-white rounded-full flex items-center justify-center text-white text-[9px] font-bold shadow-md ${pulseClass}`,
-            html: `<span>${idx + 1}</span>`,
-            iconSize: [20, 20],
-            iconAnchor: [10, 10],
+            className: "careem-vehicle-marker",
+            html: vehicleHtml,
+            iconSize: [48, 48],
+            iconAnchor: [24, 24],
           }),
-        })
-          .addTo(mapInstanceRef.current)
-          .bindPopup(`<strong>${m.label || `Stop #${idx + 1}`}</strong>`);
-        stopMarkersRef.current.push(stopMarker);
+          zIndexOffset: 1000,
+        }).addTo(mapInstanceRef.current);
+
+        vMarker.bindPopup(`
+          <div style="min-width: 170px; font-family: sans-serif; padding: 2px;">
+            <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #0f172a; font-size: 13px;">
+              <span style="color: #10b981; font-size: 16px;">●</span> ${m.label || "Live Vehicle"}
+            </div>
+            ${m.subLabel ? `<div style="color: #64748b; font-size: 11px; margin-top: 3px;">${m.subLabel}</div>` : ""}
+            <div style="margin-top: 6px; display: flex; gap: 8px; font-size: 10px; color: #334155; border-top: 1px solid #e2e8f0; padding-top: 4px;">
+              <span>Speed: <strong>${speedVal} km/h</strong></span>
+              <span>Heading: <strong>${headingDeg}°</strong></span>
+            </div>
+          </div>
+        `);
+        stopMarkersRef.current.push(vMarker);
+        return;
       }
+
+      // Passenger Pickup Point Marker
+      if (m.type === "pickup") {
+        const pickupHtml = `
+          <div style="position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+            <span style="position: absolute; width: 36px; height: 36px; border-radius: 9999px; background: rgba(37, 99, 235, 0.35); animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
+            <div style="position: relative; width: 32px; height: 32px; border-radius: 9999px; background: #2563eb; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(37,99,235,0.4); display: flex; align-items: center; justify-content: center; color: white; font-size: 15px;">
+              🚶
+            </div>
+          </div>
+        `;
+        const pMarker = L.marker([m.latitude, m.longitude], {
+          icon: L.divIcon({
+            className: "careem-pickup-marker",
+            html: pickupHtml,
+            iconSize: [40, 40],
+            iconAnchor: [20, 20],
+          }),
+          zIndexOffset: 900,
+        }).addTo(mapInstanceRef.current);
+        pMarker.bindPopup(`<strong>Your Pickup Point</strong><br/><span style="font-size: 11px; color: #64748b;">${m.label || "Waiting for shuttle"}</span>`);
+        stopMarkersRef.current.push(pMarker);
+        return;
+      }
+
+      // Final Destination Flag
+      if (m.type === "destination") {
+        const destHtml = `
+          <div style="position: relative; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+            <div style="position: relative; width: 30px; height: 30px; border-radius: 9999px; background: #ef4444; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(239,68,68,0.4); display: flex; align-items: center; justify-content: center; color: white; font-size: 13px;">
+              🏁
+            </div>
+          </div>
+        `;
+        const dMarker = L.marker([m.latitude, m.longitude], {
+          icon: L.divIcon({
+            className: "careem-dest-marker",
+            html: destHtml,
+            iconSize: [36, 36],
+            iconAnchor: [18, 18],
+          }),
+          zIndexOffset: 850,
+        }).addTo(mapInstanceRef.current);
+        dMarker.bindPopup(`<strong>Final Destination</strong><br/><span style="font-size: 11px; color: #64748b;">${m.label || "Drop-off terminus"}</span>`);
+        stopMarkersRef.current.push(dMarker);
+        return;
+      }
+
+      // Standard Sequenced Stop Marker
+      const pulseClass = m.pulse ? "animate-pulse" : "";
+      const bgClass = m.color || "bg-emerald-500";
+      const iconContent = m.icon || `<span>${idx + 1}</span>`;
+      const stopMarker = L.marker([m.latitude, m.longitude], {
+        icon: L.divIcon({
+          className: `${bgClass} border-2 border-white rounded-full flex items-center justify-center text-white text-[9px] font-bold shadow-md ${pulseClass}`,
+          html: iconContent,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11],
+        }),
+      })
+        .addTo(mapInstanceRef.current)
+        .bindPopup(`<strong>${m.label || `Stop #${idx + 1}`}</strong>`);
+      stopMarkersRef.current.push(stopMarker);
     });
   }, [markers]);
 
@@ -441,14 +571,14 @@ export default function MapView({
 
       if (latlngs.length > 0) {
         polylineRef.current = L.polyline(latlngs, {
-          color: "#2563eb",
-          weight: 4,
+          color: polylineColor,
+          weight: polylineWeight,
           opacity: 0.85,
-          dashArray: "6, 8",
+          dashArray: polylineDashArray,
         }).addTo(mapInstanceRef.current);
       }
     }
-  }, [polylines]);
+  }, [polylines, polylineColor, polylineWeight, polylineDashArray]);
 
   // Invalidate map size when fullscreen toggled
   useEffect(() => {

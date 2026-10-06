@@ -24,8 +24,8 @@ import {
   deactivateShuttleSubscription,
 } from "../api/shuttleBookings";
 import { getRoutes } from "../api/routes";
-import { getTelemetryByRoute } from "../api/telemetry";
 import MapView from "../components/ui/MapView";
+import LiveRideTracker from "../components/ui/LiveRideTracker";
 import MobileCard from "../components/ui/MobileCard";
 import { useAuth } from "../auth/AuthContext";
 import Button from "../components/ui/Button";
@@ -158,75 +158,7 @@ export default function ShuttleBookingsPage() {
 
   const currentRole = bootstrap?.role;
 
-  const [trackingRouteId, setTrackingRouteId] = useState<string | null>(null);
-  const [trackingLogs, setTrackingLogs] = useState<any[]>([]);
-  const [trackingRoute, setTrackingRoute] = useState<any | null>(null);
-
-  useEffect(() => {
-    if (!trackingRouteId) {
-      setTrackingLogs([]);
-      return;
-    }
-
-    async function fetchTelemetry() {
-      try {
-        const logs = await getTelemetryByRoute(trackingRouteId!);
-        setTrackingLogs(logs || []);
-      } catch (err) {
-        console.error("Failed to fetch live route telemetry:", err);
-      }
-    }
-
-    fetchTelemetry();
-    const interval = setInterval(fetchTelemetry, 5000);
-    return () => clearInterval(interval);
-  }, [trackingRouteId]);
-
-  const trackingMarkers = useMemo(() => {
-    const list: any[] = [];
-    if (!trackingRoute) return list;
-
-    if (trackingRoute.smartStops) {
-      trackingRoute.smartStops.forEach((stop: any) => {
-        list.push({
-          latitude: stop.latitude,
-          longitude: stop.longitude,
-          label: `${stop.stopName} (Order: ${stop.stopOrder}, Arrival: ${stop.estimatedTime || "N/A"})`,
-          color: "bg-emerald-500",
-        });
-      });
-    }
-
-    if (trackingLogs.length > 0) {
-      const latest = trackingLogs[trackingLogs.length - 1];
-      list.push({
-        latitude: latest.latitude,
-        longitude: latest.longitude,
-        label: `Live Shuttle - Speed: ${latest.speed || 0} km/h, Battery: ${latest.batteryLevel || 100}%`,
-        color: "bg-amber-500 animate-pulse",
-        pulse: true,
-      });
-    }
-
-    return list;
-  }, [trackingRoute, trackingLogs]);
-
-  const trackingPolylines = useMemo(() => {
-    if (!trackingRoute || !trackingRoute.smartStops) return [];
-    return [...trackingRoute.smartStops].sort((a, b) => a.stopOrder - b.stopOrder);
-  }, [trackingRoute]);
-
-  const trackingCenter = useMemo(() => {
-    if (trackingLogs.length > 0) {
-      const latest = trackingLogs[trackingLogs.length - 1];
-      return { lat: latest.latitude, lng: latest.longitude };
-    }
-    if (trackingRoute?.smartStops && trackingRoute.smartStops.length > 0) {
-      const firstStop = [...trackingRoute.smartStops].sort((a, b) => a.stopOrder - b.stopOrder)[0];
-      return { lat: firstStop.latitude, lng: firstStop.longitude };
-    }
-    return { lat: 24.8607, lng: 67.0104 };
-  }, [trackingRoute, trackingLogs]);
+  const [trackingBooking, setTrackingBooking] = useState<ShuttleBooking | null>(null);
 
   const shiftTypes = (bootstrap?.formOptions?.shiftTypes ?? [
     "MORNING",
@@ -978,18 +910,15 @@ export default function ShuttleBookingsPage() {
                     ]}
                     actions={
                       <>
-                        {booking.status === "ASSIGNED" && booking.routeId && (
+                        {booking.route && (
                           <Button
                             type="button"
                             variant="secondary"
-                            onClick={() => {
-                              setTrackingRoute(booking.route);
-                              setTrackingRouteId(booking.routeId || null);
-                            }}
-                            className="w-full sm:w-auto text-xs border border-blue-200 text-blue-700 bg-blue-50/50 hover:bg-blue-50"
+                            onClick={() => setTrackingBooking(booking)}
+                            className="w-full sm:w-auto text-xs border border-emerald-200 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100 font-bold"
                           >
                             <Activity size={14} className="mr-1.5" />
-                            Track Live
+                            Live Careem Radar
                           </Button>
                         )}
                         {(booking.status === "PENDING" || booking.status === "ASSIGNED") && (
@@ -1093,18 +1022,15 @@ export default function ShuttleBookingsPage() {
                         </td>
                         <td className="rounded-r-2xl px-4 py-4 text-right">
                           <div className="flex justify-end gap-2">
-                            {booking.status === "ASSIGNED" && booking.routeId && (
+                            {booking.route && (
                               <Button
                                 type="button"
                                 variant="secondary"
-                                onClick={() => {
-                                  setTrackingRoute(booking.route);
-                                  setTrackingRouteId(booking.routeId || null);
-                                }}
-                                className="border border-blue-200 text-blue-700 bg-blue-50/50 hover:bg-blue-50"
+                                onClick={() => setTrackingBooking(booking)}
+                                className="border border-emerald-200 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100 font-bold"
                               >
                                 <Activity size={15} className="mr-1.5" />
-                                Track Live
+                                Live Careem Radar
                               </Button>
                             )}
                             {(booking.status === "PENDING" || booking.status === "ASSIGNED") && (
@@ -1137,64 +1063,33 @@ export default function ShuttleBookingsPage() {
           </Card>
         </div>
       </div>
-      {/* Real-time Shuttle Tracking Modal */}
-      {trackingRouteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-3xl rounded-3xl bg-white p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                  </span>
-                  Live Shuttle Tracking
-                </h3>
-                <p className="text-xs text-slate-500 font-semibold mt-0.5">
-                  Route: <strong className="text-slate-800">{trackingRoute?.routeName || "N/A"}</strong> ({trackingRoute?.routeCode || "N/A"}) 
-                  • Driver: <strong className="text-slate-800">{trackingRoute?.driver?.user?.fullName || "N/A"}</strong>
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setTrackingRouteId(null);
-                  setTrackingRoute(null);
-                }}
-                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 transition"
-              >
-                <XCircle size={20} />
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              <MapView
-                latitude={trackingCenter.lat}
-                longitude={trackingCenter.lng}
-                readOnly={true}
-                markers={trackingMarkers}
-                polylines={trackingPolylines}
-                height="400px"
-              />
-              <p className="text-4xs text-slate-400 font-bold text-center uppercase tracking-wider">
-                Shuttle coordinates auto-refresh every 5 seconds. Yellow marker indicates live shuttle position.
-              </p>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  setTrackingRouteId(null);
-                  setTrackingRoute(null);
-                }}
-              >
-                Close Tracking console
-              </Button>
-            </div>
-          </div>
-        </div>
+      {/* Real-time Careem / inDrive Live Ride Tracker */}
+      {trackingBooking && trackingBooking.route && (
+        <LiveRideTracker
+          routeId={trackingBooking.routeId || trackingBooking.route.id}
+          routeName={trackingBooking.route.routeName}
+          routeCode={trackingBooking.route.routeCode}
+          driverName={
+            trackingBooking.route.driver?.user?.fullName ||
+            "Assigned Fleet Captain"
+          }
+          driverPhone={
+            trackingBooking.route.driver?.user?.phone ||
+            "+92 300 1234567"
+          }
+          vehicleNumber={
+            trackingBooking.route.vehicle?.vehicleNumber || "IND-7821"
+          }
+          vehicleModel={
+            trackingBooking.route.vehicle
+              ? `${trackingBooking.route.vehicle.vehicleType} (${trackingBooking.route.vehicle.capacity} seats)`
+              : "Indus Commute Shuttle"
+          }
+          seatNumber={trackingBooking.seatNumber || undefined}
+          pickupStop={trackingBooking.pickupStop}
+          smartStops={trackingBooking.route.smartStops || []}
+          onClose={() => setTrackingBooking(null)}
+        />
       )}
     </div>
   );

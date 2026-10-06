@@ -274,24 +274,24 @@ export async function getTelemetryByRoute(
 
   // Restrict telemetry access to route booking assignment
   if (currentUser && currentUser.role === "EMPLOYEE") {
-    const today = new Date();
-    const startOfToday = new Date(today.setHours(0, 0, 0, 0));
-    const endOfTomorrow = new Date(new Date().setDate(today.getDate() + 1));
-    endOfTomorrow.setHours(23, 59, 59, 999);
-
-    const activeBooking = await prisma.shuttleBooking.findFirst({
-      where: {
-        employeeId: currentUser.userId,
-        routeId,
-        bookingDate: {
-          gte: startOfToday,
-          lte: endOfTomorrow,
+    const [activeBooking, activeSubscription] = await Promise.all([
+      prisma.shuttleBooking.findFirst({
+        where: {
+          employeeId: currentUser.userId,
+          routeId,
+          status: { not: "CANCELLED" },
         },
-        status: { in: ["ASSIGNED", "COMPLETED"] },
-      },
-    });
+      }),
+      prisma.shuttleSubscription.findFirst({
+        where: {
+          employeeId: currentUser.userId,
+          routeId,
+          isActive: true,
+        },
+      }),
+    ]);
 
-    if (!activeBooking) {
+    if (!activeBooking && !activeSubscription) {
       throw new Error("Forbidden: You do not have an approved shuttle booking on this route.");
     }
   }
