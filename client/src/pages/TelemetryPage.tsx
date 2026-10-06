@@ -56,6 +56,7 @@ export default function TelemetryPage() {
   const [gpsLat, setGpsLat] = useState<number | null>(null);
   const [gpsLng, setGpsLng] = useState<number | null>(null);
   const [gpsSyncedCount, setGpsSyncedCount] = useState(0);
+  const [mobileTab, setMobileTab] = useState<"map" | "list">("map");
 
   async function syncGPSCoordinates(lat: number, lng: number, status: TelemetryStatus = "MOVING", remarks?: string) {
     try {
@@ -477,32 +478,69 @@ export default function TelemetryPage() {
       ) : (
         /* ADMINISTRATOR COMMAND CENTER VIEW */
         <div className="space-y-6">
+          {/* Mobile View Toggle Switcher (< xl) */}
+          <div className="flex xl:hidden gap-1 p-1 rounded-2xl bg-slate-200/80 border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setMobileTab("map")}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+                mobileTab === "map"
+                  ? "bg-white text-blue-700 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              🗺️ Map View
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab("list")}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+                mobileTab === "list"
+                  ? "bg-white text-blue-700 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              🚐 Fleet List ({liveLogs.length})
+            </button>
+          </div>
+
           <div className="grid gap-6 xl:grid-cols-3">
-            {/* Visual Tracking Map (SVG plotting coordinates dynamically) */}
-            <div className="xl:col-span-2 space-y-4">
+            {/* Visual Tracking Map */}
+            <div
+              className={`xl:col-span-2 space-y-4 ${
+                mobileTab === "map" ? "block" : "hidden xl:block"
+              }`}
+            >
               <Card className="flex flex-col justify-between">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-2">
                   <h3 className="font-bold text-slate-800 text-sm sm:text-base flex items-center gap-1.5">
                     <Map className="text-blue-700" size={18} /> Spatial Route Telemetry Mapper
                   </h3>
-                  <span className="text-[10px] text-slate-400 font-medium">Karachi Metro Boundaries scaled to SVG canvas</span>
+                  <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
+                    Karachi Metro Boundaries
+                  </span>
                 </div>
 
                 <div className="relative border border-slate-200 rounded-2xl overflow-hidden p-1 bg-white z-10">
                   <MapView
-                    latitude={24.8607}
-                    longitude={67.0104}
+                    latitude={selectedLiveLog?.latitude || 24.8607}
+                    longitude={selectedLiveLog?.longitude || 67.0104}
                     readOnly={true}
                     markers={telemetryMapMarkers}
                     height="420px"
                     zoom={12}
+                    enableFullscreenToggle={true}
                   />
                 </div>
               </Card>
             </div>
 
             {/* List of active locations sidebar */}
-            <div className="space-y-4">
+            <div
+              className={`space-y-4 ${
+                mobileTab === "list" ? "block" : "hidden xl:block"
+              }`}
+            >
               <Card className="max-h-[500px] overflow-y-auto flex flex-col justify-between">
                 <div className="border-b border-slate-100 pb-3 mb-2 flex items-center justify-between">
                   <h3 className="font-bold text-slate-800 text-sm sm:text-base flex items-center gap-1.5">
@@ -530,7 +568,10 @@ export default function TelemetryPage() {
                     return (
                       <div
                         key={log.id}
-                        onClick={() => setSelectedLiveLog(log)}
+                        onClick={() => {
+                          setSelectedLiveLog(log);
+                          setMobileTab("map");
+                        }}
                         className={`rounded-xl border p-3 cursor-pointer transition hover:border-blue-400 ${
                           isSelected
                             ? "border-blue-700 bg-blue-50/20"

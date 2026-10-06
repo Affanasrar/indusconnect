@@ -1400,6 +1400,12 @@ export default function RoutesPage() {
                   latitude={stopMapLat}
                   longitude={stopMapLng}
                   onChange={handleStopMapChange}
+                  onAddressChange={(address) =>
+                    setStopForm((prev) => ({
+                      ...prev,
+                      stopName: prev.stopName && prev.stopName !== "Karachi" ? prev.stopName : address,
+                    }))
+                  }
                   markers={(selectedRoute.smartStops ?? []).map((s: any) => ({
                     latitude: s.latitude,
                     longitude: s.longitude,
@@ -1409,10 +1415,14 @@ export default function RoutesPage() {
                     .slice()
                     .sort((a, b) => a.stopOrder - b.stopOrder)
                     .map((s: any) => ({ latitude: s.latitude, longitude: s.longitude }))}
-                  height="220px"
+                  height="260px"
+                  enableGPS={true}
+                  enableSearch={true}
+                  enablePresets={true}
+                  enableFullscreenToggle={true}
                 />
                 <p className="text-4xs text-slate-400 font-semibold mt-1">
-                  Drag the pin to place a stop. Blue line visualizes the route path.
+                  Drag the pin, use GPS, or search an area. Stop coordinates and name will be captured.
                 </p>
               </div>
 

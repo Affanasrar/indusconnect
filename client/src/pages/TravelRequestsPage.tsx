@@ -30,6 +30,7 @@ import type {
 import { useAuth } from "../auth/AuthContext";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
+import MobileCard from "../components/ui/MobileCard";
 import type {
   TravelMode,
   TravelRequest,
@@ -168,6 +169,23 @@ function getStatusBadge(
 
     default:
       return "bg-slate-100 text-slate-700";
+  }
+}
+
+function getTravelMobileBadgeVariant(
+  status?: TravelRequestStatus | null
+): "warning" | "success" | "error" | "neutral" {
+  switch (status) {
+    case "PENDING":
+    case "PENDING_MANAGER_APPROVAL":
+      return "warning";
+    case "APPROVED":
+      return "success";
+    case "REJECTED":
+      return "error";
+    case "CANCELLED":
+    default:
+      return "neutral";
   }
 }
 
@@ -809,8 +827,65 @@ function EmployeeTravelRequestsPage() {
               Loading travel requests...
             </div>
           ) : (
-            <div className="w-full min-w-0 overflow-x-auto">
-              <table className="w-full min-w-[1050px] border-separate border-spacing-y-2">
+            <>
+              {/* Mobile Card List View (< md) */}
+              <div className="block md:hidden space-y-3 mb-4">
+                {filteredRequests.length > 0 ? (
+                  filteredRequests.map((request) => (
+                    <MobileCard
+                      key={request.id}
+                      title={`${formatLabel(request.travelType)} Travel`}
+                      subtitle={request.purpose}
+                      statusBadge={{
+                        label: formatLabel(request.status),
+                        variant: getTravelMobileBadgeVariant(request.status),
+                      }}
+                      fields={[
+                        {
+                          label: "Locations",
+                          value: `${request.fromLocation} → ${request.toLocation}`,
+                          icon: <MapPin size={13} />,
+                        },
+                        {
+                          label: "Departure",
+                          value: formatDate(request.departureDate),
+                          icon: <CalendarDays size={13} />,
+                        },
+                        {
+                          label: "Transport",
+                          value: request.transportRequired ? "Vehicle Needed" : "Not Required",
+                        },
+                        {
+                          label: "Accommodation",
+                          value: request.accommodationRequired ? "Room Needed" : "Not Required",
+                        },
+                      ]}
+                      actions={
+                        isPending(request.status) ? (
+                          <Button
+                            type="button"
+                            variant="danger"
+                            disabled={processingId === request.id}
+                            onClick={() => handleCancel(request)}
+                            className="w-full text-xs"
+                          >
+                            <XCircle size={14} className="mr-1.5" />
+                            {processingId === request.id ? "Cancelling..." : "Cancel Request"}
+                          </Button>
+                        ) : null
+                      }
+                    />
+                  ))
+                ) : (
+                  <div className="rounded-2xl bg-slate-50 p-6 text-center text-xs text-slate-500">
+                    No travel requests found.
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop Table View (>= md) */}
+              <div className="hidden md:block w-full min-w-0 overflow-x-auto">
+                <table className="w-full min-w-[1050px] border-separate border-spacing-y-2">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
                     <th className="px-4 py-2">
@@ -967,7 +1042,8 @@ function EmployeeTravelRequestsPage() {
                 </tbody>
               </table>
             </div>
-          )}
+          </>
+        )}
         </Card>
       </div>
     </div>

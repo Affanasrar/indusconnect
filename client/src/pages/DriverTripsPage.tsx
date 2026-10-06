@@ -28,6 +28,7 @@ import {
 } from "../api/driverTrips";
 import { createTelemetryLog } from "../api/telemetry";
 import MapView from "../components/ui/MapView";
+import MobileCard from "../components/ui/MobileCard";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import { useAuth } from "../auth/AuthContext";
@@ -151,6 +152,23 @@ function getPassengerStatusBadge(status: string) {
 
     default:
       return "bg-amber-50 text-amber-700";
+  }
+}
+
+function getPassengerMobileBadgeVariant(
+  status: string
+): "info" | "success" | "warning" | "error" | "neutral" {
+  switch (status) {
+    case "ASSIGNED":
+      return "info";
+    case "COMPLETED":
+      return "success";
+    case "NO_SHOW":
+      return "neutral";
+    case "CANCELLED":
+      return "error";
+    default:
+      return "warning";
   }
 }
 
@@ -1079,6 +1097,7 @@ export default function DriverTripsPage() {
                     markers={driverMapMarkers}
                     polylines={driverMapPolylines}
                     height="320px"
+                    enableFullscreenToggle={true}
                   />
                 </div>
               </Card>
@@ -1360,70 +1379,135 @@ export default function DriverTripsPage() {
                   </p>
                 </div>
 
-                <div className="w-full min-w-0 overflow-x-auto">
+                {/* Mobile View: Touch-Friendly Passenger Manifest Cards (< md) */}
+                <div className="block md:hidden space-y-3 mb-4">
+                  {passengers.length > 0 ? (
+                    passengers.map((booking) => (
+                      <MobileCard
+                        key={booking.id}
+                        title={booking.employee?.fullName ?? "Employee"}
+                        subtitle={`Seat: ${booking.seatNumber ?? "Unassigned"} • ${booking.pickupStop?.stopName ?? booking.pickupArea}`}
+                        statusBadge={{
+                          label: booking.status,
+                          variant: getPassengerMobileBadgeVariant(booking.status),
+                        }}
+                        fields={[
+                          {
+                            label: "Pickup Location",
+                            value: booking.pickupStop?.stopName ?? booking.pickupArea,
+                            icon: <MapPin size={13} />,
+                          },
+                          {
+                            label: "Phone / Contact",
+                            value: booking.employee?.phone ? (
+                              <a
+                                href={`tel:${booking.employee.phone}`}
+                                className="text-blue-700 underline font-bold"
+                              >
+                                {booking.employee.phone}
+                              </a>
+                            ) : (
+                              "—"
+                            ),
+                          },
+                          {
+                            label: "Employee Code",
+                            value: booking.employee?.employeeCode ?? "—",
+                          },
+                          {
+                            label: "Address Detail",
+                            value: booking.pickupAddress ?? "Standard Stop",
+                          },
+                        ]}
+                        actions={
+                          booking.status === "ASSIGNED" ? (
+                            <div className="flex w-full gap-2">
+                              <Button
+                                type="button"
+                                disabled={
+                                  trip?.status !== "IN_PROGRESS" ||
+                                  processingAction === `board-${booking.id}`
+                                }
+                                onClick={() => handlePassengerBoarded(booking)}
+                                className="flex-1 py-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                              >
+                                <UserCheck size={16} className="mr-1.5" />
+                                {processingAction === `board-${booking.id}`
+                                  ? "Saving..."
+                                  : "Boarded"}
+                              </Button>
+
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                disabled={
+                                  trip?.status !== "IN_PROGRESS" ||
+                                  processingAction === `no-show-${booking.id}`
+                                }
+                                onClick={() => handlePassengerNoShow(booking)}
+                                className="flex-1 py-2.5 text-xs border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100"
+                              >
+                                <UserX size={16} className="mr-1.5" />
+                                {processingAction === `no-show-${booking.id}`
+                                  ? "Saving..."
+                                  : "No Show"}
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 font-medium">
+                              Boarding recorded
+                            </span>
+                          )
+                        }
+                      />
+                    ))
+                  ) : (
+                    <div className="rounded-2xl bg-slate-50 p-6 text-center text-xs text-slate-500">
+                      No passengers assigned to this route.
+                    </div>
+                  )}
+                </div>
+
+                {/* Desktop View: Wide Manifest Table (>= md) */}
+                <div className="hidden md:block w-full min-w-0 overflow-x-auto">
                   <table className="w-full min-w-[980px] border-separate border-spacing-y-2">
                     <thead>
                       <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
-                        <th className="px-4 py-2">
-                          Passenger
-                        </th>
-                        <th className="px-4 py-2">
-                          Pickup Stop
-                        </th>
-                        <th className="px-4 py-2">
-                          Seat
-                        </th>
-                        <th className="px-4 py-2">
-                          Contact
-                        </th>
-                        <th className="px-4 py-2">
-                          Status
-                        </th>
-                        <th className="px-4 py-2 text-right">
-                          Actions
-                        </th>
+                        <th className="px-4 py-2">Passenger</th>
+                        <th className="px-4 py-2">Pickup Stop</th>
+                        <th className="px-4 py-2">Seat</th>
+                        <th className="px-4 py-2">Contact</th>
+                        <th className="px-4 py-2">Status</th>
+                        <th className="px-4 py-2 text-right">Actions</th>
                       </tr>
                     </thead>
-
                     <tbody>
                       {passengers.map((booking) => (
-                        <tr
-                          key={booking.id}
-                          className="bg-slate-50"
-                        >
+                        <tr key={booking.id} className="bg-slate-50">
                           <td className="rounded-l-2xl px-4 py-4">
                             <p className="font-semibold text-slate-900">
-                              {booking.employee?.fullName ??
-                                "Employee"}
+                              {booking.employee?.fullName ?? "Employee"}
                             </p>
-
                             <p className="text-xs text-slate-500">
-                              {booking.employee?.employeeCode ??
-                                "-"}
+                              {booking.employee?.employeeCode ?? "-"}
                             </p>
                           </td>
-
                           <td className="px-4 py-4">
                             <p className="text-sm font-semibold text-slate-700">
-                              {booking.pickupStop?.stopName ??
-                                booking.pickupArea}
+                              {booking.pickupStop?.stopName ?? booking.pickupArea}
                             </p>
-
                             <p className="text-xs text-slate-500">
                               {booking.pickupAddress ?? "-"}
                             </p>
                           </td>
-
                           <td className="px-4 py-4 text-sm font-bold text-slate-700">
                             {booking.seatNumber ?? "-"}
                           </td>
-
                           <td className="px-4 py-4">
                             <p className="text-sm text-slate-600">
                               {booking.employee?.phone ?? "-"}
                             </p>
                           </td>
-
                           <td className="px-4 py-4">
                             <span
                               className={`rounded-full px-3 py-1 text-xs font-bold ${getPassengerStatusBadge(
@@ -1433,67 +1517,40 @@ export default function DriverTripsPage() {
                               {booking.status}
                             </span>
                           </td>
-
                           <td className="rounded-r-2xl px-4 py-4">
                             <div className="flex justify-end gap-2">
-                              {booking.status ===
-                                "ASSIGNED" && (
+                              {booking.status === "ASSIGNED" && (
                                 <>
                                   <Button
                                     type="button"
                                     disabled={
-                                      trip?.status !==
-                                        "IN_PROGRESS" ||
-                                      processingAction ===
-                                        `board-${booking.id}`
+                                      trip?.status !== "IN_PROGRESS" ||
+                                      processingAction === `board-${booking.id}`
                                     }
-                                    onClick={() =>
-                                      handlePassengerBoarded(
-                                        booking
-                                      )
-                                    }
+                                    onClick={() => handlePassengerBoarded(booking)}
                                   >
-                                    <UserCheck
-                                      size={15}
-                                      className="mr-2"
-                                    />
-
-                                    {processingAction ===
-                                    `board-${booking.id}`
+                                    <UserCheck size={15} className="mr-2" />
+                                    {processingAction === `board-${booking.id}`
                                       ? "Saving..."
                                       : "Boarded"}
                                   </Button>
-
                                   <Button
                                     type="button"
                                     variant="secondary"
                                     disabled={
-                                      trip?.status !==
-                                        "IN_PROGRESS" ||
-                                      processingAction ===
-                                        `no-show-${booking.id}`
+                                      trip?.status !== "IN_PROGRESS" ||
+                                      processingAction === `no-show-${booking.id}`
                                     }
-                                    onClick={() =>
-                                      handlePassengerNoShow(
-                                        booking
-                                      )
-                                    }
+                                    onClick={() => handlePassengerNoShow(booking)}
                                   >
-                                    <UserX
-                                      size={15}
-                                      className="mr-2"
-                                    />
-
-                                    {processingAction ===
-                                    `no-show-${booking.id}`
+                                    <UserX size={15} className="mr-2" />
+                                    {processingAction === `no-show-${booking.id}`
                                       ? "Saving..."
                                       : "No Show"}
                                   </Button>
                                 </>
                               )}
-
-                              {booking.status !==
-                                "ASSIGNED" && (
+                              {booking.status !== "ASSIGNED" && (
                                 <span className="text-xs text-slate-400">
                                   Status recorded
                                 </span>
@@ -1502,15 +1559,13 @@ export default function DriverTripsPage() {
                           </td>
                         </tr>
                       ))}
-
                       {passengers.length === 0 && (
                         <tr>
                           <td
                             colSpan={6}
                             className="rounded-2xl bg-slate-50 px-4 py-10 text-center text-sm text-slate-500"
                           >
-                            No passengers are assigned to this
-                            route.
+                            No passengers are assigned to this route.
                           </td>
                         </tr>
                       )}

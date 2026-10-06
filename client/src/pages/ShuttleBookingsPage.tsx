@@ -26,6 +26,7 @@ import {
 import { getRoutes } from "../api/routes";
 import { getTelemetryByRoute } from "../api/telemetry";
 import MapView from "../components/ui/MapView";
+import MobileCard from "../components/ui/MobileCard";
 import { useAuth } from "../auth/AuthContext";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
@@ -103,6 +104,24 @@ function getStatusBadge(status: ShuttleBookingStatus) {
       return "bg-slate-200 text-slate-700";
     default:
       return "bg-slate-100 text-slate-700";
+  }
+}
+
+function getMobileBadgeVariant(
+  status: ShuttleBookingStatus
+): "warning" | "info" | "success" | "error" | "neutral" {
+  switch (status) {
+    case "PENDING":
+      return "warning";
+    case "ASSIGNED":
+      return "info";
+    case "COMPLETED":
+      return "success";
+    case "CANCELLED":
+      return "error";
+    case "NO_SHOW":
+    default:
+      return "neutral";
   }
 }
 
@@ -717,18 +736,34 @@ export default function ShuttleBookingsPage() {
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-2xs font-bold text-slate-500 uppercase tracking-wider">
-                      Select Pickup Location Pin
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                        Select Pickup Location Pin
+                      </label>
+                      <span className="text-[10px] text-blue-700 font-bold">
+                        Auto-detects nearest stop
+                      </span>
+                    </div>
                     <MapView
                       latitude={form.latitude}
                       longitude={form.longitude}
                       onChange={handleMapChange}
+                      onAddressChange={(address) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          pickupArea: address,
+                          pickupAddress: prev.pickupAddress || address,
+                        }))
+                      }
                       markers={stopMarkers}
-                      height="240px"
+                      height="260px"
+                      enableGPS={true}
+                      enableSearch={true}
+                      enablePresets={true}
+                      enableFullscreenToggle={true}
                     />
                     <p className="text-4xs text-slate-400 font-semibold mt-1">
-                      Drag pin or click map to locate your pickup point. Emerald dots show active shuttle stops.
+                      Tap "Locate Me" or drag the pin. The system automatically searches for your address and connects you to the nearest route.
                     </p>
                   </div>
 
@@ -902,7 +937,86 @@ export default function ShuttleBookingsPage() {
               </div>
             </div>
 
-            <div className="w-full overflow-x-auto">
+            {/* Mobile View: Touch-Friendly Card List (< md) */}
+            <div className="block md:hidden space-y-3 mb-4">
+              {isLoading ? (
+                <div className="rounded-2xl bg-slate-50 p-6 text-center text-xs font-semibold text-slate-500">
+                  Fetching latest commute ledger...
+                </div>
+              ) : filteredBookings.length > 0 ? (
+                filteredBookings.map((booking) => (
+                  <MobileCard
+                    key={booking.id}
+                    title={booking.pickupStop?.stopName ?? booking.pickupArea}
+                    subtitle={`${formatDate(booking.bookingDate)} • ${booking.shiftType}`}
+                    statusBadge={{
+                      label: booking.status,
+                      variant: getMobileBadgeVariant(booking.status),
+                    }}
+                    fields={[
+                      {
+                        label: "Route",
+                        value: booking.route?.routeName ?? "Awaiting assignment",
+                        icon: <BusFront size={13} />,
+                      },
+                      {
+                        label: "Seat #",
+                        value: booking.seatNumber ? `Seat ${booking.seatNumber}` : "Pending",
+                        icon: <TicketCheck size={13} />,
+                      },
+                      {
+                        label: "Vehicle",
+                        value: booking.route?.vehicle
+                          ? `${booking.route.vehicle.vehicleNumber} (${booking.route.vehicle.vehicleType})`
+                          : "Pending",
+                      },
+                      {
+                        label: "Pickup Detail",
+                        value: booking.pickupAddress || booking.pickupArea,
+                        icon: <MapPin size={13} />,
+                      },
+                    ]}
+                    actions={
+                      <>
+                        {booking.status === "ASSIGNED" && booking.routeId && (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => {
+                              setTrackingRoute(booking.route);
+                              setTrackingRouteId(booking.routeId || null);
+                            }}
+                            className="w-full sm:w-auto text-xs border border-blue-200 text-blue-700 bg-blue-50/50 hover:bg-blue-50"
+                          >
+                            <Activity size={14} className="mr-1.5" />
+                            Track Live
+                          </Button>
+                        )}
+                        {(booking.status === "PENDING" || booking.status === "ASSIGNED") && (
+                          <Button
+                            type="button"
+                            variant="danger"
+                            disabled={processingId === booking.id}
+                            onClick={() => handleCancel(booking)}
+                            className="w-full sm:w-auto text-xs"
+                          >
+                            <XCircle size={14} className="mr-1.5" />
+                            {processingId === booking.id ? "Skipping..." : "Skip Ride"}
+                          </Button>
+                        )}
+                      </>
+                    }
+                  />
+                ))
+              ) : (
+                <div className="rounded-2xl bg-slate-50 p-6 text-center text-xs text-slate-500">
+                  No shuttle bookings found.
+                </div>
+              )}
+            </div>
+
+            {/* Desktop View: Wide Data Table (>= md) */}
+            <div className="hidden md:block w-full overflow-x-auto">
               <table className="w-full min-w-[1020px] border-separate border-spacing-y-2">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
