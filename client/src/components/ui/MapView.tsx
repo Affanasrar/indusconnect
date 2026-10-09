@@ -12,13 +12,6 @@ import {
   Loader2,
   Plus,
   Minus,
-  Navigation,
-  Radio,
-  Truck,
-  Car,
-  Bus,
-  AlertTriangle,
-  RotateCcw,
 } from "lucide-react";
 
 // Access global Leaflet from CDN script injection
