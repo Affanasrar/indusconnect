@@ -1,7 +1,23 @@
 @import "tailwindcss";
 
+:root {
+  --navy-primary: #102644;
+  --navy-deep: #0B1B33;
+  --blue-primary: #1769E0;
+  --cyan-accent: #36B8F5;
+  --bg-main: #F6F8FC;
+  --card-bg: #FFFFFF;
+  --text-primary: #102644;
+  --text-secondary: #64748B;
+  --border-subtle: #DCE5F0;
+  --color-success: #16845B;
+  --color-warning: #B7791F;
+  --color-error: #C43D4B;
+}
+
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html,
@@ -15,10 +31,12 @@ body,
 }
 
 body {
-  background: #f8fafc;
-  color: #0f172a;
+  background: var(--bg-main);
+  color: var(--text-primary);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+    "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button,
@@ -38,10 +56,6 @@ table {
 }
 
 /* Mobile Touch & Ergonomics Utilities */
-* {
-  -webkit-tap-highlight-color: transparent;
-}
-
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 16px);
 }
@@ -55,21 +69,46 @@ table {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Ensure Leaflet controls work seamlessly on mobile */
+/* Custom subtle scrollbars */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+
+/* Ensure Leaflet controls work seamlessly on mobile & desktop */
 .leaflet-touch .leaflet-control-zoom {
   border: 0 !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
-  border-radius: 12px !important;
+  border-radius: 10px !important;
   overflow: hidden;
 }
 
 .leaflet-touch .leaflet-control-zoom a {
-  width: 36px !important;
-  height: 36px !important;
-  line-height: 36px !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  color: #102644 !important;
 }
 
 .leaflet-popup-content-wrapper {
-  border-radius: 16px !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 25px -5px rgba(16, 38, 68, 0.15) !important;
+  border: 1px solid #DCE5F0 !important;
+}
+
+.leaflet-container {
+  font-family: inherit !important;
 }

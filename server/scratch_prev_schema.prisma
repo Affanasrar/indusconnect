@@ -1,0 +1,1104 @@
+﻿
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleName {
+  SUPER_ADMIN
+  EMPLOYEE
+  MANAGER
+  TRANSPORT_ADMIN
+  ACCOMMODATION_ADMIN
+  DRIVER
+  FINANCE_OFFICER
+  SECURITY_OFFICER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum VehicleType {
+  BUS
+  VAN
+  CAR
+  COASTER
+  HIACE
+}
+
+enum VehicleStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum OwnershipType {
+  OWNED
+  VENDOR
+}
+
+enum FitnessStatus {
+  VALID
+  EXPIRED
+  PENDING
+}
+
+enum DriverStatus {
+  AVAILABLE
+  ASSIGNED
+  INACTIVE
+}
+
+enum RouteStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ShiftType {
+  MORNING
+  AFTERNOON
+  EVENING
+  NIGHT
+  GENERAL
+}
+
+enum ShuttleBookingStatus {
+  PENDING
+  ASSIGNED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum TripStatus {
+  CHECKLIST_PENDING
+  READY
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TripIssueType {
+  DELAY
+  BREAKDOWN
+  SOS
+  OTHER
+}
+
+enum TravelType {
+  INTER_CAMPUS
+  WITHIN_CITY
+  INTER_CITY
+  INTERNATIONAL
+}
+
+enum TravelRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum TravelUrgency {
+  NORMAL
+  URGENT
+  EMERGENCY
+}
+
+enum RoomType {
+  SINGLE
+  DOUBLE
+  SHARED
+  DORMITORY
+  GUEST_HOUSE
+}
+
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+  INACTIVE
+}
+
+enum AccommodationType {
+  INTERNAL_GUEST_HOUSE
+  EXTERNAL_HOTEL
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+}
+
+enum ExpenseCategory {
+  TRAVEL
+  MEAL
+  ACCOMMODATION
+  FUEL
+  OTHER
+}
+
+enum ExpenseClaimStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FLAGGED
+  CANCELLED
+}
+
+enum ExpenseAnomalyStatus {
+  NORMAL
+  ANOMALY_REVIEW_REQUIRED
+}
+
+enum PayrollSyncStatus {
+  NOT_READY
+  READY_FOR_EXPORT
+  EXPORTED
+}
+
+enum AuditAction {
+  LOGIN
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  REJECT
+  CANCEL
+  ASSIGN
+  CHECK_IN
+  CHECK_OUT
+  EXPORT
+  FLAG
+  START_TRIP
+  END_TRIP
+  REPORT_ISSUE
+  SYSTEM
+}
+
+enum AuditEntity {
+  AUTH
+  USER
+  VEHICLE
+  DRIVER
+  ROUTE
+  SMART_STOP
+  SHUTTLE_BOOKING
+  TRAVEL_REQUEST
+  ROOM
+  ROOM_RESERVATION
+  EXPENSE_CLAIM
+  TRANSPORT_TRIP
+  REPORT
+  VENDOR
+  TELEMETRY
+  NOTIFICATION
+  PROXY_BOOKING
+  POLICY_RULE
+  MAINTENANCE_TASK
+  HOUSEKEEPING_TASK
+  ERP_EXPORT
+  SYSTEM
+}
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  BLACKLISTED
+}
+
+enum VendorContractType {
+  MONTHLY
+  PER_TRIP
+  PER_KM
+  ON_DEMAND
+}
+
+enum VendorBillStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum TelemetryStatus {
+  MOVING
+  STOPPED
+  DELAYED
+  BREAKDOWN
+  SOS
+  OFFLINE
+}
+
+enum TelemetrySource {
+  MOBILE_GPS
+  MOCK_GPS
+}
+
+enum NotificationType {
+  SYSTEM
+  SHUTTLE
+  TRAVEL_REQUEST
+  ACCOMMODATION
+  EXPENSE
+  TELEMETRY
+  SOS
+  VENDOR
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+}
+
+enum HRGrade {
+  SUPPORT_STAFF
+  STAFF
+  OFFICER
+  MANAGER
+  SENIOR_MANAGER
+  EXECUTIVE
+  DOCTOR
+  CONSULTANT
+}
+
+enum PolicyRuleType {
+  TRAVEL_APPROVAL
+  EXPENSE_LIMIT
+  ACCOMMODATION_FALLBACK
+  TRANSPORT_CUTOFF
+}
+
+enum PolicyRuleStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PolicyDecisionStatus {
+  PASSED
+  WARNING
+  REVIEW_REQUIRED
+  BLOCKED
+}
+
+enum MaintenanceTaskType {
+  ROUTINE_SERVICE
+  REPAIR
+  BREAKDOWN
+  INSPECTION
+  FITNESS_RENEWAL
+  OTHER
+}
+
+enum MaintenanceTaskStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CANCELLED
+}
+
+enum MaintenancePriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum HousekeepingTaskType {
+  ROOM_CLEANING
+  LINEN_CHANGE
+  SANITIZATION
+  INSPECTION
+  MAINTENANCE_REQUIRED
+  OTHER
+}
+
+enum HousekeepingTaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum HousekeepingPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        RoleName @unique
+  description String?
+
+  users       User[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum PayrollExportType {
+  EXPENSE_CLAIMS
+  VENDOR_BILLS
+  TRAVEL_ALLOWANCES
+  COMBINED
+}
+
+enum PayrollExportFormat {
+  JSON
+  CSV
+}
+
+enum PayrollExportStatus {
+  GENERATED
+  DOWNLOADED
+  SYNCED
+  FAILED
+}
+
+model User {
+  id           String     @id @default(uuid())
+  fullName     String
+  email        String     @unique
+  password     String
+  phone        String?
+  status       UserStatus @default(ACTIVE)
+
+  roleId       String
+  role         Role       @relation(fields: [roleId], references: [id])
+
+  driverProfile Driver?
+  shuttleBookings ShuttleBooking[]
+
+  employeeCode String? @unique
+  department   String?
+  hrGrade      HRGrade @default(STAFF)
+
+  policyDecisionLogs PolicyDecisionLog[]
+
+  travelRequests TravelRequest[] @relation("EmployeeTravelRequests")
+  approvedTravelRequests TravelRequest[] @relation("TravelRequestApprovals")
+
+  roomReservations RoomReservation[] @relation("EmployeeRoomReservations")
+
+  expenseClaims ExpenseClaim[] @relation("EmployeeExpenseClaims")
+  reviewedExpenseClaims ExpenseClaim[] @relation("FinanceReviewedExpenseClaims")
+
+  auditLogs AuditLog[] @relation("UserAuditLogs")
+
+  notifications Notification[] @relation("UserNotifications")
+  sentNotifications Notification[] @relation("NotificationCreatedBy")
+
+  proxyCreatedTravelRequests TravelRequest[] @relation("ProxyCreatedTravelRequests")
+  proxyCreatedShuttleBookings ShuttleBooking[] @relation("ProxyCreatedShuttleBookings")
+
+  reportedVehicleMaintenanceTasks VehicleMaintenanceTask[] @relation("VehicleMaintenanceReportedBy")
+  assignedVehicleMaintenanceTasks VehicleMaintenanceTask[] @relation("VehicleMaintenanceAssignedTo")
+
+  createdHousekeepingTasks HousekeepingTask[] @relation("HousekeepingCreatedBy")
+  assignedHousekeepingTasks HousekeepingTask[] @relation("HousekeepingAssignedTo")
+
+  generatedPayrollExports PayrollExport[] @relation("PayrollExportGeneratedBy")
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Vehicle {
+  id            String        @id @default(uuid())
+  vehicleNumber String       @unique
+  vehicleType   VehicleType
+  capacity      Int
+  ownershipType OwnershipType @default(OWNED)
+  vendorName    String?
+  status        VehicleStatus @default(ACTIVE)
+  fitnessStatus FitnessStatus @default(PENDING)
+  notes         String?
+
+  drivers Driver[]
+  transportRoutes TransportRoute[]
+
+  vendorId String?
+  vendor   Vendor? @relation(fields: [vendorId], references: [id])
+
+  telemetryLogs VehicleTelemetryLog[]
+
+  maintenanceTasks VehicleMaintenanceTask[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Driver {
+  id            String       @id @default(uuid())
+
+  userId        String       @unique
+  user          User         @relation(fields: [userId], references: [id])
+
+  licenseNumber String       @unique
+  cnic          String?
+  address       String?
+  status        DriverStatus @default(AVAILABLE)
+
+  vehicleId     String?
+  vehicle       Vehicle?     @relation(fields: [vehicleId], references: [id])
+
+  transportRoutes TransportRoute[]
+  trips TransportTrip[]
+
+  telemetryLogs VehicleTelemetryLog[]
+
+  maintenanceTasks VehicleMaintenanceTask[]
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model TransportRoute {
+  id             String       @id @default(uuid())
+
+  routeName      String
+  routeCode      String       @unique
+  shiftType      ShiftType
+  routeDate      DateTime?
+  startTime      String?
+  endTime        String?
+  startLocation  String?
+  endLocation    String?
+
+  vehicleId      String?
+  vehicle        Vehicle?     @relation(fields: [vehicleId], references: [id])
+
+  driverId       String?
+  driver         Driver?      @relation(fields: [driverId], references: [id])
+
+  status         RouteStatus  @default(DRAFT)
+  notes          String?
+
+  smartStops     SmartStop[]
+  shuttleBookings ShuttleBooking[]
+  trips TransportTrip[]
+
+  vendorId String?
+  vendor   Vendor? @relation(fields: [vendorId], references: [id])
+
+  vendorBills VendorBill[]
+
+  telemetryLogs VehicleTelemetryLog[]
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model SmartStop {
+  id             String         @id @default(uuid())
+
+  routeId        String
+  route          TransportRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  stopName       String
+  stopOrder      Int
+  latitude       Float?
+  longitude      Float?
+  estimatedTime  String?
+
+  shuttleBookings ShuttleBooking[]
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([routeId, stopOrder])
+}
+
+model ShuttleBooking {
+  id             String               @id @default(uuid())
+
+  employeeId     String
+  employee       User                 @relation(fields: [employeeId], references: [id])
+
+  routeId        String?
+  route          TransportRoute?      @relation(fields: [routeId], references: [id])
+
+  pickupStopId   String?
+  pickupStop     SmartStop?           @relation(fields: [pickupStopId], references: [id])
+
+  bookingDate    DateTime
+  shiftType      ShiftType
+  pickupArea     String
+  pickupAddress  String?
+  seatNumber     String?
+
+  status         ShuttleBookingStatus @default(PENDING)
+  remarks        String?
+
+  isProxyBooking   Boolean @default(false)
+  proxyCreatedById String?
+  proxyCreatedBy   User?   @relation("ProxyCreatedShuttleBookings", fields: [proxyCreatedById], references: [id])
+  proxyReason      String?
+
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([employeeId])
+  @@index([routeId])
+  @@index([pickupStopId])
+  @@index([proxyCreatedById])
+}
+
+model TransportTrip {
+  id                   String        @id @default(uuid())
+
+  routeId              String
+  route                TransportRoute @relation(fields: [routeId], references: [id])
+
+  driverId             String
+  driver               Driver        @relation(fields: [driverId], references: [id])
+
+  status               TripStatus    @default(CHECKLIST_PENDING)
+
+  fuelChecked          Boolean       @default(false)
+  tiresChecked         Boolean       @default(false)
+  brakesChecked        Boolean       @default(false)
+  lightsChecked        Boolean       @default(false)
+  checklistSubmittedAt DateTime?
+
+  startedAt            DateTime?
+  endedAt              DateTime?
+
+  issueType            TripIssueType?
+  issueDescription     String?
+  issueLatitude        Float?
+  issueLongitude       Float?
+  issueReportedAt      DateTime?
+
+  telemetryLogs VehicleTelemetryLog[]
+
+  maintenanceTasks VehicleMaintenanceTask[]
+
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@index([routeId])
+  @@index([driverId])
+}
+
+model TravelRequest {
+  id              String              @id @default(uuid())
+
+  employeeId      String
+  employee        User                @relation("EmployeeTravelRequests", fields: [employeeId], references: [id])
+
+  travelType      TravelType
+  urgency         TravelUrgency       @default(NORMAL)
+
+  purpose         String
+  fromLocation    String
+  toLocation      String
+  departureDate   DateTime
+  returnDate      DateTime?
+
+  accommodationRequired Boolean       @default(false)
+  transportRequired     Boolean       @default(false)
+  estimatedBudget       Float?
+
+  status          TravelRequestStatus @default(PENDING)
+
+  approvedById    String?
+  approvedBy      User?               @relation("TravelRequestApprovals", fields: [approvedById], references: [id])
+
+  decisionRemarks String?
+  decidedAt       DateTime?
+
+  employeeRemarks String?
+
+  roomReservation RoomReservation?
+
+  expenseClaims ExpenseClaim[]
+
+  isProxyRequest   Boolean @default(false)
+  proxyCreatedById String?
+  proxyCreatedBy   User?   @relation("ProxyCreatedTravelRequests", fields: [proxyCreatedById], references: [id])
+  proxyReason      String?
+
+  allowancePayrollSyncStatus PayrollSyncStatus @default(NOT_READY)
+  allowanceExportedAt        DateTime?
+
+  allowancePayrollExportId   String?
+  allowancePayrollExport     PayrollExport? @relation("TravelAllowancePayrollExport", fields: [allowancePayrollExportId], references: [id])
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([employeeId])
+  @@index([approvedById])
+  @@index([status])
+  @@index([proxyCreatedById])
+  @@index([allowancePayrollExportId])
+  @@index([allowancePayrollSyncStatus])
+}
+
+model Room {
+  id          String     @id @default(uuid())
+
+  roomNumber String     @unique
+  roomType   RoomType
+  capacity   Int
+  location   String
+  floor      String?
+  status     RoomStatus @default(AVAILABLE)
+  notes      String?
+
+  reservations RoomReservation[]
+
+  housekeepingTasks HousekeepingTask[]
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model RoomReservation {
+  id              String              @id @default(uuid())
+
+  travelRequestId String              @unique
+  travelRequest   TravelRequest       @relation(fields: [travelRequestId], references: [id])
+
+  employeeId      String
+  employee        User                @relation("EmployeeRoomReservations", fields: [employeeId], references: [id])
+
+  accommodationType AccommodationType @default(INTERNAL_GUEST_HOUSE)
+
+  roomId          String?
+  room            Room?               @relation(fields: [roomId], references: [id])
+
+  hotelName       String?
+  hotelAddress    String?
+
+  checkInDate     DateTime
+  checkOutDate    DateTime
+
+  status          ReservationStatus   @default(CONFIRMED)
+  remarks         String?
+
+  checkedInAt     DateTime?
+  checkedOutAt    DateTime?
+
+  housekeepingTasks HousekeepingTask[]
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([travelRequestId])
+  @@index([employeeId])
+  @@index([roomId])
+}
+
+model ExpenseClaim {
+  id              String               @id @default(uuid())
+
+  employeeId      String
+  employee        User                 @relation("EmployeeExpenseClaims", fields: [employeeId], references: [id])
+
+  travelRequestId String?
+  travelRequest   TravelRequest?       @relation(fields: [travelRequestId], references: [id])
+
+  category        ExpenseCategory
+  claimDate       DateTime
+
+  vendorName      String?
+  amount          Float
+  currency        String               @default("PKR")
+  description     String?
+
+  receiptUrl      String?
+
+  ocrVendorName   String?
+  ocrDate         String?
+  ocrAmount       Float?
+
+  anomalyStatus   ExpenseAnomalyStatus @default(NORMAL)
+  anomalyReason   String?
+
+  status          ExpenseClaimStatus   @default(PENDING)
+
+  financeRemarks  String?
+
+  reviewedById    String?
+  reviewedBy      User?                @relation("FinanceReviewedExpenseClaims", fields: [reviewedById], references: [id])
+
+  payrollSyncStatus PayrollSyncStatus  @default(NOT_READY)
+  exportedAt      DateTime?
+
+  payrollExportId String?
+  payrollExport   PayrollExport? @relation("ExpenseClaimPayrollExport", fields: [payrollExportId], references: [id])
+
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@index([employeeId])
+  @@index([travelRequestId])
+  @@index([status])
+  @@index([anomalyStatus])
+  @@index([payrollExportId])
+}
+
+model AuditLog {
+  id              String      @id @default(uuid())
+
+  actorId         String?
+  actor           User?       @relation("UserAuditLogs", fields: [actorId], references: [id])
+
+  actorEmail      String?
+  actorRole       String?
+
+  action          AuditAction
+  entity          AuditEntity
+  entityId        String?
+
+  method          String?
+  path            String?
+  statusCode      Int?
+
+  ipAddress       String?
+  userAgent       String?
+
+  requestBody     Json?
+  responseMessage String?
+  description     String?
+
+  createdAt       DateTime    @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+}
+
+model Vendor {
+  id              String             @id @default(uuid())
+
+  vendorName      String             @unique
+  contactPerson   String?
+  phone           String?
+  email           String?
+  address         String?
+
+  contractType    VendorContractType @default(PER_TRIP)
+  status          VendorStatus       @default(ACTIVE)
+
+  contractStartDate DateTime?
+  contractEndDate   DateTime?
+
+  notes           String?
+
+  vehicles        Vehicle[]
+  routes          TransportRoute[]
+  bills           VendorBill[]
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+}
+
+model VendorBill {
+  id              String           @id @default(uuid())
+
+  vendorId        String
+  vendor          Vendor           @relation(fields: [vendorId], references: [id])
+
+  routeId         String?
+  route           TransportRoute?  @relation(fields: [routeId], references: [id])
+
+  billNumber      String           @unique
+  billDate        DateTime
+  amount          Float
+  currency        String           @default("PKR")
+
+  description     String?
+  status          VendorBillStatus @default(PENDING)
+
+  financeRemarks  String?
+  approvedAt      DateTime?
+  paidAt          DateTime?
+
+  payrollSyncStatus PayrollSyncStatus @default(NOT_READY)
+  exportedAt         DateTime?
+
+  payrollExportId    String?
+  payrollExport      PayrollExport? @relation("VendorBillPayrollExport", fields: [payrollExportId], references: [id])
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([vendorId])
+  @@index([routeId])
+  @@index([status])
+  @@index([payrollExportId])
+  @@index([payrollSyncStatus])
+}
+
+model VehicleTelemetryLog {
+  id              String           @id @default(uuid())
+
+  driverId        String
+  driver          Driver           @relation(fields: [driverId], references: [id])
+
+  vehicleId       String?
+  vehicle         Vehicle?         @relation(fields: [vehicleId], references: [id])
+
+  routeId         String?
+  route           TransportRoute?  @relation(fields: [routeId], references: [id])
+
+  transportTripId String?
+  transportTrip   TransportTrip?   @relation(fields: [transportTripId], references: [id])
+
+  latitude        Float
+  longitude       Float
+  speed           Float?
+  heading         Float?
+
+  status          TelemetryStatus  @default(MOVING)
+  source          TelemetrySource  @default(MOBILE_GPS)
+
+  batteryLevel    Int?
+  accuracy        Float?
+  remarks         String?
+
+  maintenanceTask VehicleMaintenanceTask?
+
+  recordedAt      DateTime         @default(now())
+  createdAt       DateTime         @default(now())
+
+  @@index([driverId])
+  @@index([vehicleId])
+  @@index([routeId])
+  @@index([transportTripId])
+  @@index([status])
+  @@index([recordedAt])
+}
+
+model Notification {
+  id          String               @id @default(uuid())
+
+  recipientId String
+  recipient   User                 @relation("UserNotifications", fields: [recipientId], references: [id])
+
+  createdById String?
+  createdBy   User?                @relation("NotificationCreatedBy", fields: [createdById], references: [id])
+
+  type        NotificationType
+  priority    NotificationPriority @default(NORMAL)
+  status      NotificationStatus   @default(UNREAD)
+
+  title       String
+  message     String
+
+  entityType  String?
+  entityId    String?
+
+  readAt      DateTime?
+
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([recipientId])
+  @@index([createdById])
+  @@index([type])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+model PolicyRule {
+  id          String           @id @default(uuid())
+
+  ruleName    String
+  ruleCode    String           @unique
+  ruleType    PolicyRuleType
+  status      PolicyRuleStatus @default(ACTIVE)
+
+  department  String?
+  hrGrade     HRGrade?
+
+  maxAmount   Float?
+
+  requiresManagerApproval       Boolean @default(false)
+  requiresFinanceApproval       Boolean @default(false)
+  requiresTransportApproval     Boolean @default(false)
+  requiresAccommodationApproval Boolean @default(false)
+
+  allowEmergencyOverride Boolean @default(false)
+
+  cutoffHoursBeforeShift Int?
+  internalFirstRequired  Boolean @default(false)
+
+  description String?
+
+  decisionLogs PolicyDecisionLog[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([ruleType])
+  @@index([status])
+  @@index([hrGrade])
+  @@index([department])
+}
+
+model PolicyDecisionLog {
+  id           String               @id @default(uuid())
+
+  policyRuleId String?
+  policyRule   PolicyRule?          @relation(fields: [policyRuleId], references: [id])
+
+  userId       String?
+  user         User?                @relation(fields: [userId], references: [id])
+
+  entityType   String
+  entityId     String
+
+  decision     PolicyDecisionStatus
+  message      String
+
+  createdAt    DateTime             @default(now())
+
+  @@index([policyRuleId])
+  @@index([userId])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([decision])
+}
+
+model VehicleMaintenanceTask {
+  id              String                @id @default(uuid())
+
+  vehicleId       String
+  vehicle         Vehicle               @relation(fields: [vehicleId], references: [id])
+
+  driverId        String?
+  driver          Driver?               @relation(fields: [driverId], references: [id])
+
+  transportTripId String?
+  transportTrip   TransportTrip?        @relation(fields: [transportTripId], references: [id])
+
+  telemetryLogId  String?               @unique
+  telemetryLog    VehicleTelemetryLog?  @relation(fields: [telemetryLogId], references: [id])
+
+  reportedById    String?
+  reportedBy      User?                 @relation("VehicleMaintenanceReportedBy", fields: [reportedById], references: [id])
+
+  assignedToId    String?
+  assignedTo      User?                 @relation("VehicleMaintenanceAssignedTo", fields: [assignedToId], references: [id])
+
+  taskType        MaintenanceTaskType
+  priority        MaintenancePriority   @default(NORMAL)
+  status          MaintenanceTaskStatus @default(OPEN)
+
+  title           String
+  description     String?
+
+  startedAt       DateTime?
+  resolvedAt      DateTime?
+  resolutionNotes String?
+
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([transportTripId])
+  @@index([reportedById])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([priority])
+}
+
+model HousekeepingTask {
+  id              String                 @id @default(uuid())
+
+  roomId          String
+  room            Room                   @relation(fields: [roomId], references: [id])
+
+  reservationId   String?
+  reservation     RoomReservation?       @relation(fields: [reservationId], references: [id])
+
+  createdById     String?
+  createdBy       User?                  @relation("HousekeepingCreatedBy", fields: [createdById], references: [id])
+
+  assignedToId    String?
+  assignedTo      User?                  @relation("HousekeepingAssignedTo", fields: [assignedToId], references: [id])
+
+  taskType        HousekeepingTaskType   @default(ROOM_CLEANING)
+  priority        HousekeepingPriority   @default(NORMAL)
+  status          HousekeepingTaskStatus @default(PENDING)
+
+  title           String
+  description     String?
+
+  dueDate         DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  completionNotes String?
+
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@index([roomId])
+  @@index([reservationId])
+  @@index([createdById])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([priority])
+}
+
+model PayrollExport {
+  id              String              @id @default(uuid())
+
+  exportNumber    String              @unique
+  exportType      PayrollExportType
+  format          PayrollExportFormat @default(JSON)
+  status          PayrollExportStatus @default(GENERATED)
+
+  generatedById   String?
+  generatedBy     User?               @relation("PayrollExportGeneratedBy", fields: [generatedById], references: [id])
+
+  totalRecords    Int                 @default(0)
+  totalAmount     Float               @default(0)
+  currency        String              @default("PKR")
+
+  payload         Json
+  csvContent      String?
+
+  syncedAt        DateTime?
+  failureReason   String?
+  notes           String?
+
+  expenseClaims   ExpenseClaim[]      @relation("ExpenseClaimPayrollExport")
+  vendorBills     VendorBill[]        @relation("VendorBillPayrollExport")
+  travelRequests  TravelRequest[]     @relation("TravelAllowancePayrollExport")
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([exportType])
+  @@index([status])
+  @@index([generatedById])
+  @@index([createdAt])
+}

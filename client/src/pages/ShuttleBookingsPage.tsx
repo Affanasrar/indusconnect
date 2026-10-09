@@ -419,26 +419,20 @@ export default function ShuttleBookingsPage() {
   return (
     <div className="min-w-0 space-y-6">
       {/* 1. PAGE HEADER */}
-      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center pb-2 border-b border-[#DCE5F0]/80">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="rounded-md bg-blue-100 px-2 py-0.5 text-3xs font-extrabold uppercase tracking-wider text-blue-800">
-              Corporate Transit
-            </span>
-            <span className="text-3xs text-slate-400 font-semibold">• Daily Commute Desk</span>
-          </div>
-          <h1 className="mt-1.5 text-2xl font-black text-slate-900 sm:text-3xl tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#102644]">
             Shuttle Bookings & Commute Passes
           </h1>
-          <p className="mt-1 text-sm text-slate-500 font-medium">
-            Reserve your seat on scheduled corporate shuttles or configure recurring standing passes.
+          <p className="mt-0.5 text-xs sm:text-sm text-[#64748B]">
+            Reserve your seat on scheduled corporate shuttles or configure recurring commute passes.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={loadData}>
-            <RefreshCcw size={15} className={`mr-1.5 ${isLoading ? "animate-spin" : ""}`} />
-            Refresh Hub
+          <Button variant="secondary" onClick={loadData} disabled={isLoading}>
+            <RefreshCcw size={13} className={`mr-1.5 ${isLoading ? "animate-spin" : ""}`} />
+            Refresh
           </Button>
         </div>
       </div>
@@ -503,7 +497,7 @@ export default function ShuttleBookingsPage() {
                   className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 px-5 py-3 text-xs font-black text-slate-950 shadow-lg shadow-emerald-500/30 transition transform hover:-translate-y-0.5"
                 >
                   <Activity size={16} className="animate-pulse" />
-                  <span>Track Driver Live (Careem Radar)</span>
+                  <span>Track Driver Live (Transit Radar)</span>
                 </button>
               )}
 
@@ -877,6 +871,7 @@ export default function ShuttleBookingsPage() {
                     latitude={form.latitude}
                     longitude={form.longitude}
                     onChange={handleMapChange}
+                    enableLayerSwitcher={false}
                     onAddressChange={(address) =>
                       setForm((prev) => ({
                         ...prev,
@@ -1091,7 +1086,7 @@ export default function ShuttleBookingsPage() {
                             className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition"
                           >
                             <Activity size={14} className="animate-pulse" />
-                            <span>Live Careem Radar</span>
+                            <span>Live Transit Radar</span>
                           </button>
                         )}
 
@@ -1300,7 +1295,7 @@ export default function ShuttleBookingsPage() {
           </Card>
         </div>
       )}
-      {/* Real-time Careem / inDrive Live Ride Tracker */}
+      {/* Real-time Live Ride Tracker */}
       {trackingBooking && trackingBooking.route && (
         <LiveRideTracker
           routeId={trackingBooking.routeId || trackingBooking.route.id}

@@ -352,24 +352,18 @@ export default function VehiclesPage() {
 
   return (
     <div className="min-w-0 space-y-6">
-      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center pb-2 border-b border-[#DCE5F0]/80">
         <div className="min-w-0">
-          <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
-            Transport Administration
-          </p>
-
-          <h1 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
-            Vehicle Management
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#102644]">
+            Vehicle & Fleet Management
           </h1>
-
-          <p className="mt-2 max-w-3xl text-sm text-slate-500 sm:text-base">
-            Manage owned and outsourced vehicles, capacity, fitness,
-            and operating status.
+          <p className="mt-0.5 text-xs sm:text-sm text-[#64748B]">
+            Manage owned and outsourced vehicles, capacity, fitness, and operating status.
           </p>
         </div>
 
-        <Button variant="secondary" onClick={loadVehicles}>
-          <RefreshCcw size={16} className="mr-2" />
+        <Button variant="secondary" onClick={loadVehicles} disabled={isLoading}>
+          <RefreshCcw size={13} className={`mr-1.5 ${isLoading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>

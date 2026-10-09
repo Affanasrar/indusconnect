@@ -58,12 +58,6 @@ router.patch(
   cancelShuttleBookingController
 );
 
-router.get(
-  "/:id",
-  authorizeRoles(...allStaffRoles),
-  getShuttleBookingByIdController
-);
-
 // SUB-ROUTES FOR COMMUTE SUBSCRIPTIONS
 router.post(
   "/subscriptions",
@@ -87,6 +81,12 @@ router.post(
   "/subscriptions/trigger-daily",
   authorizeRoles("SUPER_ADMIN", "TRANSPORT_ADMIN"),
   triggerDailyAutoBookingsController
+);
+
+router.get(
+  "/:id",
+  authorizeRoles(...allStaffRoles),
+  getShuttleBookingByIdController
 );
 
 export default router;

@@ -404,27 +404,22 @@ function EmployeeTravelRequestsPage() {
 
   return (
     <div className="min-w-0 space-y-6">
-      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center pb-2 border-b border-[#DCE5F0]/80">
         <div className="min-w-0">
-          <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
-            Official Travel
-          </p>
-
-          <h1 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
-            My Travel Requests
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#102644]">
+            Official Travel Requests
           </h1>
-
-          <p className="mt-2 max-w-3xl text-sm text-slate-500 sm:text-base">
-            Submit official travel requests and track
-            approval, policy, and accommodation status.
+          <p className="mt-0.5 text-xs sm:text-sm text-[#64748B]">
+            Submit official travel requests and track approval, policy, and accommodation status.
           </p>
         </div>
 
         <Button
           variant="secondary"
           onClick={loadRequests}
+          disabled={isLoading}
         >
-          <RefreshCcw size={16} className="mr-2" />
+          <RefreshCcw size={13} className={`mr-1.5 ${isLoading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>

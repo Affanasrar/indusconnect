@@ -368,7 +368,7 @@ export default function LiveRideTracker({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/80 backdrop-blur-md animate-fadeIn">
-      {/* Top Careem-Style Header Bar */}
+      {/* Top Live Transit Header Bar */}
       <div className="relative z-10 flex items-center justify-between border-b border-slate-700/60 bg-slate-900/95 px-4 py-3 text-white shadow-lg backdrop-blur-md">
         <div className="flex items-center gap-3 min-w-0">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
@@ -385,7 +385,7 @@ export default function LiveRideTracker({
             </div>
             <p className="truncate text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
               <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-              Live Careem-Style Radar • {currentVehiclePosition.source === "SIMULATED" ? "Demo Simulation" : "GPS Satellite Locked"}
+              Live Transit Radar • {currentVehiclePosition.source === "SIMULATED" ? "Demo Simulation" : "GPS Satellite Locked"}
             </p>
           </div>
         </div>
@@ -496,7 +496,7 @@ export default function LiveRideTracker({
         </div>
       </div>
 
-      {/* Careem / inDrive Floating Bottom Sheet Profile */}
+      {/* Live Ride HUD Floating Bottom Sheet Profile */}
       <div className="relative z-10 border-t border-slate-800 bg-slate-900 px-4 pt-4 pb-6 shadow-2xl text-white">
         <div className="mx-auto max-w-4xl space-y-4">
           {/* Driver & Vehicle Metadata Card */}

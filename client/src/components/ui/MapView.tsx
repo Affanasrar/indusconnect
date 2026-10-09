@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useId } from "react";
 import {
   Compass,
   Crosshair,
@@ -10,6 +10,15 @@ import {
   X,
   Check,
   Loader2,
+  Plus,
+  Minus,
+  Navigation,
+  Radio,
+  Truck,
+  Car,
+  Bus,
+  AlertTriangle,
+  RotateCcw,
 } from "lucide-react";
 
 // Access global Leaflet from CDN script injection
@@ -23,9 +32,17 @@ export interface MapMarkerItem {
   color?: string; // e.g. "bg-emerald-500", "bg-blue-600", "bg-red-500"
   pulse?: boolean;
   type?: "standard" | "vehicle" | "pickup" | "destination" | "driver";
+  vehicleType?: "BUS" | "VAN" | "CAR" | "COASTER" | "HIACE";
   heading?: number; // 0 - 360 degrees
   icon?: string;
   speed?: number;
+  status?: string;
+  driverName?: string;
+  vehicleNumber?: string;
+  routeCode?: string;
+  routeName?: string;
+  batteryLevel?: number;
+  lastUpdated?: string;
 }
 
 export interface MapViewProps {
@@ -38,6 +55,7 @@ export interface MapViewProps {
   enableSearch?: boolean;
   enablePresets?: boolean;
   enableFullscreenToggle?: boolean;
+  enableLayerSwitcher?: boolean;
   followCenter?: boolean;
   hideMainPin?: boolean;
   polylineColor?: string;
@@ -48,6 +66,7 @@ export interface MapViewProps {
   height?: string;
   zoom?: number;
   className?: string;
+  defaultLayer?: "roadmap" | "hybrid" | "traffic" | "radar" | "terrain";
 }
 
 // Enterprise Transit Hubs & Karachi Presets for instant 1-tap navigation
@@ -57,12 +76,82 @@ export const KARACHI_MAP_PRESETS = [
   { name: "Jinnah Int'l Airport", lat: 24.9065, lng: 67.1608 },
   { name: "Clifton Block 4", lat: 24.8282, lng: 67.0333 },
   { name: "DHA Phase 5", lat: 24.808, lng: 67.0624 },
-  { name: "Gulshan-e-Iqbal", lat: 24.8978, lng: 67.0984 },
+  { name: "Gulshan-e-Iqbal Hub", lat: 24.8978, lng: 67.0984 },
   { name: "Gulistan-e-Jauhar", lat: 24.9107, lng: 67.126 },
   { name: "North Nazimabad", lat: 24.9372, lng: 67.0426 },
   { name: "Shahrah-e-Faisal", lat: 24.8687, lng: 67.0822 },
   { name: "Korangi Industrial Area", lat: 24.835, lng: 67.135 },
 ];
+
+// Tile Layer Configurations (Google Maps & Enterprise Monitoring Layers)
+type MapLayerType = "roadmap" | "hybrid" | "traffic" | "radar" | "terrain";
+
+const TILE_PROVIDERS: Record<
+  MapLayerType,
+  {
+    name: string;
+    label: string;
+    icon: string;
+    url: string;
+    options: any;
+  }
+> = {
+  roadmap: {
+    name: "Google Roadmap",
+    label: "Map",
+    icon: "🗺️",
+    url: "https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
+    options: {
+      subdomains: ["0", "1", "2", "3"],
+      maxZoom: 20,
+      attribution: '&copy; Google Maps',
+    },
+  },
+  hybrid: {
+    name: "Google Satellite & Roads",
+    label: "Satellite",
+    icon: "🛰️",
+    url: "https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+    options: {
+      subdomains: ["0", "1", "2", "3"],
+      maxZoom: 20,
+      attribution: '&copy; Google Maps Satellite Imagery',
+    },
+  },
+  traffic: {
+    name: "Google Live Traffic",
+    label: "Traffic",
+    icon: "🚦",
+    url: "https://mt{s}.google.com/vt/lyrs=m,traffic&x={x}&y={y}&z={z}",
+    options: {
+      subdomains: ["0", "1", "2", "3"],
+      maxZoom: 20,
+      attribution: '&copy; Google Maps Traffic Feeds',
+    },
+  },
+  radar: {
+    name: "Command Center Dark Radar",
+    label: "Radar",
+    icon: "🛸",
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    options: {
+      subdomains: "abcd",
+      maxZoom: 20,
+      attribution: '&copy; CARTO &copy; OpenStreetMap',
+    },
+  },
+  terrain: {
+    name: "Google Terrain",
+    label: "Terrain",
+    icon: "⛰️",
+    url: "https://mt{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}",
+    options: {
+      subdomains: ["0", "1", "2", "3"],
+      maxZoom: 20,
+      attribution: '&copy; Google Maps Terrain',
+    },
+  },
+};
 
 export default function MapView({
   latitude,
@@ -74,6 +163,7 @@ export default function MapView({
   enableSearch = true,
   enablePresets = true,
   enableFullscreenToggle = true,
+  enableLayerSwitcher = true,
   followCenter = false,
   hideMainPin = false,
   polylineColor = "#2563eb",
@@ -81,18 +171,27 @@ export default function MapView({
   polylineWeight = 4,
   markers = [],
   polylines = [],
-  height = "340px",
+  height = "380px",
   zoom = 13,
   className = "",
+  defaultLayer = "roadmap",
 }: MapViewProps) {
+  const reactId = useId();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
+  const tileLayerRef = useRef<any>(null);
   const mainMarkerRef = useRef<any>(null);
   const stopMarkersRef = useRef<any[]>([]);
   const polylineRef = useRef<any>(null);
   const userGpsCircleRef = useRef<any>(null);
   const [mapId] = useState(
-    () => `leaflet-map-${Math.random().toString(36).slice(2, 9)}`
+    () => `google-leaflet-map-${reactId.replace(/[^a-zA-Z0-9]/g, "")}-${Math.random().toString(36).slice(2, 7)}`
+  );
+
+  // Active Map Layer State
+  const [activeLayer, setActiveLayer] = useState<MapLayerType>(defaultLayer);
+  const [isLeafletReady, setIsLeafletReady] = useState(
+    () => typeof window !== "undefined" && typeof (window as any).L !== "undefined"
   );
 
   // Search & Geolocation UI states
@@ -108,14 +207,59 @@ export default function MapView({
   } | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [currentZoom, setCurrentZoom] = useState(zoom);
+  const [mouseCoords, setMouseCoords] = useState<{ lat: number; lng: number }>({
+    lat: latitude || 24.8607,
+    lng: longitude || 67.0104,
+  });
   const searchDebounceRef = useRef<any>(null);
+
+  // Ensure Leaflet library is loaded reliably
+  useEffect(() => {
+    if (typeof (window as any).L !== "undefined") {
+      setIsLeafletReady(true);
+      return;
+    }
+
+    let checkInterval: any;
+    let attempts = 0;
+
+    const injectScript = () => {
+      // Check if already injected
+      if (document.querySelector('script[src*="leaflet"]')) return;
+
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";
+      document.head.appendChild(link);
+
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
+      script.async = true;
+      script.onload = () => setIsLeafletReady(true);
+      document.head.appendChild(script);
+    };
+
+    injectScript();
+
+    checkInterval = setInterval(() => {
+      attempts++;
+      if (typeof (window as any).L !== "undefined") {
+        setIsLeafletReady(true);
+        clearInterval(checkInterval);
+      } else if (attempts > 50) {
+        clearInterval(checkInterval);
+      }
+    }, 100);
+
+    return () => clearInterval(checkInterval);
+  }, []);
 
   // Helper to reverse geocode lat/lng to human address
   const fetchReverseGeocode = useCallback(
     async (lat: number, lng: number) => {
       if (!onAddressChange) return;
 
-      // First check local presets to prevent external network latency
       for (const preset of KARACHI_MAP_PRESETS) {
         const dLat = Math.abs(preset.lat - lat);
         const dLng = Math.abs(preset.lng - lng);
@@ -130,7 +274,7 @@ export default function MapView({
           `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
           {
             headers: {
-              "User-Agent": "IndusConnect-Application/1.0",
+              "User-Agent": "IndusConnect-Enterprise-Maps/2.0",
             },
           }
         );
@@ -149,6 +293,23 @@ export default function MapView({
     [onAddressChange]
   );
 
+  // Switch Tile Layer Smoothly
+  const setTileLayer = useCallback((layerKey: MapLayerType) => {
+    if (!mapInstanceRef.current || typeof L === "undefined") return;
+
+    const map = mapInstanceRef.current;
+    const provider = TILE_PROVIDERS[layerKey] || TILE_PROVIDERS.roadmap;
+
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+    }
+
+    const newLayer = L.tileLayer(provider.url, provider.options);
+    newLayer.addTo(map);
+    tileLayerRef.current = newLayer;
+    setActiveLayer(layerKey);
+  }, []);
+
   // Geolocation "Locate Me" Handler
   const handleLocateMe = () => {
     if (!navigator.geolocation) {
@@ -161,7 +322,7 @@ export default function MapView({
 
     setIsLocating(true);
     setStatusMessage({
-      text: "Locating your current GPS position...",
+      text: "Locating your high-precision GPS coordinate...",
       type: "info",
     });
 
@@ -171,35 +332,34 @@ export default function MapView({
         const { latitude: gpsLat, longitude: gpsLng, accuracy } = position.coords;
 
         if (mapInstanceRef.current) {
-          mapInstanceRef.current.flyTo([gpsLat, gpsLng], 15, { animate: true });
+          mapInstanceRef.current.flyTo([gpsLat, gpsLng], 16, {
+            animate: true,
+            duration: 1.2,
+          });
 
           if (mainMarkerRef.current && !readOnly) {
             mainMarkerRef.current.setLatLng([gpsLat, gpsLng]);
           }
 
-          // Draw / update accuracy circle
           if (userGpsCircleRef.current) {
             userGpsCircleRef.current.remove();
           }
           if (typeof L !== "undefined") {
             userGpsCircleRef.current = L.circle([gpsLat, gpsLng], {
-              radius: Math.min(accuracy, 250),
-              color: "#3b82f6",
-              fillColor: "#60a5fa",
-              fillOpacity: 0.15,
-              weight: 1.5,
+              radius: Math.min(accuracy, 300),
+              color: "#1a73e8",
+              fillColor: "#4285f4",
+              fillOpacity: 0.18,
+              weight: 2,
             }).addTo(mapInstanceRef.current);
           }
         }
 
-        if (onChange) {
-          onChange(gpsLat, gpsLng);
-        }
-
+        if (onChange) onChange(gpsLat, gpsLng);
         fetchReverseGeocode(gpsLat, gpsLng);
 
         setStatusMessage({
-          text: `Position found (±${Math.round(accuracy)}m accuracy)`,
+          text: `Position locked (±${Math.round(accuracy)}m accuracy)`,
           type: "success",
         });
         setTimeout(() => setStatusMessage(null), 4000);
@@ -208,7 +368,7 @@ export default function MapView({
         setIsLocating(false);
         let msg = "Unable to retrieve your location.";
         if (error.code === error.PERMISSION_DENIED) {
-          msg = "Location permission denied. Please enable GPS in browser settings.";
+          msg = "GPS permission denied in browser.";
         } else if (error.code === error.TIMEOUT) {
           msg = "GPS request timed out.";
         }
@@ -248,33 +408,39 @@ export default function MapView({
         const response = await fetch(
           `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
             query
-          )}&countrycodes=pk&viewbox=66.8,24.7,67.4,25.1&format=json&limit=5`,
+          )}+Karachi&format=json&limit=5&countrycodes=pk`,
           {
             headers: {
-              "User-Agent": "IndusConnect-Application/1.0",
+              "User-Agent": "IndusConnect-Enterprise-Maps/2.0",
             },
           }
         );
 
         if (response.ok) {
           const data = await response.json();
-          const remoteMatches = data.map((item: any) => ({
+          const remoteResults = data.map((item: any) => ({
             name: item.display_name.split(",").slice(0, 3).join(", "),
             lat: parseFloat(item.lat),
             lng: parseFloat(item.lon),
           }));
 
-          setSearchResults([...localMatches, ...remoteMatches]);
+          const combined = [
+            ...localMatches,
+            ...remoteResults.filter(
+              (r: any) => !localMatches.some((l) => l.name.startsWith(r.name))
+            ),
+          ];
+          setSearchResults(combined);
         } else {
           setSearchResults(localMatches);
         }
       } catch (err) {
-        console.error("Nominatim search failed:", err);
+        console.error("Location search error:", err);
         setSearchResults(localMatches);
       } finally {
         setIsSearching(false);
       }
-    }, 350);
+    }, 300);
   };
 
   // Select a location suggestion
@@ -283,24 +449,32 @@ export default function MapView({
     setShowSuggestions(false);
 
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.flyTo([loc.lat, loc.lng], 15, { animate: true });
+      mapInstanceRef.current.flyTo([loc.lat, loc.lng], 16, {
+        animate: true,
+        duration: 1.2,
+      });
       if (mainMarkerRef.current && !readOnly) {
         mainMarkerRef.current.setLatLng([loc.lat, loc.lng]);
       }
     }
 
-    if (onChange) {
-      onChange(loc.lat, loc.lng);
-    }
-    if (onAddressChange) {
-      onAddressChange(loc.name.replace(" (Preset)", ""));
-    }
+    if (onChange) onChange(loc.lat, loc.lng);
+    if (onAddressChange) onAddressChange(loc.name.replace(" (Preset)", ""));
 
-    setStatusMessage({ text: `Centered on ${loc.name}`, type: "success" });
+    setStatusMessage({ text: `Navigated to ${loc.name}`, type: "success" });
     setTimeout(() => setStatusMessage(null), 3000);
   };
 
-  // Fit bounds to all markers and polyline
+  // Zoom In / Out
+  const handleZoomIn = () => {
+    if (mapInstanceRef.current) mapInstanceRef.current.zoomIn();
+  };
+
+  const handleZoomOut = () => {
+    if (mapInstanceRef.current) mapInstanceRef.current.zoomOut();
+  };
+
+  // Fit bounds to all markers and polylines
   const handleFitBounds = () => {
     if (!mapInstanceRef.current || typeof L === "undefined") return;
 
@@ -315,70 +489,80 @@ export default function MapView({
 
     if (boundsPoints.length > 0) {
       const bounds = L.latLngBounds(boundsPoints);
-      mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+      mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
     }
   };
 
-  // Recenter to main pin
+  // Recenter to default coordinate or main pin
   const handleRecenterPin = () => {
     if (mapInstanceRef.current && latitude && longitude) {
-      mapInstanceRef.current.flyTo([latitude, longitude], 15, { animate: true });
+      mapInstanceRef.current.flyTo([latitude, longitude], 15, {
+        animate: true,
+        duration: 0.8,
+      });
     }
   };
 
-  // Initialize Leaflet Map
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INITIALIZE LEAFLET MAP INSTANCE
+  // ═══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
-    if (typeof L === "undefined") {
-      console.warn("Leaflet script has not loaded yet.");
-      return;
-    }
-
+    if (!isLeafletReady || typeof L === "undefined") return;
     if (!mapContainerRef.current) return;
 
-    // Create Leaflet map instance
+    // Check if map container is already initialized
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+    }
+
+    const initialLat = latitude || 24.8607;
+    const initialLng = longitude || 67.0104;
+
     const map = L.map(mapId, {
-      zoomControl: false, // Custom positioned below
-    }).setView([latitude, longitude], zoom);
+      zoomControl: false,
+      attributionControl: false,
+    }).setView([initialLat, initialLng], zoom);
+
     mapInstanceRef.current = map;
 
-    // Standard OpenStreetMap tiles
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    }).addTo(map);
+    // Add Tile Layer
+    const provider = TILE_PROVIDERS[activeLayer] || TILE_PROVIDERS.roadmap;
+    const tileLayer = L.tileLayer(provider.url, provider.options).addTo(map);
+    tileLayerRef.current = tileLayer;
 
-    // Add zoom control at bottom-right for thumb ergonomics on mobile
-    L.control
-      .zoom({
-        position: "bottomright",
-      })
-      .addTo(map);
+    // Mouse movement coordinate tracker for Google Maps status bar
+    map.on("mousemove", (e: any) => {
+      setMouseCoords({ lat: e.latlng.lat, lng: e.latlng.lng });
+    });
 
+    map.on("zoomend", () => {
+      setCurrentZoom(map.getZoom());
+    });
+
+    // Main Interactive Pin
     if (!hideMainPin) {
-      // Custom pulse marker for main pin
       const mainPinIcon = L.divIcon({
-        className: "relative flex items-center justify-center",
+        className: "custom-google-pin",
         html: `
-          <div class="relative flex items-center justify-center w-7 h-7">
-            <span class="absolute w-7 h-7 rounded-full bg-blue-500 opacity-30 animate-ping"></span>
-            <span class="relative flex items-center justify-center w-6 h-6 rounded-full bg-blue-700 text-white shadow-lg border-2 border-white font-bold text-2xs">
-              📍
-            </span>
+          <div style="position: relative; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+            <div style="position: absolute; width: 36px; height: 36px; border-radius: 50%; background: rgba(26, 115, 232, 0.35); animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+            <div style="position: relative; width: 28px; height: 28px; border-radius: 50%; background: #ea4335; border: 3px solid #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; color: white;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
           </div>
         `,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
       });
 
-      const marker = L.marker([latitude, longitude], {
+      const marker = L.marker([initialLat, initialLng], {
         draggable: !readOnly,
         icon: mainPinIcon,
       }).addTo(map);
       mainMarkerRef.current = marker;
 
       if (!readOnly && onChange) {
-        // Map click handler
         map.on("click", (e: any) => {
           const { lat, lng } = e.latlng;
           marker.setLatLng([lat, lng]);
@@ -386,7 +570,6 @@ export default function MapView({
           fetchReverseGeocode(lat, lng);
         });
 
-        // Marker dragend handler
         marker.on("dragend", (e: any) => {
           const { lat, lng } = e.target.getLatLng();
           onChange(lat, lng);
@@ -395,29 +578,40 @@ export default function MapView({
       }
     }
 
-    // Invalidate size after layout stabilization
+    // Auto Invalidate Size using ResizeObserver (never leaves map blank)
+    const observer = new ResizeObserver(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    });
+
+    if (mapContainerRef.current) {
+      observer.observe(mapContainerRef.current);
+    }
+
     setTimeout(() => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.invalidateSize();
       }
-    }, 250);
+    }, 200);
 
     return () => {
+      observer.disconnect();
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
     };
-  }, [mapId]);
+  }, [mapId, isLeafletReady]);
 
-  // Sync main marker position when external lat/lng changes
+  // Sync main pin position when props change
   useEffect(() => {
     if (mapInstanceRef.current && mainMarkerRef.current && !hideMainPin) {
       mainMarkerRef.current.setLatLng([latitude, longitude]);
     }
   }, [latitude, longitude, hideMainPin]);
 
-  // Pan / Follow vehicle when followCenter is enabled
+  // Follow camera pan
   useEffect(() => {
     if (mapInstanceRef.current && followCenter && latitude && longitude) {
       mapInstanceRef.current.panTo([latitude, longitude], {
@@ -427,141 +621,161 @@ export default function MapView({
     }
   }, [latitude, longitude, followCenter]);
 
-  // Update additional markers
+  // ═══════════════════════════════════════════════════════════════════════════
+  // UPDATE REAL ENTERPRISE FLEET TRACKING MARKERS (GOOGLE FLEET STYLE)
+  // ═══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
     if (!mapInstanceRef.current || typeof L === "undefined") return;
 
+    // Clean up old markers
     stopMarkersRef.current.forEach((m) => m.remove());
     stopMarkersRef.current = [];
 
-    markers.forEach((m, idx) => {
+    markers.forEach((m) => {
       if (!m.latitude || !m.longitude) return;
 
-      // Careem / inDrive Rotating Vehicle Marker
       if (m.type === "vehicle" || m.type === "driver") {
-        const headingDeg = typeof m.heading === "number" ? m.heading : 0;
+        const headingDeg = typeof m.heading === "number" ? Math.round(m.heading) : 0;
         const speedVal = typeof m.speed === "number" ? Math.round(m.speed) : 0;
-        const speedLabel = speedVal > 0 ? `${speedVal} km/h` : "Live";
+        const isEmergency = m.status === "SOS" || m.status === "BREAKDOWN" || m.pulse;
+        const isMoving = m.status === "MOVING" || speedVal > 5;
 
-        const vehicleHtml = `
-          <div style="position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;">
-            <!-- Radar ping halo -->
-            <div style="position: absolute; width: 42px; height: 42px; border-radius: 9999px; background: rgba(16, 185, 129, 0.28); animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-            <!-- Heading oriented vehicle body -->
-            <div style="transform: rotate(${headingDeg}deg); transition: transform 0.4s ease-out; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; position: relative;">
-              <!-- Direction pointer needle -->
-              <div style="position: absolute; top: -6px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 8px solid #059669; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));"></div>
-              <!-- Car body -->
-              <div style="width: 34px; height: 34px; border-radius: 12px; background: #0f172a; border: 2.5px solid #10b981; box-shadow: 0 4px 12px rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center;">
-                <svg style="width: 20px; height: 20px; color: #34d399;" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
-                </svg>
+        // Theme colors
+        const accentBg = isEmergency
+          ? "#ef4444"
+          : isMoving
+          ? "#10b981"
+          : "#3b82f6";
+
+        const vehicleIconSvg =
+          m.vehicleType === "BUS" || m.vehicleType === "COASTER"
+            ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.6-.3-1.1-.7-1.4l-1.3-.9c-.4-.3-.8-.5-1.3-.5H4.3c-.5 0-.9.2-1.3.5l-1.3.9c-.4.3-.7.8-.7 1.4 0 .4.1.8.2 1.2.3 1.1.8 2.8.8 2.8h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></svg>`
+            : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>`;
+
+        const html = `
+          <div style="position: relative; width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+            <!-- Radar concentric beacon -->
+            <div style="position: absolute; width: ${isEmergency ? "58px" : "48px"}; height: ${isEmergency ? "58px" : "48px"}; border-radius: 50%; background: ${isEmergency ? "rgba(239,68,68,0.35)" : "rgba(16,185,129,0.25)"}; animation: ping ${isEmergency ? "1.2s" : "2s"} cubic-bezier(0,0,0.2,1) infinite;"></div>
+            
+            <!-- Heading Direction Needle -->
+            <div style="position: absolute; width: 50px; height: 50px; transform: rotate(${headingDeg}deg); transition: transform 0.4s ease-out; pointer-events: none; display: flex; align-items: flex-start; justify-content: center;">
+              <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid ${accentBg}; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));"></div>
+            </div>
+
+            <!-- Elevated Vehicle Badge (Google Fleet Style) -->
+            <div style="position: relative; width: 36px; height: 36px; border-radius: 50%; background: #ffffff; border: 3px solid ${accentBg}; box-shadow: 0 6px 18px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: ${accentBg}; font-weight: 800; z-index: 2;">
+              ${vehicleIconSvg}
+            </div>
+
+            <!-- Speed Badge Pill Over Vehicle -->
+            <div style="position: absolute; bottom: 0; background: #0f172a; color: #ffffff; font-family: ui-monospace, monospace; font-size: 9px; font-weight: 800; padding: 1.5px 6px; border-radius: 9999px; box-shadow: 0 2px 6px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); white-space: nowrap; z-index: 3;">
+              ${speedVal > 0 ? `${speedVal} km/h` : "IDLE"}
+            </div>
+          </div>
+        `;
+
+        const icon = L.divIcon({
+          className: "google-fleet-vehicle-marker",
+          html,
+          iconSize: [64, 64],
+          iconAnchor: [32, 32],
+          popupAnchor: [0, -32],
+        });
+
+        // Rich Google Maps InfoWindow Popup
+        const popupContent = `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; min-width: 230px; padding: 4px; color: #0f172a;">
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 8px;">
+              <div>
+                <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b;">
+                  ${m.vehicleType || "FLEET VEHICLE"}
+                </span>
+                <h4 style="font-size: 15px; font-weight: 900; margin: 0; color: #0f172a; line-height: 1.2;">
+                  ${m.vehicleNumber || m.label || "Active Transit"}
+                </h4>
+              </div>
+              <span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 800; background: ${
+                isEmergency ? "#fee2e2" : "#dcfce7"
+              }; color: ${isEmergency ? "#b91c1c" : "#15803d"};">
+                ${m.status || (isMoving ? "MOVING" : "IDLE")}
+              </span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; margin-bottom: 8px;">
+              <div style="background: #f8fafc; padding: 6px 8px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <span style="font-size: 9px; font-weight: 700; color: #64748b; display: block; text-transform: uppercase;">Speed</span>
+                <strong style="font-size: 13px; font-weight: 900; color: #0f172a;">${speedVal} <span style="font-size: 9px;">km/h</span></strong>
+              </div>
+              <div style="background: #f8fafc; padding: 6px 8px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <span style="font-size: 9px; font-weight: 700; color: #64748b; display: block; text-transform: uppercase;">Bearing</span>
+                <strong style="font-size: 13px; font-weight: 900; color: #0f172a;">${headingDeg}°</strong>
               </div>
             </div>
-            <!-- Bottom speed pill -->
-            <div style="position: absolute; bottom: -8px; background: #0f172a; color: #34d399; font-size: 8px; font-weight: 800; padding: 1px 5px; border-radius: 6px; border: 1px solid #10b981; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
-              ${speedLabel}
+
+            ${
+              m.driverName
+                ? `<div style="font-size: 11px; margin-bottom: 4px; color: #334155;">
+                    <span style="color: #64748b;">Captain:</span> <strong>${m.driverName}</strong>
+                   </div>`
+                : ""
+            }
+
+            ${
+              m.routeName
+                ? `<div style="font-size: 11px; margin-bottom: 8px; color: #334155;">
+                    <span style="color: #64748b;">Route:</span> <strong>${m.routeName}</strong>
+                   </div>`
+                : ""
+            }
+
+            <div style="font-size: 9px; color: #94a3b8; font-family: monospace; border-top: 1px solid #f1f5f9; padding-top: 6px; text-align: right;">
+              ${m.latitude.toFixed(5)}°N, ${m.longitude.toFixed(5)}°E
             </div>
           </div>
         `;
 
-        const vMarker = L.marker([m.latitude, m.longitude], {
-          icon: L.divIcon({
-            className: "careem-vehicle-marker",
-            html: vehicleHtml,
-            iconSize: [48, 48],
-            iconAnchor: [24, 24],
-          }),
-          zIndexOffset: 1000,
-        }).addTo(mapInstanceRef.current);
+        const marker = L.marker([m.latitude, m.longitude], { icon })
+          .bindPopup(popupContent, {
+            maxWidth: 280,
+            className: "google-maps-infowindow",
+          })
+          .addTo(mapInstanceRef.current);
 
-        vMarker.bindPopup(`
-          <div style="min-width: 170px; font-family: sans-serif; padding: 2px;">
-            <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #0f172a; font-size: 13px;">
-              <span style="color: #10b981; font-size: 16px;">●</span> ${m.label || "Live Vehicle"}
+        stopMarkersRef.current.push(marker);
+      } else {
+        // Standard Stop / Hub Marker
+        const isDestination = m.type === "destination";
+        const pinColor = isDestination ? "#ea4335" : "#1a73e8";
+
+        const icon = L.divIcon({
+          className: "google-stop-pin",
+          html: `
+            <div style="position: relative; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
+              <div style="width: 24px; height: 24px; border-radius: 50%; background: ${pinColor}; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/></svg>
+              </div>
             </div>
-            ${m.subLabel ? `<div style="color: #64748b; font-size: 11px; margin-top: 3px;">${m.subLabel}</div>` : ""}
-            <div style="margin-top: 6px; display: flex; gap: 8px; font-size: 10px; color: #334155; border-top: 1px solid #e2e8f0; padding-top: 4px;">
-              <span>Speed: <strong>${speedVal} km/h</strong></span>
-              <span>Heading: <strong>${headingDeg}°</strong></span>
-            </div>
-          </div>
-        `);
-        stopMarkersRef.current.push(vMarker);
-        return;
+          `,
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
+        });
+
+        const marker = L.marker([m.latitude, m.longitude], { icon })
+          .bindPopup(`<strong>${m.label || "Stop"}</strong>${m.subLabel ? `<br/>${m.subLabel}` : ""}`)
+          .addTo(mapInstanceRef.current);
+
+        stopMarkersRef.current.push(marker);
       }
-
-      // Passenger Pickup Point Marker
-      if (m.type === "pickup") {
-        const pickupHtml = `
-          <div style="position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
-            <span style="position: absolute; width: 36px; height: 36px; border-radius: 9999px; background: rgba(37, 99, 235, 0.35); animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
-            <div style="position: relative; width: 32px; height: 32px; border-radius: 9999px; background: #2563eb; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(37,99,235,0.4); display: flex; align-items: center; justify-content: center; color: white; font-size: 15px;">
-              🚶
-            </div>
-          </div>
-        `;
-        const pMarker = L.marker([m.latitude, m.longitude], {
-          icon: L.divIcon({
-            className: "careem-pickup-marker",
-            html: pickupHtml,
-            iconSize: [40, 40],
-            iconAnchor: [20, 20],
-          }),
-          zIndexOffset: 900,
-        }).addTo(mapInstanceRef.current);
-        pMarker.bindPopup(`<strong>Your Pickup Point</strong><br/><span style="font-size: 11px; color: #64748b;">${m.label || "Waiting for shuttle"}</span>`);
-        stopMarkersRef.current.push(pMarker);
-        return;
-      }
-
-      // Final Destination Flag
-      if (m.type === "destination") {
-        const destHtml = `
-          <div style="position: relative; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-            <div style="position: relative; width: 30px; height: 30px; border-radius: 9999px; background: #ef4444; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(239,68,68,0.4); display: flex; align-items: center; justify-content: center; color: white; font-size: 13px;">
-              🏁
-            </div>
-          </div>
-        `;
-        const dMarker = L.marker([m.latitude, m.longitude], {
-          icon: L.divIcon({
-            className: "careem-dest-marker",
-            html: destHtml,
-            iconSize: [36, 36],
-            iconAnchor: [18, 18],
-          }),
-          zIndexOffset: 850,
-        }).addTo(mapInstanceRef.current);
-        dMarker.bindPopup(`<strong>Final Destination</strong><br/><span style="font-size: 11px; color: #64748b;">${m.label || "Drop-off terminus"}</span>`);
-        stopMarkersRef.current.push(dMarker);
-        return;
-      }
-
-      // Standard Sequenced Stop Marker
-      const pulseClass = m.pulse ? "animate-pulse" : "";
-      const bgClass = m.color || "bg-emerald-500";
-      const iconContent = m.icon || `<span>${idx + 1}</span>`;
-      const stopMarker = L.marker([m.latitude, m.longitude], {
-        icon: L.divIcon({
-          className: `${bgClass} border-2 border-white rounded-full flex items-center justify-center text-white text-[9px] font-bold shadow-md ${pulseClass}`,
-          html: iconContent,
-          iconSize: [22, 22],
-          iconAnchor: [11, 11],
-        }),
-      })
-        .addTo(mapInstanceRef.current)
-        .bindPopup(`<strong>${m.label || `Stop #${idx + 1}`}</strong>`);
-      stopMarkersRef.current.push(stopMarker);
     });
   }, [markers]);
 
-  // Update route polylines
+  // Update Route Polyline
   useEffect(() => {
     if (!mapInstanceRef.current || typeof L === "undefined") return;
 
     if (polylineRef.current) {
       polylineRef.current.remove();
+      polylineRef.current = null;
     }
 
     if (polylines.length > 0) {
@@ -573,225 +787,253 @@ export default function MapView({
         polylineRef.current = L.polyline(latlngs, {
           color: polylineColor,
           weight: polylineWeight,
-          opacity: 0.85,
+          opacity: 0.9,
           dashArray: polylineDashArray,
+          lineJoin: "round",
+          lineCap: "round",
         }).addTo(mapInstanceRef.current);
       }
     }
   }, [polylines, polylineColor, polylineWeight, polylineDashArray]);
 
-  // Invalidate map size when fullscreen toggled
-  useEffect(() => {
-    if (mapInstanceRef.current) {
-      setTimeout(() => {
-        mapInstanceRef.current.invalidateSize();
-      }, 150);
-    }
-  }, [isFullscreen]);
-
-  // Render Map Container
-  const mapContent = (
+  return (
     <div
-      className={`relative flex flex-col bg-slate-50 ${
+      className={`relative flex flex-col font-sans select-none ${
         isFullscreen
-          ? "fixed inset-0 z-50 h-screen w-screen p-3 sm:p-5"
-          : `w-full rounded-2xl border border-slate-200 overflow-hidden shadow-xs ${className}`
+          ? "fixed inset-0 z-50 h-screen w-screen bg-slate-900 p-0 m-0"
+          : `w-full rounded-2xl border border-slate-200/90 overflow-hidden shadow-md bg-white ${className}`
       }`}
+      style={{
+        height: isFullscreen ? "100vh" : height,
+      }}
     >
-      {/* Top Floating Controls Bar */}
-      {(!readOnly || enableSearch) && (
-        <div className="relative z-20 mb-2 space-y-1.5 p-2 bg-white/95 backdrop-blur-md rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-2">
-            {/* Search Input */}
-            {enableSearch && (
-              <div className="relative flex-1">
-                <Search
-                  size={15}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  onFocus={() => {
-                    if (searchResults.length > 0) setShowSuggestions(true);
+      {/* ═══════════════════════════════════════════════════════════════════════
+          GOOGLE MAPS FLOATING TOP BAR (Search + Layer Switcher)
+          ═══════════════════════════════════════════════════════════════════════ */}
+      <div className="absolute top-3 left-3 right-3 z-20 pointer-events-none flex flex-wrap items-center justify-between gap-2">
+        {/* Left: Google Search Bar & Karachi Hub Jump */}
+        {enableSearch && (
+          <div className="pointer-events-auto relative w-full sm:w-80">
+            <div className="flex items-center rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/80 shadow-lg px-3 py-1.5 transition-all focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+              <Search size={16} className="text-slate-400 mr-2 shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onFocus={() => {
+                  if (searchResults.length > 0) setShowSuggestions(true);
+                }}
+                placeholder="Search location or transit hub..."
+                className="w-full bg-transparent text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setShowSuggestions(false);
                   }}
-                  placeholder="Search Karachi area or landmark..."
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 py-2 text-xs font-medium outline-none focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchQuery("");
-                      setShowSuggestions(false);
-                    }}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-                  >
-                    <X size={13} />
-                  </button>
-                )}
+                  className="p-1 text-slate-400 hover:text-slate-700"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
 
-                {/* Autocomplete Suggestions Dropdown */}
-                {showSuggestions && (
-                  <div className="absolute left-0 right-0 top-full mt-1.5 max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl z-30 divide-y divide-slate-100">
-                    {isSearching ? (
-                      <div className="flex items-center gap-2 p-3 text-xs text-slate-500">
-                        <Loader2 size={14} className="animate-spin text-blue-600" />
-                        <span>Searching Karachi locations...</span>
-                      </div>
-                    ) : searchResults.length > 0 ? (
-                      searchResults.map((loc, idx) => (
-                        <button
-                          key={`${loc.name}-${idx}`}
-                          type="button"
-                          onClick={() => handleSelectLocation(loc)}
-                          className="flex items-center gap-2.5 w-full p-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition"
-                        >
-                          <MapPin size={13} className="shrink-0 text-blue-600" />
-                          <span className="truncate">{loc.name}</span>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="p-3 text-xs text-slate-400 italic">
-                        No locations matched "{searchQuery}"
-                      </div>
-                    )}
+            {/* Suggestions Dropdown */}
+            {showSuggestions && (
+              <div className="absolute left-0 right-0 top-full mt-1.5 max-h-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white/95 backdrop-blur-xl shadow-2xl z-30 divide-y divide-slate-100">
+                {isSearching ? (
+                  <div className="flex items-center gap-2 p-3 text-xs text-slate-500">
+                    <Loader2 size={14} className="animate-spin text-blue-600" />
+                    <span>Searching locations...</span>
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  searchResults.map((loc, idx) => (
+                    <button
+                      key={`${loc.name}-${idx}`}
+                      type="button"
+                      onClick={() => handleSelectLocation(loc)}
+                      className="flex items-center gap-2.5 w-full p-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition"
+                    >
+                      <MapPin size={13} className="shrink-0 text-blue-600" />
+                      <span className="truncate">{loc.name}</span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="p-3 text-xs text-slate-400 italic">
+                    No results for "{searchQuery}"
                   </div>
                 )}
               </div>
             )}
-
-            {/* GPS Geolocation "Locate Me" Button */}
-            {enableGPS && !readOnly && (
-              <button
-                type="button"
-                onClick={handleLocateMe}
-                disabled={isLocating}
-                title="Locate my GPS position"
-                className="flex items-center gap-1.5 shrink-0 rounded-xl bg-blue-700 hover:bg-blue-800 active:scale-95 text-white px-3 py-2 text-xs font-bold shadow-sm transition disabled:opacity-50"
-              >
-                {isLocating ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Crosshair size={14} />
-                )}
-                <span className="hidden sm:inline">Locate Me</span>
-              </button>
-            )}
-
-            {/* Fullscreen Modal Toggle */}
-            {enableFullscreenToggle && (
-              <button
-                type="button"
-                onClick={() => setIsFullscreen(!isFullscreen)}
-                title={isFullscreen ? "Exit Fullscreen" : "Expand Fullscreen"}
-                className="shrink-0 p-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 transition"
-              >
-                {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-              </button>
+            {/* Quick Presets attached to search container */}
+            {enablePresets && (
+              <div className="flex items-center gap-1 mt-1.5 overflow-x-auto no-scrollbar">
+                {KARACHI_MAP_PRESETS.slice(0, 4).map((p) => (
+                  <button
+                    key={p.name}
+                    type="button"
+                    onClick={() => handleSelectLocation(p)}
+                    className="shrink-0 px-2 py-0.5 rounded-lg bg-white/95 backdrop-blur-md border border-slate-200 text-slate-700 hover:bg-blue-600 hover:text-white hover:border-blue-600 text-3xs font-bold shadow-xs transition"
+                  >
+                    {p.name.split(" ")[0]}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
+        )}
 
-          {/* Quick Preset Chips */}
-          {enablePresets && (
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar">
-              <span className="shrink-0 text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">
-                Quick:
-              </span>
-              {KARACHI_MAP_PRESETS.slice(0, 6).map((preset) => (
-                <button
-                  key={preset.name}
-                  type="button"
-                  onClick={() =>
-                    handleSelectLocation({
-                      name: preset.name,
-                      lat: preset.lat,
-                      lng: preset.lng,
-                    })
-                  }
-                  className="shrink-0 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-800 text-slate-600 px-2.5 py-1 text-[11px] font-semibold transition"
-                >
-                  {preset.name.split(" ")[0]}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        {/* Right: Google Maps Style Layer Switcher Pill */}
+        {enableLayerSwitcher && (
+          <div className="pointer-events-auto flex items-center gap-1 rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/80 p-1 shadow-lg">
+            {(
+              [
+                { key: "roadmap", label: "Map", icon: "🗺️" },
+                { key: "hybrid", label: "Satellite", icon: "🛰️" },
+                { key: "traffic", label: "Traffic", icon: "🚦" },
+                { key: "radar", label: "Radar", icon: "🛸" },
+              ] as const
+            ).map((l) => (
+              <button
+                key={l.key}
+                type="button"
+                onClick={() => setTileLayer(l.key)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-2xs font-extrabold transition-all ${
+                  activeLayer === l.key
+                    ? "bg-[#1a73e8] text-white shadow-sm"
+                    : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                }`}
+                title={TILE_PROVIDERS[l.key].name}
+              >
+                <span>{l.icon}</span>
+                <span className="hidden sm:inline">{l.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
-      {/* Floating Status / Accuracy Feedback Banner */}
-      {statusMessage && (
-        <div
-          className={`absolute top-24 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-full text-xs font-bold shadow-md transition animate-in fade-in flex items-center gap-1.5 ${
-            statusMessage.type === "error"
-              ? "bg-red-600 text-white"
-              : statusMessage.type === "success"
-              ? "bg-emerald-600 text-white"
-              : "bg-slate-800 text-white"
-          }`}
-        >
-          {statusMessage.type === "success" && <Check size={13} />}
-          <span>{statusMessage.text}</span>
-        </div>
-      )}
-
-      {/* Map Canvas */}
+      {/* ═══════════════════════════════════════════════════════════════════════
+          MAP STAGE (LEAFLET CANVAS WITH GOOGLE TILES)
+          ═══════════════════════════════════════════════════════════════════════ */}
       <div
         ref={mapContainerRef}
         id={mapId}
-        className="relative w-full flex-1 rounded-xl overflow-hidden z-10"
-        style={{ height: isFullscreen ? "calc(100vh - 130px)" : height }}
+        className="relative w-full h-full flex-1 z-10"
       />
 
-      {/* Floating Action Buttons over Map (Bottom-Left) */}
-      <div className="absolute bottom-3 left-3 z-20 flex gap-2">
+      {/* ═══════════════════════════════════════════════════════════════════════
+          GOOGLE MAPS FLOATING CONTROLS (Right-Side Vertical Stack)
+          ═══════════════════════════════════════════════════════════════════════ */}
+      <div className="absolute right-3.5 bottom-8 z-20 flex flex-col items-center gap-2 pointer-events-none">
+        {/* Zoom Controls */}
+        <div className="pointer-events-auto flex flex-col rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/80 shadow-lg overflow-hidden">
+          <button
+            type="button"
+            onClick={handleZoomIn}
+            title="Zoom in"
+            className="p-2.5 text-slate-700 hover:bg-slate-100 hover:text-blue-600 active:bg-slate-200 transition border-b border-slate-100"
+          >
+            <Plus size={16} strokeWidth={2.5} />
+          </button>
+          <button
+            type="button"
+            onClick={handleZoomOut}
+            title="Zoom out"
+            className="p-2.5 text-slate-700 hover:bg-slate-100 hover:text-blue-600 active:bg-slate-200 transition"
+          >
+            <Minus size={16} strokeWidth={2.5} />
+          </button>
+        </div>
+
+        {/* GPS Locate Me (Crosshair) */}
+        {enableGPS && !readOnly && (
+          <button
+            type="button"
+            onClick={handleLocateMe}
+            disabled={isLocating}
+            title="Locate my position (GPS)"
+            className="pointer-events-auto rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/80 p-2.5 text-slate-700 hover:bg-slate-100 hover:text-blue-600 shadow-lg transition active:scale-95 disabled:opacity-50"
+          >
+            {isLocating ? (
+              <Loader2 size={17} className="animate-spin text-blue-600" />
+            ) : (
+              <Crosshair size={17} strokeWidth={2.2} />
+            )}
+          </button>
+        )}
+
+        {/* Recenter Pin / Compass */}
         <button
           type="button"
           onClick={handleRecenterPin}
-          title="Recenter to pin"
-          className="flex items-center gap-1 rounded-xl bg-white/90 hover:bg-white text-slate-700 px-2.5 py-1.5 text-xs font-bold border border-slate-200 shadow-md backdrop-blur-sm transition"
+          title="Recenter Pin"
+          className="pointer-events-auto rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/80 p-2.5 text-slate-700 hover:bg-slate-100 hover:text-blue-600 shadow-lg transition active:scale-95"
         >
-          <Compass size={14} className="text-blue-600" />
-          <span className="hidden sm:inline">Center Pin</span>
+          <Compass size={17} strokeWidth={2.2} />
         </button>
 
+        {/* Fit Bounds */}
         {(markers.length > 0 || polylines.length > 0) && (
           <button
             type="button"
             onClick={handleFitBounds}
-            title="Fit view to all stops"
-            className="flex items-center gap-1 rounded-xl bg-white/90 hover:bg-white text-slate-700 px-2.5 py-1.5 text-xs font-bold border border-slate-200 shadow-md backdrop-blur-sm transition"
+            title="Fit All Fleet & Stops"
+            className="pointer-events-auto rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/80 p-2.5 text-slate-700 hover:bg-slate-100 hover:text-blue-600 shadow-lg transition active:scale-95"
           >
-            <Layers size={14} className="text-blue-600" />
-            <span>Fit Route</span>
+            <Layers size={17} strokeWidth={2.2} />
+          </button>
+        )}
+
+        {/* Fullscreen Expand/Collapse */}
+        {enableFullscreenToggle && (
+          <button
+            type="button"
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Radar"}
+            className="pointer-events-auto rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/80 p-2.5 text-slate-700 hover:bg-slate-100 hover:text-blue-600 shadow-lg transition active:scale-95"
+          >
+            {isFullscreen ? (
+              <Minimize2 size={17} strokeWidth={2.2} />
+            ) : (
+              <Maximize2 size={17} strokeWidth={2.2} />
+            )}
           </button>
         )}
       </div>
 
-      {/* Fullscreen Sticky Confirmation Footer on Mobile */}
-      {isFullscreen && (
-        <div className="relative z-20 mt-2 flex items-center justify-between bg-white p-3 rounded-2xl border border-slate-200 shadow-lg pb-safe">
-          <div className="min-w-0 pr-2">
-            <p className="text-2xs font-bold text-slate-400 uppercase tracking-wider">
-              Selected Point
-            </p>
-            <p className="truncate text-xs font-extrabold text-slate-800">
-              {latitude.toFixed(5)}, {longitude.toFixed(5)}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsFullscreen(false)}
-            className="flex items-center gap-1.5 rounded-xl bg-blue-700 text-white font-bold text-xs px-4 py-2.5 shadow-md active:scale-95 transition"
-          >
-            <Check size={14} />
-            <span>Confirm Location</span>
-          </button>
+      {/* ═══════════════════════════════════════════════════════════════════════
+          GOOGLE MAPS STATUS BAR & COORDINATES READOUT (Bottom Left)
+          ═══════════════════════════════════════════════════════════════════════ */}
+      <div className="absolute left-3 bottom-2.5 z-20 pointer-events-none flex items-center gap-2">
+        <div className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-mono shadow-md border border-slate-700/60">
+          <span className="font-bold text-blue-400">IndusConnect Live Map</span>
+          <span className="text-slate-400">•</span>
+          <span>
+            {mouseCoords.lat.toFixed(4)}°N, {mouseCoords.lng.toFixed(4)}°E
+          </span>
+          <span className="text-slate-400">•</span>
+          <span className="text-slate-300">Z: {currentZoom}</span>
         </div>
-      )}
+
+        {/* Status Toast Message */}
+        {statusMessage && (
+          <div
+            className={`pointer-events-auto flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold shadow-lg animate-fadeIn ${
+              statusMessage.type === "error"
+                ? "bg-red-600 text-white"
+                : statusMessage.type === "success"
+                ? "bg-emerald-600 text-white"
+                : "bg-slate-900 text-white"
+            }`}
+          >
+            {statusMessage.type === "success" && <Check size={12} />}
+            <span>{statusMessage.text}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
-
-  return mapContent;
 }
