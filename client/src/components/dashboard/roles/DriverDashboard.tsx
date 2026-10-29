@@ -59,8 +59,8 @@ export default function DriverDashboard() {
     <div className="space-y-6">
       {/* Driver Header */}
       <PageHeader
-        title="Driver Quick Console"
-        subtitle="Simple, high-contrast dashboard designed for on-road transit operation."
+        title="Driver Home"
+        subtitle="Simple screen to check your route, vehicle safety check, and passenger list."
         onRefresh={loadDriverData}
         isRefreshing={isLoading}
         action={
@@ -69,7 +69,7 @@ export default function DriverDashboard() {
             className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-800 transition active:scale-95 shadow-md"
           >
             <Navigation size={18} />
-            <span>Open Full Trip Console</span>
+            <span>Open Full Trip & Passenger List</span>
           </Link>
         }
       />
@@ -125,14 +125,14 @@ export default function DriverDashboard() {
             </div>
             <div className="my-3">
               <h3 className="text-base font-extrabold text-white group-hover:text-blue-300 transition">
-                Pre-Trip Checklist
+                Vehicle Safety Check
               </h3>
               <p className="text-xs text-slate-300 font-medium mt-0.5">
-                4 vehicle safety checks (Fuel, Tires, Brakes, Lights)
+                4 quick checks (Fuel, Tires, Brakes, Lights)
               </p>
             </div>
             <div className="flex items-center text-xs font-bold text-amber-400">
-              <span>Complete Inspection &rarr;</span>
+              <span>Check Vehicle &rarr;</span>
             </div>
           </Link>
 
@@ -155,16 +155,16 @@ export default function DriverDashboard() {
             </div>
             <div className="my-3">
               <h3 className="text-base font-extrabold text-white">
-                {activeTrip ? "Active Running Trip" : "Start Today's Run"}
+                {activeTrip ? "Trip in Progress" : "Start Today's Trip"}
               </h3>
               <p className="text-xs text-slate-300 font-medium mt-0.5">
                 {activeTrip
-                  ? "Click to mark passengers or finish trip"
-                  : "Tap when vehicle is ready to depart"}
+                  ? "Tap to mark passengers or finish trip"
+                  : "Tap when your vehicle is ready to leave"}
               </p>
             </div>
             <div className="flex items-center text-xs font-bold text-blue-300 group-hover:text-white">
-              <span>{activeTrip ? "Manage Live Trip &rarr;" : "Start Departure &rarr;"}</span>
+              <span>{activeTrip ? "Open Live Trip &rarr;" : "Start Trip &rarr;"}</span>
             </div>
           </Link>
 
@@ -182,11 +182,11 @@ export default function DriverDashboard() {
                 {passengerCount} Passengers
               </h3>
               <p className="text-xs text-slate-300 font-medium mt-0.5">
-                Roster manifest with pickup stops & phone contacts
+                Passenger list with pickup stops & phone contacts
               </p>
             </div>
             <div className="flex items-center text-xs font-bold text-emerald-400">
-              <span>Board Passengers &rarr;</span>
+              <span>Mark Passengers In &rarr;</span>
             </div>
           </Link>
         </div>
@@ -200,7 +200,7 @@ export default function DriverDashboard() {
               Passenger Pickup List
             </h3>
             <p className="text-xs font-semibold text-[#64748B]">
-              Staff registered for this shuttle route
+              Staff booked for this bus route
             </p>
           </div>
 
@@ -208,7 +208,7 @@ export default function DriverDashboard() {
             to="/driver-trips"
             className="text-xs font-bold text-blue-700 hover:underline flex items-center gap-1"
           >
-            <span>Open Full Manifest Screen</span>
+            <span>Open Full Passenger List</span>
             <ChevronRight size={14} />
           </Link>
         </div>
@@ -267,10 +267,10 @@ export default function DriverDashboard() {
                       {isBoarded ? (
                         <>
                           <CheckCircle2 size={16} />
-                          <span>Boarded</span>
+                          <span>On Board</span>
                         </>
                       ) : (
-                        <span>Board Now</span>
+                        <span>Mark In</span>
                       )}
                     </Link>
                   </div>
@@ -297,7 +297,7 @@ export default function DriverDashboard() {
           </div>
           <div>
             <h4 className="text-xs font-bold text-rose-950">
-              Need Transport Help or Roadside Assistance?
+              Need Help on the Road?
             </h4>
             <p className="text-2xs font-semibold text-rose-700">
               Direct line to IndusConnect Transport Control Room & Security Desk
@@ -309,7 +309,7 @@ export default function DriverDashboard() {
           to="/driver-trips"
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-rose-700 transition"
         >
-          <span>Report Breakdown / SOS</span>
+          <span>Report Breakdown or Problem</span>
         </Link>
       </div>
     </div>

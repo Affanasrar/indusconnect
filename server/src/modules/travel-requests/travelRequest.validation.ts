@@ -17,10 +17,14 @@ export const createTravelRequestSchema = z.object({
   returnDate: z.string().optional(),
 
   accommodationRequired: z.boolean().optional(),
+  requiresAccommodation: z.boolean().optional(),
   transportRequired: z.boolean().optional(),
   estimatedBudget: z.number().nonnegative().optional(),
 
   employeeRemarks: z.string().optional(),
+  notes: z.string().optional(),
+  travelMode: z.string().optional(),
+  isEmergency: z.boolean().optional(),
 });
 
 export const updateTravelRequestSchema = z.object({
@@ -35,18 +39,24 @@ export const updateTravelRequestSchema = z.object({
   returnDate: z.string().optional(),
 
   accommodationRequired: z.boolean().optional(),
+  requiresAccommodation: z.boolean().optional(),
   transportRequired: z.boolean().optional(),
   estimatedBudget: z.number().nonnegative().optional(),
 
   employeeRemarks: z.string().optional(),
+  notes: z.string().optional(),
+  travelMode: z.string().optional(),
+  isEmergency: z.boolean().optional(),
 });
 
 export const decisionTravelRequestSchema = z.object({
   decisionRemarks: z.string().optional(),
+  managerRemarks: z.string().optional(),
 });
 
 export const cancelTravelRequestSchema = z.object({
   employeeRemarks: z.string().optional(),
+  remarks: z.string().optional(),
 });
 
 export type CreateTravelRequestInput = z.infer<

@@ -15,16 +15,19 @@ export interface CreateTravelRequestInput {
   returnDate: string;
   travelMode: TravelMode;
   requiresAccommodation: boolean;
+  accommodationRequired?: boolean;
   isEmergency: boolean;
   notes?: string;
 }
 
 export interface TravelDecisionInput {
   managerRemarks?: string;
+  decisionRemarks?: string;
 }
 
 export interface CancelTravelRequestInput {
   remarks?: string;
+  employeeRemarks?: string;
 }
 
 type TravelRequestListPayload =
@@ -35,6 +38,16 @@ type TravelRequestListPayload =
       items?: TravelRequest[];
     };
 
+function normalizeTravelRequest(req: any): TravelRequest {
+  if (!req || typeof req !== "object") return req;
+  const isAccom = Boolean(req.accommodationRequired ?? req.requiresAccommodation);
+  return {
+    ...req,
+    accommodationRequired: isAccom,
+    requiresAccommodation: isAccom,
+  };
+}
+
 function extractTravelRequests(
   payload: TravelRequestListPayload | null | undefined
 ): TravelRequest[] {
@@ -42,27 +55,36 @@ function extractTravelRequests(
     return [];
   }
 
+  let list: TravelRequest[] = [];
   if (Array.isArray(payload)) {
-    return payload;
+    list = payload;
+  } else {
+    list =
+      payload.requests ??
+      payload.travelRequests ??
+      payload.items ??
+      [];
   }
 
-  return (
-    payload.requests ??
-    payload.travelRequests ??
-    payload.items ??
-    []
-  );
+  return list.map(normalizeTravelRequest);
 }
 
 export async function createTravelRequest(
   data: CreateTravelRequestInput
 ) {
+  const isAccom = Boolean(data.requiresAccommodation ?? data.accommodationRequired);
+  const payload = {
+    ...data,
+    accommodationRequired: isAccom,
+    requiresAccommodation: isAccom,
+  };
+
   const response = await http.post<ApiResponse<TravelRequest>>(
     "/travel-requests",
-    data
+    payload
   );
 
-  return response.data.data;
+  return normalizeTravelRequest(response.data.data);
 }
 
 export async function getMyTravelRequests() {

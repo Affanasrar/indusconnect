@@ -80,6 +80,28 @@ function getMenuIcon(key: string) {
   }
 }
 
+const PLAIN_TITLE_MAP: Record<string, string> = {
+  "/dashboard": "Home",
+  "/users": "People & Staff",
+  "/vehicles": "Vehicles & Buses",
+  "/drivers": "Drivers",
+  "/routes": "Bus Routes & Stops",
+  "/shuttle-bookings": "Book Shuttle Bus",
+  "/driver-trips": "Driver Trips & Passenger List",
+  "/travel-requests": "Travel & Trips",
+  "/accommodation": "Rooms & Hotels",
+  "/expenses": "Bills & Expenses",
+  "/vendors": "Transport Companies & Partners",
+  "/telemetry": "Live Bus Tracker",
+  "/notifications": "Alerts & Messages",
+  "/proxy-bookings": "Book for Others",
+  "/policies": "Company Approval Rules",
+  "/maintenance": "Vehicle Repairs & Cleaning",
+  "/erp-exports": "Payroll & Financial Exports",
+  "/reports": "Reports & Summaries",
+  "/audit-logs": "Activity History",
+};
+
 export default function MobileNavDrawer({
   isOpen,
   onClose,
@@ -200,7 +222,7 @@ export default function MobileNavDrawer({
                     <span className={`shrink-0 ${isActive ? "text-white" : "text-slate-400"}`}>
                       {getMenuIcon(item.key)}
                     </span>
-                    <span className="truncate">{item.title}</span>
+                    <span className="truncate">{PLAIN_TITLE_MAP[item.path] || item.title}</span>
                   </div>
                   {item.key === "notifications" && unreadCount > 0 && (
                     <span className="rounded-full bg-[#C43D4B] px-1.5 py-0.2 text-[9px] font-bold text-white">

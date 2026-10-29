@@ -131,7 +131,7 @@ export default function DriversPage() {
     } catch (requestError) {
       setError(
         getErrorMessage(requestError) ??
-          "Failed to fetch driver data"
+        "Failed to fetch driver data"
       );
     } finally {
       setIsLoading(false);
@@ -283,7 +283,7 @@ export default function DriversPage() {
     } catch (requestError) {
       setError(
         getErrorMessage(requestError) ??
-          "Failed to save driver"
+        "Failed to save driver"
       );
     } finally {
       setIsSubmitting(false);
@@ -318,7 +318,7 @@ export default function DriversPage() {
     } catch (requestError) {
       setError(
         getErrorMessage(requestError) ??
-          "Failed to deactivate driver"
+        "Failed to deactivate driver"
       );
     } finally {
       setProcessingId(null);
@@ -334,12 +334,11 @@ export default function DriversPage() {
           </p>
 
           <h1 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
-            Driver Management
+            Drivers List
           </h1>
 
           <p className="mt-2 max-w-3xl text-sm text-slate-500 sm:text-base">
-            Register drivers, maintain licence and CNIC information,
-            and assign vehicles.
+            Add and manage drivers, licenses, ID cards, and assigned vehicles.
           </p>
         </div>
 

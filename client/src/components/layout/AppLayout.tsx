@@ -54,25 +54,25 @@ function getMenuIcon(key: string, path: string) {
 }
 
 const PAGE_TITLE_MAP: Record<string, string> = {
-  "/dashboard": "Enterprise Dashboard",
-  "/users": "User Management",
-  "/vehicles": "Fleet & Vehicles",
-  "/drivers": "Driver Directory",
-  "/routes": "Routes & Smart Stops",
-  "/shuttle-bookings": "Shuttle Bookings",
-  "/driver-trips": "Driver Trips & Manifests",
-  "/travel-requests": "Travel Requests & Approvals",
-  "/accommodation": "Accommodation & Lodging",
-  "/expenses": "Expenses & Claims",
-  "/vendors": "Vendor Management",
-  "/telemetry": "Live Transit Telemetry",
-  "/notifications": "Notifications & Alerts",
-  "/proxy-bookings": "Proxy Bookings",
-  "/policies": "Approval Policies",
-  "/maintenance": "Vehicle Maintenance & Housekeeping",
-  "/erp-exports": "ERP Payroll Exports",
-  "/reports": "Reports & Analytics",
-  "/audit-logs": "Audit Logs Ledger",
+  "/dashboard": "Home",
+  "/users": "People & Staff",
+  "/vehicles": "Vehicles & Buses",
+  "/drivers": "Drivers List",
+  "/routes": "Bus Routes & Stops",
+  "/shuttle-bookings": "Book Shuttle Bus",
+  "/driver-trips": "Driver Trips & Passenger List",
+  "/travel-requests": "Travel & Trip Requests",
+  "/accommodation": "Rooms & Hotels",
+  "/expenses": "Bills & Expenses",
+  "/vendors": "Transport Companies & Partners",
+  "/telemetry": "Live Bus Tracker",
+  "/notifications": "Alerts & Messages",
+  "/proxy-bookings": "Book for Others",
+  "/policies": "Company Approval Rules",
+  "/maintenance": "Vehicle Repairs & Cleaning",
+  "/erp-exports": "Payroll & Financial Exports",
+  "/reports": "Reports & Summaries",
+  "/audit-logs": "Activity History",
 };
 
 export default function AppLayout() {
@@ -139,7 +139,7 @@ export default function AppLayout() {
                           : "text-slate-400 group-hover:text-[#102644]"
                       }`}
                     />
-                    <span className="truncate">{item.title}</span>
+                    <span className="truncate">{PAGE_TITLE_MAP[item.path] || item.title}</span>
                   </>
                 )}
               </NavLink>

@@ -973,16 +973,15 @@ export default function DriverTripsPage() {
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div className="min-w-0">
           <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
-            Driver Operations
+            Driver Home
           </p>
 
           <h1 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
-            Assigned Trips
+            Today's Trips
           </h1>
 
           <p className="mt-2 max-w-3xl text-sm text-slate-500 sm:text-base">
-            Complete the safety checklist, manage passenger
-            boarding, report issues, and complete the trip.
+            Check your vehicle, mark passengers who get in, report any delay, and finish your trip.
           </p>
         </div>
 
@@ -997,7 +996,7 @@ export default function DriverTripsPage() {
             }`}
           >
             <Sparkles size={15} />
-            <span>{isEasyMode ? "📱 Easy Driver Mode (Active)" : "🖥️ Advanced Map HUD"}</span>
+            <span>{isEasyMode ? "📱 Simple Driver View (Active)" : "🗺️ Map View"}</span>
           </button>
 
           <Button variant="secondary" onClick={loadRoutes}>
@@ -1176,13 +1175,13 @@ export default function DriverTripsPage() {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                       <div>
                         <span className="rounded-full bg-amber-100 px-3 py-1 text-2xs font-extrabold uppercase tracking-wider text-amber-800">
-                          Step 1: Vehicle Safety Check
+                          Step 1: Check Your Vehicle
                         </span>
                         <h3 className="text-lg font-black text-slate-900 mt-1">
-                          4-Point Pre-Trip Vehicle Inspection
+                          Vehicle Safety Check Before Driving
                         </h3>
                         <p className="text-xs text-slate-500 font-medium">
-                          Tap each checkmark below to verify vehicle fitness before driving.
+                          Tap each box below to check that your vehicle is safe to drive.
                         </p>
                       </div>
 
@@ -1190,12 +1189,12 @@ export default function DriverTripsPage() {
                         {checklistComplete ? (
                           <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-100 px-3 py-1.5 text-xs font-black text-emerald-800 border border-emerald-300">
                             <CheckCircle2 size={16} className="text-emerald-600" />
-                            All Checks Passed
+                            Vehicle Checked & Ready
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 rounded-xl bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 border border-amber-200">
                             <AlertTriangle size={15} />
-                            Inspection Required
+                            Safety Check Needed
                           </span>
                         )}
                       </div>
@@ -1206,32 +1205,32 @@ export default function DriverTripsPage() {
                         {[
                           {
                             id: "fuel",
-                            label: "Fuel Level Adequate",
-                            desc: "Sufficient fuel for scheduled route",
+                            label: "Fuel is Enough",
+                            desc: "Enough fuel in the tank for today's trip",
                             checked: checklist.fuelChecked,
                             toggle: () =>
                               setChecklist((prev) => ({ ...prev, fuelChecked: !prev.fuelChecked })),
                           },
                           {
                             id: "tires",
-                            label: "Tire Pressure & Tread OK",
-                            desc: "No punctures, proper air pressure",
+                            label: "Tires are Good",
+                            desc: "Proper air in all tires, no flat tires",
                             checked: checklist.tiresChecked,
                             toggle: () =>
                               setChecklist((prev) => ({ ...prev, tiresChecked: !prev.tiresChecked })),
                           },
                           {
                             id: "brakes",
-                            label: "Brakes & Handbrake Working",
-                            desc: "Firm pedal feel, responsive stopping",
+                            label: "Brakes Working Well",
+                            desc: "Brakes and handbrake stop the vehicle properly",
                             checked: checklist.brakesChecked,
                             toggle: () =>
                               setChecklist((prev) => ({ ...prev, brakesChecked: !prev.brakesChecked })),
                           },
                           {
                             id: "lights",
-                            label: "Headlights & Indicators Working",
-                            desc: "High/low beam, hazard lights, reverse light",
+                            label: "Lights & Indicators Working",
+                            desc: "Headlights, brake lights, and indicators turn on",
                             checked: checklist.lightsChecked,
                             toggle: () =>
                               setChecklist((prev) => ({ ...prev, lightsChecked: !prev.lightsChecked })),
@@ -1279,7 +1278,7 @@ export default function DriverTripsPage() {
                         }`}
                       >
                         <SquareCheckBig size={20} />
-                        <span>{isSubmittingChecklist ? "Submitting Check..." : "Save Safety Inspection (Ready to Drive)"}</span>
+                        <span>{isSubmittingChecklist ? "Saving Safety Check..." : "Save Safety Check (Ready to Drive)"}</span>
                       </button>
                     </form>
                   </div>
@@ -1291,10 +1290,10 @@ export default function DriverTripsPage() {
                 <div className="space-y-4">
                   <div>
                     <span className="rounded-full bg-blue-100 px-3 py-1 text-2xs font-extrabold uppercase tracking-wider text-blue-800">
-                      Step 2: Trip Departure & Status
+                      Step 2: Start or Finish Trip
                     </span>
                     <h3 className="text-lg font-black text-slate-900 mt-1">
-                      Trip Controls
+                      Trip Buttons
                     </h3>
                   </div>
 
@@ -1308,13 +1307,13 @@ export default function DriverTripsPage() {
                           className="flex-1 py-5 px-6 rounded-2xl bg-blue-700 hover:bg-blue-800 text-white text-lg font-black shadow-lg shadow-blue-700/30 flex items-center justify-center gap-3 active:scale-98 transition"
                         >
                           <CheckCircle2 size={24} />
-                          <span>{processingAction === "end" ? "Finishing..." : "🏁 Complete & End Trip"}</span>
+                          <span>{processingAction === "end" ? "Ending Trip..." : "🏁 Finish & End Trip"}</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => {
-                            const desc = window.prompt("Enter issue or delay details (e.g. Traffic jam, Flat tire):");
+                            const desc = window.prompt("Enter problem or delay details (e.g. Traffic jam, Flat tire):");
                             if (desc && selectedRouteId) {
                               setIssueForm((prev) => ({ ...prev, issueDescription: desc }));
                               reportDriverTripIssue(selectedRouteId, {
@@ -1331,7 +1330,7 @@ export default function DriverTripsPage() {
                           className="py-5 px-6 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-base font-black shadow-md flex items-center justify-center gap-2 active:scale-98 transition"
                         >
                           <AlertTriangle size={20} />
-                          <span>Report Delay / SOS</span>
+                          <span>Report Delay or Problem</span>
                         </button>
                       </>
                     ) : trip?.status === "READY" ? (
@@ -1342,15 +1341,15 @@ export default function DriverTripsPage() {
                         className="w-full py-5 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-black shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-3 active:scale-98 transition"
                       >
                         <Play size={24} className="fill-current" />
-                        <span>{processingAction === "start" ? "Starting Trip..." : "▶ START TRIP (Depart Now)"}</span>
+                        <span>{processingAction === "start" ? "Starting Trip..." : "▶ START TRIP (Leave Now)"}</span>
                       </button>
                     ) : trip?.status === "COMPLETED" ? (
                       <div className="w-full p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-300 text-emerald-900 text-center font-bold">
-                        ✓ This trip has been completed and submitted to dispatch.
+                        ✓ This trip is finished and saved.
                       </div>
                     ) : (
                       <div className="w-full p-4 rounded-2xl bg-slate-100 text-slate-600 text-center font-bold text-sm">
-                        Complete the safety inspection above to activate departure.
+                        Please complete the vehicle safety check above to start your trip.
                       </div>
                     )}
                   </div>
@@ -1362,13 +1361,13 @@ export default function DriverTripsPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <span className="rounded-full bg-emerald-100 px-3 py-1 text-2xs font-extrabold uppercase tracking-wider text-emerald-800">
-                      Step 3: Passenger Boarding
+                      Step 3: Passenger List (Who is riding)
                     </span>
                     <h3 className="text-xl font-black text-slate-900 mt-1">
-                      Passenger Manifest ({filteredPassengers.length})
+                      Passenger List ({filteredPassengers.length})
                     </h3>
                     <p className="text-xs font-semibold text-slate-500">
-                      Tap green when the passenger boards, or grey if they missed the bus.
+                      Tap green when the passenger gets in, or grey if they missed the bus.
                     </p>
                   </div>
 
@@ -1385,9 +1384,9 @@ export default function DriverTripsPage() {
                         }`}
                       >
                         {filter === "ALL" && `All (${passengers.length})`}
-                        {filter === "AWAITING" && `Waiting (${passengerSummary.awaiting})`}
-                        {filter === "BOARDED" && `Boarded (${passengerSummary.boarded})`}
-                        {filter === "NO_SHOW" && `No-Show (${passengerSummary.noShow})`}
+                        {filter === "AWAITING" && `Waiting at Stop (${passengerSummary.awaiting})`}
+                        {filter === "BOARDED" && `On Board (${passengerSummary.boarded})`}
+                        {filter === "NO_SHOW" && `Missed Bus (${passengerSummary.noShow})`}
                       </button>
                     ))}
                   </div>
@@ -1440,11 +1439,11 @@ export default function DriverTripsPage() {
                               {isBoarded ? (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-200 px-3 py-1 text-xs font-black text-emerald-900">
                                   <Check size={14} strokeWidth={3} />
-                                  Boarded
+                                  On Board
                                 </span>
                               ) : isNoShow ? (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-slate-300 px-3 py-1 text-xs font-black text-slate-700">
-                                  No-Show
+                                  Missed Bus
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">
@@ -1478,7 +1477,7 @@ export default function DriverTripsPage() {
                               }`}
                             >
                               <Check size={18} strokeWidth={3} />
-                              <span>{processingAction === `board-${booking.id}` ? "Updating..." : "BOARDED"}</span>
+                              <span>{processingAction === `board-${booking.id}` ? "Saving..." : "ON BOARD"}</span>
                             </button>
 
                             <button
@@ -1492,7 +1491,7 @@ export default function DriverTripsPage() {
                               }`}
                             >
                               <XCircle size={18} />
-                              <span>{processingAction === `no-show-${booking.id}` ? "Updating..." : "NO SHOW"}</span>
+                              <span>{processingAction === `no-show-${booking.id}` ? "Saving..." : "MISSED BUS"}</span>
                             </button>
                           </div>
                         </div>
@@ -1514,7 +1513,7 @@ export default function DriverTripsPage() {
               }`}
             >
               <Navigation size={13} />
-              <span>Nav HUD</span>
+              <span>Map & GPS</span>
             </button>
             <button
               type="button"
@@ -1524,7 +1523,7 @@ export default function DriverTripsPage() {
               }`}
             >
               <UserCheck size={13} />
-              <span>Manifest ({passengers.length})</span>
+              <span>Passengers ({passengers.length})</span>
             </button>
             <button
               type="button"
@@ -1534,7 +1533,7 @@ export default function DriverTripsPage() {
               }`}
             >
               <ClipboardCheck size={13} />
-              <span>Checklist</span>
+              <span>Safety Check</span>
             </button>
             <button
               type="button"
@@ -1544,7 +1543,7 @@ export default function DriverTripsPage() {
               }`}
             >
               <ShieldAlert size={13} />
-              <span>Issue</span>
+              <span>Problem</span>
             </button>
             <button
               type="button"

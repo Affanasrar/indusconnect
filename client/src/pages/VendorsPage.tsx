@@ -458,10 +458,10 @@ export default function VendorsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-            Vendor & Contract Fleet Management
+            Transport Companies & Partners
           </h1>
           <p className="text-sm text-slate-500">
-            Monitor vendor metrics, handle billing claims, and oversee logistics supplier contracts.
+            Manage rental transport companies, hire agreements, and monthly bus vendor bills.
           </p>
         </div>
         <div className="flex gap-2">
@@ -489,7 +489,7 @@ export default function VendorsPage() {
               className="rounded-xl"
             >
               <PlusCircle size={16} className="mr-2" />
-              Register Vendor
+              Add Transport Partner
             </Button>
           )}
 
@@ -502,7 +502,7 @@ export default function VendorsPage() {
               className="rounded-xl"
             >
               <PlusCircle size={16} className="mr-2" />
-              Submit Invoice
+              Add Partner Bill
             </Button>
           )}
         </div>

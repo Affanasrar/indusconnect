@@ -393,16 +393,15 @@ export default function ShuttleAssignmentPage() {
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div className="min-w-0">
           <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
-            Transport Administration
+            Bus Seat Assignments
           </p>
 
           <h1 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
-            Shuttle Booking Assignment
+            Assign Bus Seats
           </h1>
 
           <p className="mt-2 max-w-3xl text-sm text-slate-500 sm:text-base">
-            Review employee requests and assign routes, pickup
-            stops, and seat numbers.
+            Review staff seat requests and assign bus routes, pickup stops, and seat numbers.
           </p>
         </div>
 

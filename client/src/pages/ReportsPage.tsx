@@ -139,10 +139,10 @@ export default function ReportsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between print:border-b print:pb-4">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 print:text-xl">
-            Reports & Analytical Intelligence
+            Reports & Summaries
           </h1>
           <p className="text-sm text-slate-500 print:hidden">
-            Examine real-time service volumes, budget spends, approval queues, and fleet capacities.
+            View total trips, bus rides, room bookings, and expense spending.
           </p>
         </div>
         <div className="flex gap-2 print:hidden">
@@ -193,7 +193,7 @@ export default function ReportsPage() {
               activeReportTab === "PENDING" ? "bg-slate-900 text-white shadow-sm" : "bg-slate-50 text-slate-500 hover:bg-slate-100"
             }`}
           >
-            Approvals Pipeline
+            Pending Approvals
           </button>
         )}
         {(isTransport || isAdminOrManager) && (
@@ -203,7 +203,7 @@ export default function ReportsPage() {
               activeReportTab === "TRANSPORT" ? "bg-slate-900 text-white shadow-sm" : "bg-slate-50 text-slate-500 hover:bg-slate-100"
             }`}
           >
-            Transport Fleet
+            Buses & Vehicles
           </button>
         )}
         {isAdminOrManager && (
@@ -213,7 +213,7 @@ export default function ReportsPage() {
               activeReportTab === "TRAVEL" ? "bg-slate-900 text-white shadow-sm" : "bg-slate-50 text-slate-500 hover:bg-slate-100"
             }`}
           >
-            Travel & Budgets
+            Travel & Trips
           </button>
         )}
         {(isAccommodation || isAdminOrManager) && (
@@ -223,7 +223,7 @@ export default function ReportsPage() {
               activeReportTab === "ACCOMMODATION" ? "bg-slate-900 text-white shadow-sm" : "bg-slate-50 text-slate-500 hover:bg-slate-100"
             }`}
           >
-            Lodging Accommodation
+            Rooms & Hotels
           </button>
         )}
         {(isFinance || isAdminOrManager) && (
@@ -233,7 +233,7 @@ export default function ReportsPage() {
               activeReportTab === "EXPENSES" ? "bg-slate-900 text-white shadow-sm" : "bg-slate-50 text-slate-500 hover:bg-slate-100"
             }`}
           >
-            Expense Sync
+            Bills & Expenses
           </button>
         )}
       </div>

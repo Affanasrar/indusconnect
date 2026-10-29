@@ -176,10 +176,10 @@ export default function UsersPage() {
             Super Admin
           </p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900">
-            User Management
+            People & Staff
           </h1>
           <p className="mt-2 text-slate-500">
-            Create and manage IndusConnect users with role-based access.
+            Create and manage driver and staff accounts with clear role access.
           </p>
         </div>
 

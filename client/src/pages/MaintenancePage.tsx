@@ -393,10 +393,10 @@ export default function MaintenancePage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-            Maintenance & Housekeeping
+            Vehicle Repairs & Room Cleaning
           </h1>
           <p className="text-sm text-slate-500">
-            Track and dispatch routine servicing, vehicle repairs, and room housekeeping schedules.
+            Schedule vehicle oil changes, tire repairs, routine servicing, and room cleaning.
           </p>
         </div>
         <div className="flex gap-2">

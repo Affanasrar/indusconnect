@@ -139,8 +139,11 @@ async function validateApprovedTravelRequest(travelRequestId: string) {
   });
 
   if (!travelRequest) throw new Error("Travel request not found");
-  if (travelRequest.status !== TravelRequestStatus.APPROVED) {
-    throw new Error("Only approved travel requests can be assigned accommodation");
+  if (
+    travelRequest.status !== TravelRequestStatus.APPROVED &&
+    travelRequest.status !== TravelRequestStatus.PENDING
+  ) {
+    throw new Error("Only pending or approved travel requests can be assigned accommodation");
   }
   if (!travelRequest.accommodationRequired) {
     throw new Error("This travel request does not require accommodation");
@@ -155,7 +158,9 @@ async function validateApprovedTravelRequest(travelRequestId: string) {
 export async function getApprovedAccommodationRequests() {
   return prisma.travelRequest.findMany({
     where: {
-      status: TravelRequestStatus.APPROVED,
+      status: {
+        in: [TravelRequestStatus.APPROVED, TravelRequestStatus.PENDING],
+      },
       accommodationRequired: true,
       roomReservation: null, // Only requests that haven't been assigned a room yet
     },
@@ -164,7 +169,7 @@ export async function getApprovedAccommodationRequests() {
         select: { id: true, fullName: true, email: true, department: true },
       },
     },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
   });
 }
 
@@ -209,10 +214,24 @@ export async function createReservation(data: CreateReservationInput) {
     reservationData.hotelAddress = data.externalAddress;
   }
 
-  return prisma.roomReservation.create({
+  const reservation = await prisma.roomReservation.create({
     data: reservationData,
     include: reservationInclude,
   });
+
+  // If the travel request was PENDING, auto-approve it upon room assignment by Accommodation Admin
+  if (travelRequest.status === TravelRequestStatus.PENDING) {
+    await prisma.travelRequest.update({
+      where: { id: travelRequest.id },
+      data: {
+        status: TravelRequestStatus.APPROVED,
+        decisionRemarks: "Approved with room assignment by Accommodation Admin",
+        decidedAt: new Date(),
+      },
+    });
+  }
+
+  return reservation;
 }
 
 export async function updateReservation(id: string, data: UpdateReservationInput) {

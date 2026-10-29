@@ -871,17 +871,15 @@ export default function AccommodationPage() {
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div className="min-w-0">
           <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
-            Accommodation Administration
+            Rooms & Hotels
           </p>
 
           <h1 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
-            Accommodation Management
+            Rooms & Hotels Management
           </h1>
 
           <p className="mt-2 max-w-3xl text-sm text-slate-500 sm:text-base">
-            Manage internal guest-house inventory and
-            assign rooms to approved travel requests
-            before using external accommodation.
+            Manage company guest rooms, hotel bookings, and employee stays for business trips.
           </p>
         </div>
 
@@ -1432,14 +1430,14 @@ export default function AccommodationPage() {
             <Card className="min-w-0">
               <div className="mb-5">
                 <h2 className="text-lg font-bold text-slate-900">
-                  Approved Requests Requiring Stay
+                  Requests Requiring Room Stay
                 </h2>
 
                 <p className="text-sm text-slate-500">
                   {
                     travelRequests.length
                   }{" "}
-                  requests awaiting assignment
+                  requests awaiting room assignment
                 </p>
               </div>
 
@@ -1531,8 +1529,16 @@ export default function AccommodationPage() {
                           </td>
 
                           <td className="px-4 py-4 text-sm text-slate-600">
-                            {formatLabel(
-                              request.travelType
+                            <div>{formatLabel(request.travelType)}</div>
+                            {request.status === "PENDING" && (
+                              <span className="inline-block mt-1 text-[10px] bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded-full">
+                                Awaiting Manager
+                              </span>
+                            )}
+                            {request.status === "APPROVED" && (
+                              <span className="inline-block mt-1 text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">
+                                Approved
+                              </span>
                             )}
                           </td>
 
@@ -1552,16 +1558,13 @@ export default function AccommodationPage() {
                       )
                     )}
 
-                    {travelRequests.length ===
-                      0 && (
+                    {travelRequests.length === 0 && (
                       <tr>
                         <td
                           colSpan={6}
                           className="rounded-2xl bg-slate-50 px-4 py-10 text-center text-sm text-slate-500"
                         >
-                          No approved travel
-                          requests currently require
-                          accommodation.
+                          No travel requests requiring stay at this time.
                         </td>
                       </tr>
                     )}

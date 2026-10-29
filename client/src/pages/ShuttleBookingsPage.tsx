@@ -431,10 +431,10 @@ export default function ShuttleBookingsPage() {
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center pb-2 border-b border-[#DCE5F0]/80">
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#102644]">
-            Shuttle Bookings & Commute Passes
+            Book Shuttle Bus & Daily Rides
           </h1>
           <p className="mt-0.5 text-xs sm:text-sm text-[#64748B]">
-            Reserve your seat on scheduled corporate shuttles or configure recurring commute passes.
+            Book your seat on company buses for today, tomorrow, or everyday work travel.
           </p>
         </div>
 
@@ -466,7 +466,7 @@ export default function ShuttleBookingsPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping" />
                 <span className="text-2xs font-extrabold uppercase tracking-widest text-emerald-400">
-                  {nextActiveBooking.status === "ASSIGNED" ? "Active Commute Reserved" : "Commute Request In Dispatch"}
+                  {nextActiveBooking.status === "ASSIGNED" ? "Seat Booked & Confirmed" : "Waiting for Bus Assignment"}
                 </span>
                 <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-3xs font-bold text-slate-300">
                   {formatDate(nextActiveBooking.bookingDate)} • {nextActiveBooking.shiftType}
@@ -506,7 +506,7 @@ export default function ShuttleBookingsPage() {
                   className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 px-5 py-3 text-xs font-black text-slate-950 shadow-lg shadow-emerald-500/30 transition transform hover:-translate-y-0.5"
                 >
                   <Activity size={16} className="animate-pulse" />
-                  <span>Track Driver Live (Transit Radar)</span>
+                  <span>Track Bus Live on Map</span>
                 </button>
               )}
 
@@ -537,7 +537,7 @@ export default function ShuttleBookingsPage() {
           }`}
         >
           <BusFront size={15} />
-          <span>Book a Shuttle</span>
+          <span>Book a Bus Ride</span>
         </button>
         <button
           type="button"
@@ -549,7 +549,7 @@ export default function ShuttleBookingsPage() {
           }`}
         >
           <TicketCheck size={15} />
-          <span>My Rides & Tickets ({bookings.length})</span>
+          <span>My Bus Tickets ({bookings.length})</span>
         </button>
         <button
           type="button"
@@ -561,11 +561,11 @@ export default function ShuttleBookingsPage() {
           }`}
         >
           <Repeat size={15} />
-          <span>Standing Passes ({subscriptions.length})</span>
+          <span>Daily Work Passes ({subscriptions.length})</span>
         </button>
       </div>
 
-      {/* 4. TAB 1: BOOK A SHUTTLE (SPACIOUS 50/50 STUDIO ON DESKTOP) */}
+      {/* 4. TAB 1: BOOK A SHUTTLE */}
       {activeTab === "book" && (
         <div className="grid min-w-0 gap-6 lg:grid-cols-2">
           {/* LEFT: BOOKING CONFIGURATION STUDIO */}
@@ -576,10 +576,10 @@ export default function ShuttleBookingsPage() {
               </div>
               <div>
                 <h2 className="text-base font-bold text-slate-800">
-                  {form.isRecurring ? "Configure Standing Commute Pass" : "Request Single Shuttle Ride"}
+                  {form.isRecurring ? "Set Up Daily Work Pass" : "Book One-Time Bus Ride"}
                 </h2>
                 <p className="text-3xs text-slate-400 font-bold uppercase tracking-wider mt-0.5">
-                  Corporate fleet daily seat reservation
+                  Reserve your company bus seat
                 </p>
               </div>
             </div>
@@ -596,7 +596,7 @@ export default function ShuttleBookingsPage() {
                 }`}
               >
                 <TicketCheck size={15} />
-                <span>Single Ride (Daily)</span>
+                <span>One-Time Ride</span>
               </button>
               <button
                 type="button"
@@ -608,7 +608,7 @@ export default function ShuttleBookingsPage() {
                 }`}
               >
                 <Repeat size={15} />
-                <span>Standing Pass (Weekly)</span>
+                <span>Daily Work Pass (Mon-Fri)</span>
               </button>
             </div>
 
@@ -618,7 +618,7 @@ export default function ShuttleBookingsPage() {
                 <div className="space-y-4">
                   <div>
                     <label className="mb-1 block text-2xs font-bold text-slate-500 uppercase tracking-wider">
-                      Select Commute Route
+                      Choose Bus Route
                     </label>
                     <select
                       value={form.selectedRouteId}

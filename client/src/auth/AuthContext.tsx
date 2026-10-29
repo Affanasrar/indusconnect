@@ -13,9 +13,11 @@ import type {
   UserProfile,
 } from "../types/frontend";
 
-interface LoginInput {
-  email: string;
-  password: string;
+export interface LoginInput {
+  email?: string;
+  password?: string;
+  phone?: string;
+  pin?: string;
 }
 
 interface AuthContextValue {

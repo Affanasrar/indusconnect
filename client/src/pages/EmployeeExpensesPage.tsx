@@ -409,10 +409,10 @@ export default function EmployeeExpensesPage() {
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center pb-2 border-b border-[#DCE5F0]/80">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#102644]">
-            My Expense Claims
+            My Bills & Expenses
           </h1>
           <p className="mt-0.5 text-xs sm:text-sm text-[#64748B]">
-            Submit official expenses and track manager, finance, and payment status.
+            Submit work expenses (fuel, tolls, food, travel) and track approvals and payment.
           </p>
         </div>
 
@@ -437,7 +437,7 @@ export default function EmployeeExpensesPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <p className="text-sm text-slate-500">
-            Total Claims
+            Total Bills
           </p>
           <p className="mt-2 text-2xl font-bold text-slate-900">
             {summary.total}
@@ -446,7 +446,7 @@ export default function EmployeeExpensesPage() {
 
         <Card>
           <p className="text-sm text-slate-500">
-            Under Review
+            Waiting for Approval
           </p>
           <p className="mt-2 text-2xl font-bold text-amber-700">
             {summary.underReview}
@@ -455,7 +455,7 @@ export default function EmployeeExpensesPage() {
 
         <Card>
           <p className="text-sm text-slate-500">
-            Finance Approved
+            Approved by Finance
           </p>
           <p className="mt-2 text-2xl font-bold text-blue-700">
             {summary.approved}
@@ -464,7 +464,7 @@ export default function EmployeeExpensesPage() {
 
         <Card>
           <p className="text-sm text-slate-500">
-            Paid
+            Paid Out
           </p>
           <p className="mt-2 text-2xl font-bold text-emerald-700">
             {summary.paid}
@@ -481,11 +481,11 @@ export default function EmployeeExpensesPage() {
 
             <div>
               <h2 className="text-lg font-bold text-slate-900">
-                New Expense Claim
+                Submit a Bill or Expense
               </h2>
 
               <p className="text-sm text-slate-500">
-                Add accurate expense and receipt details.
+                Add your bill amount and receipt details.
               </p>
             </div>
           </div>

@@ -158,10 +158,10 @@ export default function AuditLogsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-            System Security & Audit logs
+            System Activity History
           </h1>
           <p className="text-sm text-slate-500">
-            Audit immutable system event trails, login triggers, records mutations, and administrative status reviews.
+            Track who logged in, created or changed records, and approved requests.
           </p>
         </div>
         <div className="flex gap-2">
@@ -172,7 +172,7 @@ export default function AuditLogsPage() {
             className="rounded-xl border border-slate-200 text-xs py-2"
           >
             <RefreshCcw size={15} className={`mr-1.5 ${isLoading ? "animate-spin" : ""}`} />
-            Sync Logs
+            Refresh
           </Button>
         </div>
       </div>

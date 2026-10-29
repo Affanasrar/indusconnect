@@ -9,7 +9,7 @@ export default function NotFoundPage() {
         <p className="mt-3 text-slate-500">Page not found.</p>
 
         <Link to="/dashboard" className="mt-6 inline-block">
-          <Button>Back to Dashboard</Button>
+          <Button>Back to Home</Button>
         </Link>
       </div>
     </div>

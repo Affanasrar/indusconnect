@@ -14,7 +14,7 @@ export default function ExpensesPage() {
     return (
       <Card>
         <div className="py-12 text-center text-sm text-slate-500">
-          Loading expense module...
+          Loading bills & expenses...
         </div>
       </Card>
     );
@@ -39,11 +39,11 @@ export default function ExpensesPage() {
     <div className="min-w-0 space-y-6">
       <div>
         <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
-          Expense Management
+          Bills & Expenses
         </p>
 
         <h1 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
-          Expense Claims
+          Bills & Expenses
         </h1>
       </div>
 
@@ -55,13 +55,11 @@ export default function ExpensesPage() {
           />
 
           <h2 className="mt-4 text-lg font-bold text-slate-900">
-            Limited access
+            No Access to This Page
           </h2>
 
           <p className="mx-auto mt-2 max-w-xl text-sm text-slate-500">
-            Expense submission is available to employees.
-            Manager and Finance review access depends on
-            the assigned system role.
+            Submitting bills is available to staff. Approvals are done by managers and finance officers.
           </p>
         </div>
       </Card>

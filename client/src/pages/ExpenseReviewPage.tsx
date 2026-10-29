@@ -438,19 +438,18 @@ export default function ExpenseReviewPage({
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
             {mode === "MANAGER"
-              ? "Manager Verification"
-              : "Finance Review"}
+              ? "Manager Approval"
+              : "Finance Approval"}
           </p>
 
           <h1 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
             {mode === "MANAGER"
-              ? "Expense Claim Verification"
-              : "Expense Claim Finance Review"}
+              ? "Bills & Expenses to Approve"
+              : "Bills & Expenses Finance Approval"}
           </h1>
 
           <p className="mt-2 text-sm text-slate-500 sm:text-base">
-            Review receipts, descriptions, travel
-            references, amounts, and policy compliance.
+            Check bill receipts, amounts, and approve or decline payment.
           </p>
         </div>
 

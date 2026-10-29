@@ -281,10 +281,10 @@ export default function EmployeeDashboard() {
               </div>
               <div>
                 <span className="inline-block rounded-full bg-blue-500/30 px-3 py-0.5 text-3xs font-extrabold uppercase tracking-wider text-blue-300 border border-blue-400/30">
-                  Quick Commute Pass
+                  Quick Bus Booking
                 </span>
                 <h3 className="text-xl font-black text-white tracking-tight mt-0.5">
-                  Book Today or Tomorrow's Shuttle
+                  Book Today or Tomorrow's Bus
                 </h3>
               </div>
             </div>
@@ -294,7 +294,7 @@ export default function EmployeeDashboard() {
             {/* Shift Picker */}
             <div>
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                1. Select Shift Direction
+                1. Choose Shift
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -326,7 +326,7 @@ export default function EmployeeDashboard() {
             {/* Date Quick Selector */}
             <div>
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                2. Commute Date
+                2. Travel Date
               </label>
               <div className="flex gap-2">
                 <button
@@ -362,7 +362,7 @@ export default function EmployeeDashboard() {
             {/* Pickup Stop Preset Buttons */}
             <div>
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                3. Pickup Stop / Area
+                3. Your Stop or Area
               </label>
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {["Garden West", "Gulshan Block 4", "Saddar", "Clifton / DHA", "Main Gate"].map((area) => (
@@ -384,7 +384,7 @@ export default function EmployeeDashboard() {
                 type="text"
                 value={quickArea}
                 onChange={(e) => setQuickArea(e.target.value)}
-                placeholder="Or type custom pickup stop..."
+                placeholder="Or type your bus stop..."
                 className="w-full rounded-xl bg-slate-800/90 border border-slate-700 px-3.5 py-2.5 text-xs text-white placeholder-slate-400 outline-none focus:border-blue-500"
               />
             </div>
@@ -396,7 +396,7 @@ export default function EmployeeDashboard() {
               className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-sm font-black shadow-lg shadow-emerald-500/20 active:scale-98 transition flex items-center justify-center gap-2"
             >
               <CheckCircle2 size={18} />
-              <span>{isSubmittingQuick ? "Reserving Seat..." : "Confirm & Reserve My Seat Now"}</span>
+              <span>{isSubmittingQuick ? "Reserving Seat..." : "Confirm & Book My Seat Now"}</span>
             </button>
           </div>
         </div>
@@ -417,10 +417,10 @@ export default function EmployeeDashboard() {
                     </div>
                     <div>
                       <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-3xs font-black uppercase tracking-wider text-emerald-800">
-                        Active Digital Boarding Pass
+                        Your Bus Ticket
                       </span>
                       <h4 className="text-base font-black text-slate-900 mt-0.5">
-                        IndusConnect Shuttle Ticket
+                        IndusConnect Bus Ticket
                       </h4>
                     </div>
                   </div>
@@ -434,7 +434,7 @@ export default function EmployeeDashboard() {
                         : "bg-amber-100 text-amber-800"
                     }`}
                   >
-                    {isBoarded ? "✓ BOARDED" : isAssigned ? "SEAT CONFIRMED" : "PENDING ROSTER"}
+                    {isBoarded ? "✓ ON BOARD" : isAssigned ? "SEAT CONFIRMED" : "WAITING FOR BUS"}
                   </span>
                 </div>
 
@@ -456,7 +456,7 @@ export default function EmployeeDashboard() {
                   <div>
                     <span className="text-2xs font-extrabold uppercase text-slate-400">Assigned Seat</span>
                     <p className="text-base font-black text-blue-700">
-                      {ticket.seatNumber ? `Seat #${ticket.seatNumber}` : "Auto-Assigned on Boarding"}
+                      {ticket.seatNumber ? `Seat #${ticket.seatNumber}` : "Assigned When You Board"}
                     </p>
                   </div>
 
@@ -472,7 +472,7 @@ export default function EmployeeDashboard() {
                 <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3 flex items-center justify-between">
                   <div className="space-y-1">
                     <span className="text-3xs font-extrabold uppercase text-slate-400 tracking-wider">
-                      Pass ID: #{ticket.id.substring(0, 8).toUpperCase()}
+                      Ticket ID: #{ticket.id.substring(0, 8).toUpperCase()}
                     </span>
                     <div className="flex gap-1 h-6 items-end">
                       {[4, 8, 2, 6, 9, 3, 7, 5, 8, 4, 6, 3, 7, 9, 5].map((h, i) => (
@@ -487,7 +487,7 @@ export default function EmployeeDashboard() {
                     className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition"
                   >
                     <Trash2 size={13} />
-                    <span>Cancel Ticket</span>
+                    <span>Cancel Seat</span>
                   </button>
                 </div>
               </div>
@@ -496,9 +496,9 @@ export default function EmployeeDashboard() {
         ) : (
           <div className="rounded-3xl border-2 border-dashed border-slate-300 bg-white p-6 flex flex-col items-center justify-center text-center space-y-2">
             <TicketCheck size={36} className="text-slate-400" />
-            <h4 className="text-base font-bold text-slate-800">No Active Boarding Pass Today</h4>
+            <h4 className="text-base font-bold text-slate-800">No Active Bus Ticket Today</h4>
             <p className="text-xs text-slate-500 max-w-xs">
-              Use the quick booking panel on the left to reserve your seat in 2 clicks.
+              Use the quick booking box on the left to book your seat in 2 clicks.
             </p>
           </div>
         )}

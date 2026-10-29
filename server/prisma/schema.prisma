@@ -381,6 +381,7 @@ model User {
   email        String     @unique
   password     String
   phone        String?
+  pin          String?    @default("1234")
   status       UserStatus @default(ACTIVE)
 
   roleId       String

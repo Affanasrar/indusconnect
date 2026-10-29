@@ -70,7 +70,7 @@ const userSelect = {
 const menuItems = [
   {
     key: "dashboard",
-    title: "Dashboard",
+    title: "Home",
     path: "/dashboard",
     roles: [
       "SUPER_ADMIN",
@@ -85,13 +85,13 @@ const menuItems = [
   },
   {
     key: "users",
-    title: "User Management",
+    title: "People & Staff",
     path: "/users",
     roles: ["SUPER_ADMIN"],
   },
   {
     key: "vehicles",
-    title: "Vehicles",
+    title: "Vehicles & Buses",
     path: "/vehicles",
     roles: ["SUPER_ADMIN", "TRANSPORT_ADMIN"],
   },
@@ -103,13 +103,13 @@ const menuItems = [
   },
   {
     key: "routes",
-    title: "Routes & Smart Stops",
+    title: "Bus Routes & Stops",
     path: "/routes",
     roles: ["SUPER_ADMIN", "TRANSPORT_ADMIN"],
   },
   {
     key: "shuttleBookings",
-    title: "Shuttle Bookings",
+    title: "Book Shuttle Bus",
     path: "/shuttle-bookings",
     roles: [
       "SUPER_ADMIN",
@@ -123,13 +123,13 @@ const menuItems = [
   },
   {
     key: "driverTrips",
-    title: "Driver Trips",
+    title: "Driver Trips & Passenger List",
     path: "/driver-trips",
     roles: ["SUPER_ADMIN", "DRIVER", "TRANSPORT_ADMIN"],
   },
   {
     key: "travelRequests",
-    title: "Travel Requests",
+    title: "Travel & Trips",
     path: "/travel-requests",
     roles: [
       "SUPER_ADMIN",
@@ -143,13 +143,13 @@ const menuItems = [
   },
   {
     key: "accommodation",
-    title: "Accommodation",
+    title: "Rooms & Hotels",
     path: "/accommodation",
     roles: ["SUPER_ADMIN", "ACCOMMODATION_ADMIN"],
   },
   {
     key: "expenses",
-    title: "Expense Claims",
+    title: "Bills & Expenses",
     path: "/expenses",
     roles: [
       "SUPER_ADMIN",
@@ -160,19 +160,19 @@ const menuItems = [
   },
   {
     key: "vendors",
-    title: "Vendors",
+    title: "Transport Companies & Partners",
     path: "/vendors",
     roles: ["SUPER_ADMIN", "TRANSPORT_ADMIN", "FINANCE_OFFICER"],
   },
   {
     key: "telemetry",
-    title: "Live Tracking",
+    title: "Live Bus Tracker",
     path: "/telemetry",
     roles: ["SUPER_ADMIN", "TRANSPORT_ADMIN", "SECURITY_OFFICER", "DRIVER"],
   },
   {
     key: "notifications",
-    title: "Notifications",
+    title: "Alerts & Messages",
     path: "/notifications",
     roles: [
       "SUPER_ADMIN",
@@ -187,13 +187,13 @@ const menuItems = [
   },
   {
     key: "proxyBookings",
-    title: "Proxy Bookings",
+    title: "Book for Others",
     path: "/proxy-bookings",
     roles: ["SUPER_ADMIN", "MANAGER", "TRANSPORT_ADMIN"],
   },
   {
     key: "policies",
-    title: "Policies",
+    title: "Company Approval Rules",
     path: "/policies",
     roles: [
       "SUPER_ADMIN",
@@ -204,19 +204,19 @@ const menuItems = [
   },
   {
     key: "maintenance",
-    title: "Maintenance & Housekeeping",
+    title: "Vehicle Repairs & Cleaning",
     path: "/maintenance",
     roles: ["SUPER_ADMIN", "TRANSPORT_ADMIN", "ACCOMMODATION_ADMIN", "DRIVER"],
   },
   {
     key: "erpExports",
-    title: "ERP Payroll Exports",
+    title: "Payroll & Financial Exports",
     path: "/erp-exports",
     roles: ["SUPER_ADMIN", "FINANCE_OFFICER"],
   },
   {
     key: "reports",
-    title: "Reports",
+    title: "Reports & Summaries",
     path: "/reports",
     roles: [
       "SUPER_ADMIN",
@@ -228,7 +228,7 @@ const menuItems = [
   },
   {
     key: "auditLogs",
-    title: "Audit Logs",
+    title: "Activity History",
     path: "/audit-logs",
     roles: ["SUPER_ADMIN"],
   },

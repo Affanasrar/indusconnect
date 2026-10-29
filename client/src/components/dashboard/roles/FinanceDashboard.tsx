@@ -92,8 +92,8 @@ export default function FinanceDashboard() {
     <div className="space-y-6">
       {/* Page Header */}
       <PageHeader
-        title="Finance Dashboard"
-        subtitle="Review expense claims and track reimbursement workflows."
+        title="Finance & Bills Dashboard"
+        subtitle="Review employee expense bills and approve money payments."
         onRefresh={loadFinanceData}
         isRefreshing={isLoading}
         action={
@@ -103,7 +103,7 @@ export default function FinanceDashboard() {
               className="inline-flex items-center gap-1.5 rounded-lg bg-[#102644] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#1769E0] transition active:scale-95 shadow-xs"
             >
               <Receipt size={14} />
-              <span>Verify Claims</span>
+              <span>Review Bills</span>
             </Link>
 
             <Link
@@ -111,7 +111,7 @@ export default function FinanceDashboard() {
               className="inline-flex items-center gap-1.5 rounded-lg border border-[#DCE5F0] bg-white px-3 py-2 text-xs font-semibold text-[#102644] hover:bg-slate-50 transition active:scale-95"
             >
               <FileSpreadsheet size={14} />
-              <span className="hidden sm:inline">ERP Payroll Sync</span>
+              <span className="hidden sm:inline">Payroll & Export</span>
             </Link>
           </div>
         }
@@ -130,12 +130,12 @@ export default function FinanceDashboard() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
-            label="Claims Awaiting Verification"
+            label="Bills Waiting for Review"
             value={pendingVerificationCount}
             subtitle={
               pendingVerificationCount > 0
-                ? "Pending officer review"
-                : "No pending claims"
+                ? "Waiting for finance approval"
+                : "No pending bills"
             }
             icon={<Clock size={20} />}
             iconTone="amber"
@@ -143,12 +143,12 @@ export default function FinanceDashboard() {
           />
 
           <KpiCard
-            label="Returned / Flagged Claims"
+            label="Flagged / Returned Bills"
             value={returnedOrFlaggedCount}
             subtitle={
               returnedOrFlaggedCount > 0
-                ? "Flagged for policy correction"
-                : "No anomalies found"
+                ? "Flagged for corrections"
+                : "No problem bills"
             }
             icon={<AlertTriangle size={20} />}
             iconTone={returnedOrFlaggedCount > 0 ? "rose" : "slate"}
@@ -156,7 +156,7 @@ export default function FinanceDashboard() {
           />
 
           <KpiCard
-            label="Approved Claims"
+            label="Approved Bills"
             value={approvedClaimsCount}
             subtitle={`Sum: PKR ${Number(summaryData?.amounts?.approvedAmount ?? 0).toLocaleString()}`}
             icon={<CheckCircle2 size={20} />}
@@ -165,7 +165,7 @@ export default function FinanceDashboard() {
           />
 
           <KpiCard
-            label="Payments & ERP Processed"
+            label="Paid & Exported"
             value={paymentsPendingCount}
             subtitle="Ready for payroll dispatch"
             icon={<FileSpreadsheet size={20} />}
@@ -179,8 +179,8 @@ export default function FinanceDashboard() {
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-bold text-[#102644]">Expense Claims Ledger</h2>
-            <p className="text-xs text-[#64748B]">All submitted employee claims requiring finance action</p>
+            <h2 className="text-sm font-bold text-[#102644]">Bills & Expenses List</h2>
+            <p className="text-xs text-[#64748B]">All staff expense bills needing review or payment</p>
           </div>
 
           {/* Search & Filter Toolbar */}
@@ -191,7 +191,7 @@ export default function FinanceDashboard() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search employee or claim..."
+                placeholder="Search staff or bill..."
                 className="rounded-lg border border-[#DCE5F0] bg-white pl-8 pr-3 py-1.5 text-xs text-[#102644] placeholder-slate-400 focus:border-[#1769E0] focus:outline-hidden"
               />
             </div>
@@ -202,7 +202,7 @@ export default function FinanceDashboard() {
               className="rounded-lg border border-[#DCE5F0] bg-white px-2.5 py-1.5 text-xs font-medium text-[#102644] focus:border-[#1769E0] focus:outline-hidden"
             >
               <option value="ALL">All Statuses</option>
-              <option value="PENDING">Pending Verification</option>
+              <option value="PENDING">Waiting for Review</option>
               <option value="FLAGGED">Flagged / Returned</option>
               <option value="APPROVED">Approved</option>
               <option value="REJECTED">Rejected</option>
@@ -214,11 +214,11 @@ export default function FinanceDashboard() {
           <TableSkeleton rows={5} />
         ) : filteredClaims.length === 0 ? (
           <EmptyState
-            title="No expense claims found"
+            title="No expense bills found"
             description={
               searchQuery || statusFilter !== "ALL"
-                ? "No claims match your search filters."
-                : "You're all caught up. There are no expense claims pending verification."
+                ? "No bills match your search filters."
+                : "You're all caught up. There are no bills waiting for review."
             }
           />
         ) : (
@@ -226,11 +226,11 @@ export default function FinanceDashboard() {
             <table className="w-full text-left text-xs">
               <thead className="border-b border-[#DCE5F0] bg-slate-50/80 text-[#64748B]">
                 <tr>
-                  <th className="px-4 py-3 font-semibold">Claim Number</th>
-                  <th className="px-4 py-3 font-semibold">Employee</th>
+                  <th className="px-4 py-3 font-semibold">Bill ID</th>
+                  <th className="px-4 py-3 font-semibold">Staff Member</th>
                   <th className="px-4 py-3 font-semibold">Description</th>
                   <th className="px-4 py-3 font-semibold">Date</th>
-                  <th className="px-4 py-3 font-semibold">Claim Amount</th>
+                  <th className="px-4 py-3 font-semibold">Amount</th>
                   <th className="px-4 py-3 font-semibold">Status</th>
                   <th className="px-4 py-3 text-right font-semibold">Action</th>
                 </tr>

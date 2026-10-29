@@ -46,6 +46,13 @@ const travelRequestInclude = {
   },
 };
 
+function formatTravelRequest<T extends { accommodationRequired: boolean }>(req: T) {
+  return {
+    ...req,
+    requiresAccommodation: req.accommodationRequired,
+  };
+}
+
 export async function createTravelRequest(
   employeeId: string,
   data: CreateTravelRequestInput
@@ -63,7 +70,19 @@ export async function createTravelRequest(
     throw new Error("Employee not found");
   }
 
-  return prisma.travelRequest.create({
+  const isAccomRequired =
+    typeof data.accommodationRequired === "boolean"
+      ? data.accommodationRequired
+      : typeof data.requiresAccommodation === "boolean"
+      ? data.requiresAccommodation
+      : false;
+
+  const isTransportRequired =
+    typeof data.transportRequired === "boolean"
+      ? data.transportRequired
+      : false;
+
+  const created = await prisma.travelRequest.create({
     data: {
       employeeId,
       travelType: data.travelType,
@@ -73,17 +92,19 @@ export async function createTravelRequest(
       toLocation: data.toLocation,
       departureDate: new Date(data.departureDate),
       returnDate: data.returnDate ? new Date(data.returnDate) : undefined,
-      accommodationRequired: data.accommodationRequired,
-      transportRequired: data.transportRequired,
+      accommodationRequired: isAccomRequired,
+      transportRequired: isTransportRequired,
       estimatedBudget: data.estimatedBudget,
-      employeeRemarks: data.employeeRemarks,
+      employeeRemarks: data.employeeRemarks ?? data.notes,
     },
     include: travelRequestInclude,
   });
+
+  return formatTravelRequest(created);
 }
 
 export async function getMyTravelRequests(employeeId: string) {
-  return prisma.travelRequest.findMany({
+  const requests = await prisma.travelRequest.findMany({
     where: {
       employeeId,
     },
@@ -92,19 +113,23 @@ export async function getMyTravelRequests(employeeId: string) {
       createdAt: "desc",
     },
   });
+
+  return requests.map(formatTravelRequest);
 }
 
 export async function getAllTravelRequests() {
-  return prisma.travelRequest.findMany({
+  const requests = await prisma.travelRequest.findMany({
     include: travelRequestInclude,
     orderBy: {
       createdAt: "desc",
     },
   });
+
+  return requests.map(formatTravelRequest);
 }
 
 export async function getPendingTravelRequests() {
-  return prisma.travelRequest.findMany({
+  const requests = await prisma.travelRequest.findMany({
     where: {
       status: TravelRequestStatus.PENDING,
     },
@@ -113,6 +138,8 @@ export async function getPendingTravelRequests() {
       createdAt: "desc",
     },
   });
+
+  return requests.map(formatTravelRequest);
 }
 
 export async function getTravelRequestById(id: string) {
@@ -127,7 +154,7 @@ export async function getTravelRequestById(id: string) {
     throw new Error("Travel request not found");
   }
 
-  return request;
+  return formatTravelRequest(request);
 }
 
 export async function updateTravelRequest(
@@ -145,7 +172,19 @@ export async function updateTravelRequest(
     throw new Error("Only pending travel requests can be updated");
   }
 
-  return prisma.travelRequest.update({
+  const isAccomRequired =
+    typeof data.accommodationRequired === "boolean"
+      ? data.accommodationRequired
+      : typeof data.requiresAccommodation === "boolean"
+      ? data.requiresAccommodation
+      : undefined;
+
+  const isTransportRequired =
+    typeof data.transportRequired === "boolean"
+      ? data.transportRequired
+      : undefined;
+
+  const updated = await prisma.travelRequest.update({
     where: {
       id,
     },
@@ -159,13 +198,15 @@ export async function updateTravelRequest(
         ? new Date(data.departureDate)
         : undefined,
       returnDate: data.returnDate ? new Date(data.returnDate) : undefined,
-      accommodationRequired: data.accommodationRequired,
-      transportRequired: data.transportRequired,
+      accommodationRequired: isAccomRequired,
+      transportRequired: isTransportRequired,
       estimatedBudget: data.estimatedBudget,
-      employeeRemarks: data.employeeRemarks,
+      employeeRemarks: data.employeeRemarks ?? data.notes,
     },
     include: travelRequestInclude,
   });
+
+  return formatTravelRequest(updated);
 }
 
 export async function approveTravelRequest(
@@ -186,30 +227,29 @@ export async function approveTravelRequest(
   }
 
   const updatedRequest = await prisma.travelRequest.update({
-  where: {
-    id,
-  },
-  data: {
-    status: TravelRequestStatus.APPROVED,
-    approvedById: managerId,
-    decisionRemarks: data.decisionRemarks,
-    decidedAt: new Date(),
-  },
-  include: travelRequestInclude,
-});
+    where: {
+      id,
+    },
+    data: {
+      status: TravelRequestStatus.APPROVED,
+      approvedById: managerId,
+      decisionRemarks: data.decisionRemarks ?? (data as any).managerRemarks,
+      decidedAt: new Date(),
+    },
+    include: travelRequestInclude,
+  });
 
-await createNotification(managerId, {
-  recipientId: updatedRequest.employeeId,
-  type: NotificationType.TRAVEL_REQUEST,
-  priority: NotificationPriority.HIGH,
-  title: "Travel Request Approved",
-  message: `Your travel request from ${updatedRequest.fromLocation} to ${updatedRequest.toLocation} has been approved.`,
-  entityType: "TravelRequest",
-  entityId: updatedRequest.id,
-});
+  await createNotification(managerId, {
+    recipientId: updatedRequest.employeeId,
+    type: NotificationType.TRAVEL_REQUEST,
+    priority: NotificationPriority.HIGH,
+    title: "Travel Request Approved",
+    message: `Your travel request from ${updatedRequest.fromLocation} to ${updatedRequest.toLocation} has been approved.`,
+    entityType: "TravelRequest",
+    entityId: updatedRequest.id,
+  });
 
-return updatedRequest;
-
+  return formatTravelRequest(updatedRequest);
 }
 
 export async function rejectTravelRequest(
@@ -223,18 +263,20 @@ export async function rejectTravelRequest(
     throw new Error("Only pending travel requests can be rejected");
   }
 
-  return prisma.travelRequest.update({
+  const rejected = await prisma.travelRequest.update({
     where: {
       id,
     },
     data: {
       status: TravelRequestStatus.REJECTED,
       approvedById: managerId,
-      decisionRemarks: data.decisionRemarks,
+      decisionRemarks: data.decisionRemarks ?? (data as any).managerRemarks,
       decidedAt: new Date(),
     },
     include: travelRequestInclude,
   });
+
+  return formatTravelRequest(rejected);
 }
 
 export async function cancelTravelRequest(
@@ -257,15 +299,17 @@ export async function cancelTravelRequest(
     throw new Error("Only pending travel requests can be cancelled");
   }
 
-  return prisma.travelRequest.update({
+  const cancelled = await prisma.travelRequest.update({
     where: {
       id,
     },
     data: {
       status: TravelRequestStatus.CANCELLED,
-      employeeRemarks: data.employeeRemarks,
+      employeeRemarks: data.employeeRemarks ?? (data as any).remarks,
       decidedAt: new Date(),
     },
     include: travelRequestInclude,
   });
+
+  return formatTravelRequest(cancelled);
 }

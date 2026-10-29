@@ -62,10 +62,10 @@ export default function HelpdeskModal({
             </div>
             <div>
               <h3 className="text-lg font-bold text-white tracking-tight">
-                Enterprise IT Support & Access
+                Help & Password Reset
               </h3>
               <p className="text-xs text-slate-400">
-                Self-service password recovery & service desk assistance
+                Reset your password or contact the office help desk
               </p>
             </div>
           </div>
@@ -86,28 +86,28 @@ export default function HelpdeskModal({
                 <CheckCircle2 size={24} />
               </div>
               <h4 className="mt-3 text-base font-bold text-white">
-                Recovery Instructions Dispatched
+                Password Reset Email Sent
               </h4>
               <p className="mt-1.5 text-xs text-slate-300">
-                If <strong className="text-emerald-300 font-mono">{resetEmail}</strong> is registered with an active Active Directory / IndusConnect account, a secure credential reset link has been dispatched.
+                If <strong className="text-emerald-300 font-mono">{resetEmail}</strong> is registered, password reset instructions have been sent to your inbox.
               </p>
               <div className="mt-4 flex items-center justify-center gap-2 text-2xs text-slate-400">
                 <Clock size={12} />
-                <span>Link valid for 15 minutes • Single-use token</span>
+                <span>Link is valid for 15 minutes</span>
               </div>
               <button
                 type="button"
                 onClick={handleReset}
                 className="mt-5 w-full rounded-xl bg-emerald-600 py-2.5 text-xs font-semibold text-white hover:bg-emerald-500 transition"
               >
-                Return to Login
+                Back to Sign In
               </button>
             </div>
           ) : (
             <form onSubmit={handleResetSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                  Corporate Work Email
+                  Email Address
                 </label>
                 <div className="relative">
                   <Mail
@@ -131,11 +131,11 @@ export default function HelpdeskModal({
                 className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-xs font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-500 transition disabled:opacity-60"
               >
                 {isLoading ? (
-                  <span>Verifying Corporate Identity...</span>
+                  <span>Sending...</span>
                 ) : (
                   <>
                     <Send size={14} />
-                    <span>Send Self-Service Password Reset</span>
+                    <span>Send Password Reset Link</span>
                   </>
                 )}
               </button>
@@ -145,25 +145,25 @@ export default function HelpdeskModal({
           {/* IT Helpdesk Channels */}
           <div className="border-t border-slate-800/80 pt-5 space-y-3">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Corporate Support Channels
+              Need Direct Help?
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div className="rounded-xl border border-slate-800 bg-slate-800/40 p-3 flex items-start gap-2.5">
                 <Mail size={16} className="text-blue-400 shrink-0 mt-0.5" />
                 <div>
-                  <div className="font-semibold text-slate-200">Global IT Helpdesk</div>
+                  <div className="font-semibold text-slate-200">Office Support Email</div>
                   <div className="text-2xs text-slate-400 font-mono">support@indusconnect.com</div>
-                  <div className="text-2xs text-slate-500 mt-1">SLA: &lt; 15 mins for tier 1</div>
+                  <div className="text-2xs text-slate-500 mt-1">Reply in under 15 minutes</div>
                 </div>
               </div>
 
               <div className="rounded-xl border border-slate-800 bg-slate-800/40 p-3 flex items-start gap-2.5">
                 <PhoneCall size={16} className="text-emerald-400 shrink-0 mt-0.5" />
                 <div>
-                  <div className="font-semibold text-slate-200">Internal VOIP / Tel</div>
-                  <div className="text-2xs text-slate-400 font-mono">+1 (800) 555-4638 ext. 4400</div>
-                  <div className="text-2xs text-slate-500 mt-1">24/7 Operations Desk</div>
+                  <div className="font-semibold text-slate-200">Phone Helpline</div>
+                  <div className="text-2xs text-slate-400 font-mono">+1 (800) 555-4638</div>
+                  <div className="text-2xs text-slate-500 mt-1">Available 24/7</div>
                 </div>
               </div>
             </div>

@@ -73,7 +73,7 @@ export default function MobileBottomBar({
         return [
           {
             key: "dashboard",
-            title: "Dashboard",
+            title: "Home",
             path: "/dashboard",
             icon: (a) => <LayoutDashboard size={19} className={a ? "text-[#1769E0]" : "text-slate-400"} />,
           },
@@ -85,13 +85,13 @@ export default function MobileBottomBar({
           },
           {
             key: "shuttle-bookings",
-            title: "Shuttles",
+            title: "Buses",
             path: "/shuttle-bookings",
             icon: (a) => <Bus size={19} className={a ? "text-[#1769E0]" : "text-slate-400"} />,
           },
           {
             key: "expenses",
-            title: "Expenses",
+            title: "Bills",
             path: "/expenses",
             icon: (a) => <Receipt size={19} className={a ? "text-[#1769E0]" : "text-slate-400"} />,
           },
@@ -101,19 +101,19 @@ export default function MobileBottomBar({
         return [
           {
             key: "dashboard",
-            title: "Dashboard",
+            title: "Home",
             path: "/dashboard",
             icon: (a) => <LayoutDashboard size={19} className={a ? "text-[#1769E0]" : "text-slate-400"} />,
           },
           {
             key: "expenses",
-            title: "Claims",
+            title: "Bills",
             path: "/expenses",
             icon: (a) => <Receipt size={19} className={a ? "text-[#1769E0]" : "text-slate-400"} />,
           },
           {
             key: "erp-exports",
-            title: "ERP Sync",
+            title: "Payroll",
             path: "/erp-exports",
             icon: (a) => <CheckSquare size={19} className={a ? "text-[#1769E0]" : "text-slate-400"} />,
           },
@@ -145,7 +145,7 @@ export default function MobileBottomBar({
           },
           {
             key: "shuttle-bookings",
-            title: "Shuttle",
+            title: "Bus Ride",
             path: "/shuttle-bookings",
             icon: (a) => <Bus size={19} className={a ? "text-[#1769E0]" : "text-slate-400"} />,
           },
@@ -157,7 +157,7 @@ export default function MobileBottomBar({
           },
           {
             key: "expenses",
-            title: "Expenses",
+            title: "Bills",
             path: "/expenses",
             icon: (a) => <Receipt size={19} className={a ? "text-[#1769E0]" : "text-slate-400"} />,
           },

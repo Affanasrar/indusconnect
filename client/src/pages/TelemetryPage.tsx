@@ -364,15 +364,14 @@ export default function TelemetryPage() {
           <div className="flex items-center gap-2.5">
             <span className="flex h-3 w-3 rounded-full bg-emerald-500 animate-ping" />
             <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-2xs font-extrabold uppercase tracking-wider text-emerald-700 border border-emerald-500/20">
-              Satellite Radar Active
+              Live GPS Connected
             </span>
           </div>
           <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
-            Live Fleet Telemetry Radar
+            Live Bus & Fleet Map
           </h1>
           <p className="mt-1 text-sm text-slate-500 max-w-3xl">
-            Enterprise GPS tracking, heading orientations, velocity telemetry,
-            and real-time transit safety command center.
+            Real-time GPS tracking map showing where all company buses and vehicles are right now.
           </p>
         </div>
 
@@ -406,7 +405,7 @@ export default function TelemetryPage() {
               size={15}
               className={`mr-2 ${isLoading ? "animate-spin" : ""}`}
             />
-            Sync Feeds
+            Refresh Map
           </Button>
         </div>
       </div>
@@ -420,11 +419,10 @@ export default function TelemetryPage() {
             </div>
             <div>
               <p className="font-extrabold text-sm sm:text-base">
-                CRITICAL FLEET ALARM: {emergencies.length} Active Emergency Event(s)!
+                EMERGENCY ALERT: {emergencies.length} Active Emergency on Route!
               </p>
               <p className="text-xs text-red-100 mt-0.5">
-                Immediate attention required. Captain flagged distress signal on
-                commute routes.
+                Immediate help needed. Driver pressed emergency button on bus route.
               </p>
             </div>
           </div>

@@ -21,7 +21,7 @@ export default function ShuttleModulePage() {
                 : "border-transparent text-slate-500 hover:text-slate-700"
             }`}
           >
-            My Personal Commute
+            My Bus Bookings
           </button>
           <button
             onClick={() => setActiveTab("management")}
@@ -31,7 +31,7 @@ export default function ShuttleModulePage() {
                 : "border-transparent text-slate-500 hover:text-slate-700"
             }`}
           >
-            Shuttle Route & Roster Management
+            Manage Bus Seats & Passengers
           </button>
         </div>
 

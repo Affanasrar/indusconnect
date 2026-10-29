@@ -19,6 +19,7 @@ export const proxyTravelRequestSchema = z.object({
   returnDate: z.string().optional(),
 
   accommodationRequired: z.boolean().optional(),
+  requiresAccommodation: z.boolean().optional(),
   transportRequired: z.boolean().optional(),
   estimatedBudget: z.number().nonnegative().optional(),
 

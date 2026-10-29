@@ -57,10 +57,10 @@ export default function SsoLoginModal({
             </div>
             <div>
               <h3 className="text-lg font-bold text-white tracking-tight">
-                Corporate Single Sign-On (SSO)
+                Company Single Sign-On (SSO)
               </h3>
               <p className="text-xs text-slate-400">
-                Federated enterprise authentication via SAML 2.0 / OIDC
+                Sign in with your company work account
               </p>
             </div>
           </div>
@@ -77,7 +77,7 @@ export default function SsoLoginModal({
           {/* IdP Providers */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-              Select Identity Provider (IdP)
+              Choose Company Sign-In Provider
             </label>
             <div className="grid grid-cols-3 gap-2.5">
               <button
@@ -92,7 +92,7 @@ export default function SsoLoginModal({
                 <div className="h-6 w-6 rounded-md bg-blue-600 flex items-center justify-center text-white text-2xs font-bold mb-1.5">
                   M
                 </div>
-                <span className="text-2xs font-semibold">Microsoft Entra</span>
+                <span className="text-2xs font-semibold">Microsoft</span>
               </button>
 
               <button
@@ -107,7 +107,7 @@ export default function SsoLoginModal({
                 <div className="h-6 w-6 rounded-md bg-sky-600 flex items-center justify-center text-white text-2xs font-bold mb-1.5">
                   O
                 </div>
-                <span className="text-2xs font-semibold">Okta Identity</span>
+                <span className="text-2xs font-semibold">Okta</span>
               </button>
 
               <button
@@ -122,7 +122,7 @@ export default function SsoLoginModal({
                 <div className="h-6 w-6 rounded-md bg-red-600 flex items-center justify-center text-white text-2xs font-bold mb-1.5">
                   G
                 </div>
-                <span className="text-2xs font-semibold">Google Cloud</span>
+                <span className="text-2xs font-semibold">Google</span>
               </button>
             </div>
           </div>
@@ -130,7 +130,7 @@ export default function SsoLoginModal({
           {/* Domain / Tenant */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-              Organization Domain or Tenant ID
+              Company Email Domain
             </label>
             <div className="relative">
               <Globe
@@ -147,14 +147,14 @@ export default function SsoLoginModal({
               />
             </div>
             <p className="mt-1.5 text-2xs text-slate-400">
-              Enter your corporate domain to route to your organization&apos;s Single Sign-On gateway.
+              Enter your company email domain to sign in automatically.
             </p>
           </div>
 
           <div className="rounded-xl border border-blue-900/50 bg-blue-950/20 p-3 flex items-start gap-2.5 text-2xs text-blue-300">
             <ShieldCheck size={16} className="text-blue-400 shrink-0 mt-0.5" />
             <div>
-              <span className="font-semibold">Zero-Trust Network Access</span>: IndusConnect enforces conditional access policies and hardware token MFA on corporate SSO handshakes.
+              <span className="font-semibold">Secure Sign In</span>: IndusConnect verifies your work identity securely with your company login system.
             </div>
           </div>
 
@@ -166,11 +166,11 @@ export default function SsoLoginModal({
             {isRedirecting ? (
               <div className="flex items-center gap-2">
                 <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                <span>Redirecting to {selectedProvider === "azure" ? "Microsoft Entra" : selectedProvider === "okta" ? "Okta" : "Google Cloud"} Gateway...</span>
+                <span>Signing in...</span>
               </div>
             ) : (
               <>
-                <span>Authenticate via Corporate IdP</span>
+                <span>Sign in with Company Account</span>
                 <ArrowRight size={14} />
               </>
             )}

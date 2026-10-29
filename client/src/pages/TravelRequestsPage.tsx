@@ -248,7 +248,7 @@ function EmployeeTravelRequestsPage() {
       ).length,
 
       accommodation: requests.filter(
-        (request) => request.requiresAccommodation
+        (request) => Boolean(request.accommodationRequired ?? request.requiresAccommodation)
       ).length,
     };
   }, [requests]);
@@ -333,8 +333,8 @@ function EmployeeTravelRequestsPage() {
         departureDate: form.departureDate,
         returnDate: form.returnDate,
         travelMode: form.travelMode,
-        requiresAccommodation:
-          form.requiresAccommodation,
+        requiresAccommodation: form.requiresAccommodation,
+        accommodationRequired: form.requiresAccommodation,
         isEmergency: form.isEmergency,
       };
 
@@ -409,10 +409,10 @@ function EmployeeTravelRequestsPage() {
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center pb-2 border-b border-[#DCE5F0]/80">
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#102644]">
-            Official Travel Requests
+            Travel & Trips
           </h1>
           <p className="mt-0.5 text-xs sm:text-sm text-[#64748B]">
-            Submit official travel requests and track approval, policy, and accommodation status.
+            Ask for business travel, company cars, and hotel rooms, and see your approvals.
           </p>
         </div>
 
@@ -443,7 +443,7 @@ function EmployeeTravelRequestsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">
-                Total Requests
+                Total Trips
               </p>
               <p className="mt-2 text-2xl font-bold text-slate-900">
                 {summary.total}
@@ -461,7 +461,7 @@ function EmployeeTravelRequestsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">
-                Pending
+                Waiting for Approval
               </p>
               <p className="mt-2 text-2xl font-bold text-amber-700">
                 {summary.pending}
@@ -497,7 +497,7 @@ function EmployeeTravelRequestsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">
-                Need Accommodation
+                Hotel / Room Needed
               </p>
               <p className="mt-2 text-2xl font-bold text-violet-700">
                 {summary.accommodation}
@@ -525,8 +525,7 @@ function EmployeeTravelRequestsPage() {
               </h2>
 
               <p className="text-sm text-slate-500">
-                Submit travel information for manager
-                approval.
+                Ask for business travel and hotel approval from your manager.
               </p>
             </div>
           </div>
@@ -998,7 +997,7 @@ function EmployeeTravelRequestsPage() {
                       </td>
 
                       <td className="px-4 py-4">
-                        {request.requiresAccommodation ? (
+                        {(request.accommodationRequired ?? request.requiresAccommodation) ? (
                           <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">
                             Required
                           </span>
@@ -1513,7 +1512,7 @@ function ManagerTravelApprovalPage() {
                   </p>
 
                   <p className="mt-1 font-semibold text-slate-700">
-                    {selectedRequest.requiresAccommodation
+                    {(selectedRequest.accommodationRequired ?? selectedRequest.requiresAccommodation)
                       ? "Required"
                       : "Not required"}
                   </p>

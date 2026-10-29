@@ -305,10 +305,10 @@ export default function PoliciesPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-            Compliance Policy Manager
+            Company Approval Rules
           </h1>
           <p className="text-sm text-slate-500">
-            Configure financial caps, grade approvals, and audit automated validation decision logs.
+            Set spending limits and rules for who needs to approve travel, expenses, and transport.
           </p>
         </div>
         <div className="flex gap-2">
@@ -319,7 +319,7 @@ export default function PoliciesPage() {
             className="rounded-xl border border-slate-200 text-xs py-2"
           >
             <RefreshCcw size={15} className={`mr-1.5 ${isLoading ? "animate-spin" : ""}`} />
-            Sync Policies
+            Refresh
           </Button>
 
           {isSuperAdmin && (
@@ -332,7 +332,7 @@ export default function PoliciesPage() {
               className="rounded-xl text-xs py-2"
             >
               <PlusCircle size={15} className="mr-1.5" />
-              Add Policy Rule
+              Add New Rule
             </Button>
           )}
         </div>

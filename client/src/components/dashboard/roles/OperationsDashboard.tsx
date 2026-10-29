@@ -186,8 +186,8 @@ export default function OperationsDashboard() {
     <div className="space-y-6">
       {/* Page Header with Live Auto-Refresh */}
       <PageHeader
-        title="Operations Dashboard"
-        subtitle="Review today's activities, live transit coordinates, and items needing attention."
+        title="Operations & Transport Dashboard"
+        subtitle="Review today's bus trips, vehicle status, and requests waiting for approval."
         onRefresh={() => loadOperationsData(false)}
         isRefreshing={isLoading || isRefreshing}
         action={
@@ -198,7 +198,7 @@ export default function OperationsDashboard() {
                 className="inline-flex items-center gap-1.5 rounded-lg bg-[#102644] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#1769E0] transition active:scale-95 shadow-xs"
               >
                 <CheckSquare size={14} />
-                <span>Review Approvals</span>
+                <span>Approvals</span>
               </Link>
             )}
 
@@ -208,7 +208,7 @@ export default function OperationsDashboard() {
                 className="inline-flex items-center gap-1.5 rounded-lg border border-[#DCE5F0] bg-white px-3 py-2 text-xs font-semibold text-[#102644] hover:bg-slate-50 transition active:scale-95"
               >
                 <Truck size={14} />
-                <span className="hidden sm:inline">Manage Vehicles</span>
+                <span className="hidden sm:inline">Vehicles & Buses</span>
               </Link>
             )}
           </div>
@@ -228,11 +228,11 @@ export default function OperationsDashboard() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
-            label="Pending Approvals"
+            label="Waiting for Approval"
             value={totalPendingApprovals}
             subtitle={
               totalPendingApprovals > 0
-                ? "Items awaiting management action"
+                ? "Items awaiting your action"
                 : "All items caught up"
             }
             icon={<CheckSquare size={20} />}
@@ -241,7 +241,7 @@ export default function OperationsDashboard() {
           />
 
           <KpiCard
-            label="Today's Transport Activities"
+            label="Today's Bus & Ride Trips"
             value={todayTransportActivities}
             subtitle={
               transportSummary?.activeTrips
@@ -254,12 +254,12 @@ export default function OperationsDashboard() {
           />
 
           <KpiCard
-            label="Vehicle Allocation Issues"
+            label="Vehicles Needing Repair"
             value={vehicleIssuesCount}
             subtitle={
               vehicleIssuesCount > 0
-                ? "Maintenance / inspections needed"
-                : "Fleet in active service"
+                ? "Repairs or inspections needed"
+                : "All vehicles running well"
             }
             icon={<Wrench size={20} />}
             iconTone={vehicleIssuesCount > 0 ? "rose" : "slate"}
@@ -267,7 +267,7 @@ export default function OperationsDashboard() {
           />
 
           <KpiCard
-            label="Requests Needing Attention"
+            label="Items Needing Review"
             value={requestsNeedingAttentionCount}
             subtitle="Flagged or priority items"
             icon={<AlertTriangle size={20} />}
@@ -283,8 +283,8 @@ export default function OperationsDashboard() {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-bold text-[#102644]">Needs Attention</h2>
-              <p className="text-xs text-[#64748B]">Actionable items with 1-click quick approvals</p>
+              <h2 className="text-sm font-bold text-[#102644]">Needs Review</h2>
+              <p className="text-xs text-[#64748B]">Requests waiting for your decision</p>
             </div>
             {totalPendingApprovals > 0 && (
               <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-[#B7791F] border border-amber-200">

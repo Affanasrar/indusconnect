@@ -355,10 +355,10 @@ export default function VehiclesPage() {
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center pb-2 border-b border-[#DCE5F0]/80">
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#102644]">
-            Vehicle & Fleet Management
+            Vehicles & Buses
           </h1>
           <p className="mt-0.5 text-xs sm:text-sm text-[#64748B]">
-            Manage owned and outsourced vehicles, capacity, fitness, and operating status.
+            Manage company cars, vans, buses, seating capacity, and safety fitness.
           </p>
         </div>
 

@@ -352,10 +352,10 @@ export default function ErpExportsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-            ERP Payroll Integration exports
+            Payroll & Financial Exports
           </h1>
           <p className="text-sm text-slate-500">
-            Synchronize approved claims, vendor transport invoices, and travel allowances into corporate HRIS ledger sheets.
+            Download approved bills, vendor transport invoices, and travel allowances for accounting and payroll.
           </p>
         </div>
         <div className="flex gap-2">

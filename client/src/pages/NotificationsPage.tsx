@@ -225,10 +225,10 @@ export default function NotificationsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-            Inbox Alert Center
+            Alerts & Messages
           </h1>
           <p className="text-sm text-slate-500">
-            Read corporate travel warnings, shuttle dispatch assignments, and log broadcast announcements.
+            Read updates about your bus rides, trip approvals, bill payments, and company announcements.
           </p>
         </div>
         <div className="flex gap-2">
