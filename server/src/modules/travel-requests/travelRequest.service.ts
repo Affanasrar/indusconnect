@@ -46,10 +46,11 @@ const travelRequestInclude = {
   },
 };
 
-function formatTravelRequest<T extends { accommodationRequired: boolean }>(req: T) {
+function formatTravelRequest<T extends { accommodationRequired: boolean; travelMode?: string | null }>(req: T) {
   return {
     ...req,
     requiresAccommodation: req.accommodationRequired,
+    travelMode: req.travelMode || "COMPANY_VEHICLE",
   };
 }
 
@@ -82,10 +83,13 @@ export async function createTravelRequest(
       ? data.transportRequired
       : false;
 
+  const travelMode = data.travelMode || "COMPANY_VEHICLE";
+
   const created = await prisma.travelRequest.create({
     data: {
       employeeId,
       travelType: data.travelType,
+      travelMode,
       urgency: data.urgency,
       purpose: data.purpose,
       fromLocation: data.fromLocation,
@@ -190,6 +194,7 @@ export async function updateTravelRequest(
     },
     data: {
       travelType: data.travelType,
+      travelMode: data.travelMode,
       urgency: data.urgency,
       purpose: data.purpose,
       fromLocation: data.fromLocation,

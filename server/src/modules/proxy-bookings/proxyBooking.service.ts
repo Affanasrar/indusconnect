@@ -129,6 +129,7 @@ export async function createProxyTravelRequest(
       toLocation: data.toLocation,
       departureDate: new Date(data.departureDate),
       returnDate: data.returnDate ? new Date(data.returnDate) : undefined,
+      travelMode: (data as any).travelMode || "COMPANY_VEHICLE",
       accommodationRequired: Boolean(data.accommodationRequired ?? data.requiresAccommodation),
       transportRequired: data.transportRequired ?? false,
       estimatedBudget: data.estimatedBudget,

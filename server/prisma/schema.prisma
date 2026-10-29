@@ -644,6 +644,7 @@ model TravelRequest {
   employee        User                @relation("EmployeeTravelRequests", fields: [employeeId], references: [id])
 
   travelType      TravelType
+  travelMode      String?             @default("COMPANY_VEHICLE")
   urgency         TravelUrgency       @default(NORMAL)
 
   purpose         String

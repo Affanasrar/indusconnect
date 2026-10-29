@@ -43,6 +43,7 @@ function normalizeTravelRequest(req: any): TravelRequest {
   const isAccom = Boolean(req.accommodationRequired ?? req.requiresAccommodation);
   return {
     ...req,
+    travelMode: req.travelMode || "COMPANY_VEHICLE",
     accommodationRequired: isAccom,
     requiresAccommodation: isAccom,
   };

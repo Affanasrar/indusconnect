@@ -118,6 +118,14 @@ function formatLabel(value: unknown) {
     return "Not provided";
   }
 
+  const upper = value.trim().toUpperCase();
+  if (upper === "AIR" || upper === "FLIGHT") {
+    return "Flight / Air";
+  }
+  if (upper === "COMPANY_VEHICLE") {
+    return "Company Vehicle";
+  }
+
   return value
     .trim()
     .toLowerCase()
@@ -584,8 +592,8 @@ function EmployeeTravelRequestsPage() {
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {[
-                  { label: "Karachi → Islamabad", from: "Karachi Head Office", to: "Islamabad Regional Office", type: "INTER_CITY" as TravelType, mode: "FLIGHT" as TravelMode },
-                  { label: "Karachi → Lahore", from: "Karachi Head Office", to: "Lahore Regional Office", type: "INTER_CITY" as TravelType, mode: "FLIGHT" as TravelMode },
+                  { label: "Karachi → Islamabad", from: "Karachi Head Office", to: "Islamabad Regional Office", type: "INTER_CITY" as TravelType, mode: "AIR" as TravelMode },
+                  { label: "Karachi → Lahore", from: "Karachi Head Office", to: "Lahore Regional Office", type: "INTER_CITY" as TravelType, mode: "AIR" as TravelMode },
                   { label: "Karachi → Hyderabad", from: "Karachi Head Office", to: "Hyderabad Campus", type: "INTER_CITY" as TravelType, mode: "COMPANY_VEHICLE" as TravelMode },
                   { label: "Main → City Campus", from: "Indus Main Campus", to: "Indus City Campus", type: "INTER_CAMPUS" as TravelType, mode: "COMPANY_VEHICLE" as TravelMode },
                 ].map((route) => (
@@ -885,8 +893,12 @@ function EmployeeTravelRequestsPage() {
                           value: request.transportRequired ? "Vehicle Needed" : "Not Required",
                         },
                         {
+                          label: "Travel Mode",
+                          value: formatLabel(request.travelMode),
+                        },
+                        {
                           label: "Accommodation",
-                          value: request.accommodationRequired ? "Room Needed" : "Not Required",
+                          value: (request.accommodationRequired ?? request.requiresAccommodation) ? "Room Needed" : "Not Required",
                         },
                       ]}
                       actions={
