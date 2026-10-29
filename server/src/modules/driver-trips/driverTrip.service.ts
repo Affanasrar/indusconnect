@@ -379,3 +379,31 @@ export async function endTrip(userId: string, routeId: string) {
 
   return updatedTrip;
 }
+
+export async function getMyDriverTrips(userId: string) {
+  const driver = await getCurrentDriver(userId);
+
+  return prisma.transportTrip.findMany({
+    where: {
+      driverId: driver.id,
+    },
+    include: {
+      route: {
+        include: {
+          vehicle: true,
+          smartStops: {
+            orderBy: { stopOrder: "asc" },
+          },
+        },
+      },
+      driver: {
+        include: {
+          user: true,
+        },
+      },
+    },
+    orderBy: {
+      startedAt: "desc",
+    },
+  });
+}

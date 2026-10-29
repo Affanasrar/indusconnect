@@ -20,7 +20,12 @@ import {
   Eye,
   CheckCircle2,
   Search,
+  Phone,
+  Check,
+  Play,
+  XCircle,
 } from "lucide-react";
+import { useToast } from "../context/ToastContext";
 import {
   endDriverTrip,
   getDriverRouteManifest,
@@ -276,6 +281,8 @@ export default function DriverTripsPage() {
   const [isSubmittingChecklist, setIsSubmittingChecklist] = useState(false);
   const [isSubmittingIssue, setIsSubmittingIssue] = useState(false);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
+  const [isEasyMode, setIsEasyMode] = useState(true);
+  const toast = useToast();
 
   const selectedRoute = useMemo(() => {
     return (
@@ -670,13 +677,13 @@ export default function DriverTripsPage() {
       );
 
       setMessage("Safety checklist submitted successfully");
+      toast.success("Safety inspection saved! Vehicle is cleared for departure.", "Checklist Approved");
 
       await refreshCurrentRoute();
     } catch (requestError) {
-      setError(
-        getErrorMessage(requestError) ??
-          "Failed to submit safety checklist"
-      );
+      const errMsg = getErrorMessage(requestError) ?? "Failed to submit safety checklist";
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setIsSubmittingChecklist(false);
     }
@@ -725,6 +732,7 @@ export default function DriverTripsPage() {
       const updatedTrip = await startDriverTrip(selectedRouteId);
 
       setMessage("Trip started successfully");
+      toast.success("Trip started successfully! Drive safely.", "Departure Active");
 
       try {
         await createTelemetryLog({
@@ -769,16 +777,15 @@ export default function DriverTripsPage() {
         booking.id
       );
 
-      setMessage(
-        `${booking.employee?.fullName ?? "Passenger"} marked as boarded`
-      );
+      const passName = booking.employee?.fullName ?? "Passenger";
+      setMessage(`${passName} marked as boarded`);
+      toast.success(`${passName} confirmed on board!`, "Passenger Boarded");
 
       await refreshCurrentRoute();
     } catch (requestError) {
-      setError(
-        getErrorMessage(requestError) ??
-          "Failed to mark passenger as boarded"
-      );
+      const errMsg = getErrorMessage(requestError) ?? "Failed to mark passenger as boarded";
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setProcessingAction(null);
     }
@@ -811,16 +818,15 @@ export default function DriverTripsPage() {
         booking.id
       );
 
-      setMessage(
-        `${booking.employee?.fullName ?? "Passenger"} marked as no-show`
-      );
+      const passName = booking.employee?.fullName ?? "Passenger";
+      setMessage(`${passName} marked as no-show`);
+      toast.info(`${passName} recorded as no-show`, "No-Show Updated");
 
       await refreshCurrentRoute();
     } catch (requestError) {
-      setError(
-        getErrorMessage(requestError) ??
-          "Failed to mark passenger as no-show"
-      );
+      const errMsg = getErrorMessage(requestError) ?? "Failed to mark passenger as no-show";
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setProcessingAction(null);
     }
@@ -949,14 +955,14 @@ export default function DriverTripsPage() {
       await endDriverTrip(selectedRouteId);
 
       setMessage("Trip completed successfully");
+      toast.success("Trip completed and logged successfully! Great job.", "Trip Finished");
 
       await refreshCurrentRoute();
       await loadRoutes();
     } catch (requestError) {
-      setError(
-        getErrorMessage(requestError) ??
-          "Failed to complete trip"
-      );
+      const errMsg = getErrorMessage(requestError) ?? "Failed to complete trip";
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setProcessingAction(null);
     }
@@ -980,10 +986,25 @@ export default function DriverTripsPage() {
           </p>
         </div>
 
-        <Button variant="secondary" onClick={loadRoutes}>
-          <RefreshCcw size={16} className="mr-2" />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsEasyMode(!isEasyMode)}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black transition shadow-sm ${
+              isEasyMode
+                ? "bg-emerald-600 text-white ring-2 ring-emerald-400 shadow-emerald-600/20"
+                : "bg-slate-200 text-slate-700 hover:bg-slate-300"
+            }`}
+          >
+            <Sparkles size={15} />
+            <span>{isEasyMode ? "📱 Easy Driver Mode (Active)" : "🖥️ Advanced Map HUD"}</span>
+          </button>
+
+          <Button variant="secondary" onClick={loadRoutes}>
+            <RefreshCcw size={16} className="mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {message && (
@@ -1146,8 +1167,345 @@ export default function DriverTripsPage() {
             )}
           </Card>
 
-          {/* 3. MOBILE-ONLY WORKSPACE TAB CONTROLLER (< xl) */}
-          <div className="flex xl:hidden rounded-2xl bg-slate-100 p-1.5 border border-slate-200 overflow-x-auto no-scrollbar gap-1">
+          {isEasyMode ? (
+            <div className="space-y-6">
+              {/* STEP 1: SAFETY CHECKLIST (shown if trip not finished) */}
+              {trip?.status !== "COMPLETED" && (
+                <Card>
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                      <div>
+                        <span className="rounded-full bg-amber-100 px-3 py-1 text-2xs font-extrabold uppercase tracking-wider text-amber-800">
+                          Step 1: Vehicle Safety Check
+                        </span>
+                        <h3 className="text-lg font-black text-slate-900 mt-1">
+                          4-Point Pre-Trip Vehicle Inspection
+                        </h3>
+                        <p className="text-xs text-slate-500 font-medium">
+                          Tap each checkmark below to verify vehicle fitness before driving.
+                        </p>
+                      </div>
+
+                      <div className="shrink-0">
+                        {checklistComplete ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-100 px-3 py-1.5 text-xs font-black text-emerald-800 border border-emerald-300">
+                            <CheckCircle2 size={16} className="text-emerald-600" />
+                            All Checks Passed
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-xl bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 border border-amber-200">
+                            <AlertTriangle size={15} />
+                            Inspection Required
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <form onSubmit={handleChecklistSubmit} className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {[
+                          {
+                            id: "fuel",
+                            label: "Fuel Level Adequate",
+                            desc: "Sufficient fuel for scheduled route",
+                            checked: checklist.fuelChecked,
+                            toggle: () =>
+                              setChecklist((prev) => ({ ...prev, fuelChecked: !prev.fuelChecked })),
+                          },
+                          {
+                            id: "tires",
+                            label: "Tire Pressure & Tread OK",
+                            desc: "No punctures, proper air pressure",
+                            checked: checklist.tiresChecked,
+                            toggle: () =>
+                              setChecklist((prev) => ({ ...prev, tiresChecked: !prev.tiresChecked })),
+                          },
+                          {
+                            id: "brakes",
+                            label: "Brakes & Handbrake Working",
+                            desc: "Firm pedal feel, responsive stopping",
+                            checked: checklist.brakesChecked,
+                            toggle: () =>
+                              setChecklist((prev) => ({ ...prev, brakesChecked: !prev.brakesChecked })),
+                          },
+                          {
+                            id: "lights",
+                            label: "Headlights & Indicators Working",
+                            desc: "High/low beam, hazard lights, reverse light",
+                            checked: checklist.lightsChecked,
+                            toggle: () =>
+                              setChecklist((prev) => ({ ...prev, lightsChecked: !prev.lightsChecked })),
+                          },
+                        ].map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={item.toggle}
+                            className={`flex items-center justify-between p-4 rounded-2xl border-2 text-left transition active:scale-98 ${
+                              item.checked
+                                ? "border-emerald-500 bg-emerald-50/80 shadow-xs"
+                                : "border-slate-200 bg-slate-50 hover:bg-slate-100"
+                            }`}
+                          >
+                            <div className="pr-3">
+                              <p className={`text-sm font-black ${item.checked ? "text-emerald-950" : "text-slate-800"}`}>
+                                {item.label}
+                              </p>
+                              <p className="text-2xs text-slate-500 font-medium mt-0.5">
+                                {item.desc}
+                              </p>
+                            </div>
+
+                            <div
+                              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-bold transition ${
+                                item.checked
+                                  ? "bg-emerald-600 text-white shadow-sm"
+                                  : "border-2 border-slate-300 text-transparent"
+                              }`}
+                            >
+                              <Check size={18} strokeWidth={3} />
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isSubmittingChecklist || !checklistComplete}
+                        className={`w-full py-4 rounded-2xl text-base font-black transition shadow-md flex items-center justify-center gap-2 ${
+                          checklistComplete
+                            ? "bg-emerald-600 hover:bg-emerald-700 text-white active:scale-98"
+                            : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                        }`}
+                      >
+                        <SquareCheckBig size={20} />
+                        <span>{isSubmittingChecklist ? "Submitting Check..." : "Save Safety Inspection (Ready to Drive)"}</span>
+                      </button>
+                    </form>
+                  </div>
+                </Card>
+              )}
+
+              {/* STEP 2: TRIP CONTROLS */}
+              <Card>
+                <div className="space-y-4">
+                  <div>
+                    <span className="rounded-full bg-blue-100 px-3 py-1 text-2xs font-extrabold uppercase tracking-wider text-blue-800">
+                      Step 2: Trip Departure & Status
+                    </span>
+                    <h3 className="text-lg font-black text-slate-900 mt-1">
+                      Trip Controls
+                    </h3>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {trip?.status === "IN_PROGRESS" ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleEndTrip}
+                          disabled={processingAction === "end"}
+                          className="flex-1 py-5 px-6 rounded-2xl bg-blue-700 hover:bg-blue-800 text-white text-lg font-black shadow-lg shadow-blue-700/30 flex items-center justify-center gap-3 active:scale-98 transition"
+                        >
+                          <CheckCircle2 size={24} />
+                          <span>{processingAction === "end" ? "Finishing..." : "🏁 Complete & End Trip"}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const desc = window.prompt("Enter issue or delay details (e.g. Traffic jam, Flat tire):");
+                            if (desc && selectedRouteId) {
+                              setIssueForm((prev) => ({ ...prev, issueDescription: desc }));
+                              reportDriverTripIssue(selectedRouteId, {
+                                issueType: "DELAY",
+                                issueDescription: desc,
+                                issueLatitude: driverLat,
+                                issueLongitude: driverLng,
+                              }).then(() => {
+                                toast.info("Delay reported to dispatch desk");
+                                refreshCurrentRoute();
+                              }).catch(() => toast.error("Could not send delay report"));
+                            }
+                          }}
+                          className="py-5 px-6 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-base font-black shadow-md flex items-center justify-center gap-2 active:scale-98 transition"
+                        >
+                          <AlertTriangle size={20} />
+                          <span>Report Delay / SOS</span>
+                        </button>
+                      </>
+                    ) : trip?.status === "READY" ? (
+                      <button
+                        type="button"
+                        onClick={handleStartTrip}
+                        disabled={processingAction === "start"}
+                        className="w-full py-5 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-black shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-3 active:scale-98 transition"
+                      >
+                        <Play size={24} className="fill-current" />
+                        <span>{processingAction === "start" ? "Starting Trip..." : "▶ START TRIP (Depart Now)"}</span>
+                      </button>
+                    ) : trip?.status === "COMPLETED" ? (
+                      <div className="w-full p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-300 text-emerald-900 text-center font-bold">
+                        ✓ This trip has been completed and submitted to dispatch.
+                      </div>
+                    ) : (
+                      <div className="w-full p-4 rounded-2xl bg-slate-100 text-slate-600 text-center font-bold text-sm">
+                        Complete the safety inspection above to activate departure.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+
+              {/* STEP 3: PASSENGER MANIFEST & BOARDING */}
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-2xs font-extrabold uppercase tracking-wider text-emerald-800">
+                      Step 3: Passenger Boarding
+                    </span>
+                    <h3 className="text-xl font-black text-slate-900 mt-1">
+                      Passenger Manifest ({filteredPassengers.length})
+                    </h3>
+                    <p className="text-xs font-semibold text-slate-500">
+                      Tap green when the passenger boards, or grey if they missed the bus.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {(["ALL", "AWAITING", "BOARDED", "NO_SHOW"] as const).map((filter) => (
+                      <button
+                        key={filter}
+                        type="button"
+                        onClick={() => setManifestFilter(filter)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black transition ${
+                          manifestFilter === filter
+                            ? "bg-slate-900 text-white shadow-xs"
+                            : "bg-white text-slate-600 border border-slate-300 hover:bg-slate-100"
+                        }`}
+                      >
+                        {filter === "ALL" && `All (${passengers.length})`}
+                        {filter === "AWAITING" && `Waiting (${passengerSummary.awaiting})`}
+                        {filter === "BOARDED" && `Boarded (${passengerSummary.boarded})`}
+                        {filter === "NO_SHOW" && `No-Show (${passengerSummary.noShow})`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {filteredPassengers.length === 0 ? (
+                  <Card>
+                    <div className="p-8 text-center text-slate-500 font-bold">
+                      No passengers match this filter.
+                    </div>
+                  </Card>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filteredPassengers.map((booking) => {
+                      const emp = booking.employee;
+                      const isBoarded = booking.status === "COMPLETED";
+                      const isNoShow = booking.status === "NO_SHOW";
+
+                      return (
+                        <div
+                          key={booking.id}
+                          className={`p-5 rounded-3xl border-2 transition shadow-xs space-y-3.5 ${
+                            isBoarded
+                              ? "border-emerald-400 bg-emerald-50/70"
+                              : isNoShow
+                              ? "border-slate-300 bg-slate-100/80 opacity-75"
+                              : "border-slate-300 bg-white"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-lg font-black text-slate-900 truncate">
+                                  {emp?.fullName || "Employee"}
+                                </h4>
+                                {booking.seatNumber && (
+                                  <span className="rounded-md bg-blue-100 px-2 py-0.5 text-xs font-black text-blue-800">
+                                    Seat #{booking.seatNumber}
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="text-xs font-bold text-slate-600 mt-1 flex items-center gap-1.5">
+                                <MapPin size={14} className="text-blue-600 shrink-0" />
+                                <span className="truncate">Stop: {booking.pickupStop?.stopName || booking.pickupArea || "Designated Stop"}</span>
+                              </p>
+                            </div>
+
+                            <div className="shrink-0">
+                              {isBoarded ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-200 px-3 py-1 text-xs font-black text-emerald-900">
+                                  <Check size={14} strokeWidth={3} />
+                                  Boarded
+                                </span>
+                              ) : isNoShow ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-slate-300 px-3 py-1 text-xs font-black text-slate-700">
+                                  No-Show
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">
+                                  Waiting
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {emp?.phone && (
+                            <div className="pt-1">
+                              <a
+                                href={`tel:${emp.phone}`}
+                                className="inline-flex items-center gap-2 rounded-xl bg-slate-100 hover:bg-blue-100 px-3.5 py-2 text-xs font-bold text-blue-700 transition"
+                              >
+                                <Phone size={14} />
+                                <span>Call Passenger: {emp.phone}</span>
+                              </a>
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-2 gap-2.5 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => handlePassengerBoarded(booking)}
+                              disabled={isBoarded || processingAction === `board-${booking.id}`}
+                              className={`py-3.5 rounded-2xl text-sm font-black transition flex items-center justify-center gap-1.5 shadow-xs ${
+                                isBoarded
+                                  ? "bg-emerald-200 text-emerald-800 cursor-default"
+                                  : "bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95"
+                              }`}
+                            >
+                              <Check size={18} strokeWidth={3} />
+                              <span>{processingAction === `board-${booking.id}` ? "Updating..." : "BOARDED"}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handlePassengerNoShow(booking)}
+                              disabled={isNoShow || processingAction === `no-show-${booking.id}`}
+                              className={`py-3.5 rounded-2xl text-sm font-black transition flex items-center justify-center gap-1.5 ${
+                                isNoShow
+                                  ? "bg-slate-200 text-slate-500 cursor-default"
+                                  : "bg-slate-200 hover:bg-slate-300 text-slate-800 active:scale-95"
+                              }`}
+                            >
+                              <XCircle size={18} />
+                              <span>{processingAction === `no-show-${booking.id}` ? "Updating..." : "NO SHOW"}</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* 3. MOBILE-ONLY WORKSPACE TAB CONTROLLER (< xl) */}
+              <div className="flex xl:hidden rounded-2xl bg-slate-100 p-1.5 border border-slate-200 overflow-x-auto no-scrollbar gap-1">
             <button
               type="button"
               onClick={() => setDriverTab("nav")}
@@ -1938,6 +2296,8 @@ export default function DriverTripsPage() {
               )}
             </div>
           </div>
+        </>
+      )}
         </>
       )}
     </div>

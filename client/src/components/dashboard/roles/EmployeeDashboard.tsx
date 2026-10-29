@@ -9,6 +9,9 @@ import {
   Building2,
   ChevronRight,
   AlertCircle,
+  TicketCheck,
+  CheckCircle2,
+  Trash2,
 } from "lucide-react";
 import PageHeader from "../shared/PageHeader";
 import KpiCard from "../shared/KpiCard";
@@ -17,6 +20,7 @@ import EmptyState from "../shared/EmptyState";
 import { KpiSkeleton, TableSkeleton } from "../shared/LoadingState";
 import ErrorState from "../shared/ErrorState";
 import { http } from "../../../api/http";
+import { useToast } from "../../../context/ToastContext";
 
 interface EmployeeSummaryData {
   counts: {
@@ -43,6 +47,50 @@ export default function EmployeeDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
+
+  const toast = useToast();
+  const [quickShift, setQuickShift] = useState<"MORNING" | "EVENING">("MORNING");
+  const [quickDate, setQuickDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [quickArea, setQuickArea] = useState<string>("Garden West");
+  const [isSubmittingQuick, setIsSubmittingQuick] = useState(false);
+
+  async function handleQuickBook() {
+    if (!quickArea.trim()) {
+      toast.error("Please enter or select a pickup area");
+      return;
+    }
+
+    try {
+      setIsSubmittingQuick(true);
+      await http.post("/shuttle-bookings", {
+        bookingDate: quickDate,
+        shiftType: quickShift,
+        pickupArea: quickArea.trim(),
+        remarks: "1-Click quick commute booking from dashboard",
+      });
+      toast.success(
+        `Seat reserved for ${quickShift.toLowerCase()} shift on ${quickDate}! Check your boarding pass below.`,
+        "Commute Booked"
+      );
+      await fetchSummary();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || "Failed to book shuttle";
+      toast.error(msg);
+    } finally {
+      setIsSubmittingQuick(false);
+    }
+  }
+
+  async function handleCancelQuickBooking(bookingId: string) {
+    if (!window.confirm("Cancel this shuttle booking?")) return;
+    try {
+      await http.patch(`/shuttle-bookings/${bookingId}/cancel`);
+      toast.info("Shuttle booking cancelled");
+      await fetchSummary();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Could not cancel booking");
+    }
+  }
 
   async function fetchSummary() {
     try {
@@ -221,6 +269,240 @@ export default function EmployeeDashboard() {
           />
         </div>
       )}
+
+      {/* 1-CLICK EASY COMMUTE BOOKING BAR & ACTIVE DIGITAL TICKET */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Card A: Easy Booking Console */}
+        <div className="rounded-3xl border-2 border-blue-600 bg-gradient-to-br from-slate-900 to-[#102644] text-white p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-md">
+                <Bus size={26} />
+              </div>
+              <div>
+                <span className="inline-block rounded-full bg-blue-500/30 px-3 py-0.5 text-3xs font-extrabold uppercase tracking-wider text-blue-300 border border-blue-400/30">
+                  Quick Commute Pass
+                </span>
+                <h3 className="text-xl font-black text-white tracking-tight mt-0.5">
+                  Book Today or Tomorrow's Shuttle
+                </h3>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3.5 pt-1">
+            {/* Shift Picker */}
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                1. Select Shift Direction
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickShift("MORNING")}
+                  className={`py-3 px-4 rounded-2xl text-xs font-black transition flex items-center justify-center gap-2 ${
+                    quickShift === "MORNING"
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-600/40 border border-blue-400"
+                      : "bg-slate-800/80 text-slate-300 hover:bg-slate-800 border border-slate-700"
+                  }`}
+                >
+                  <span>☀️ Morning (To Office)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setQuickShift("EVENING")}
+                  className={`py-3 px-4 rounded-2xl text-xs font-black transition flex items-center justify-center gap-2 ${
+                    quickShift === "EVENING"
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-600/40 border border-blue-400"
+                      : "bg-slate-800/80 text-slate-300 hover:bg-slate-800 border border-slate-700"
+                  }`}
+                >
+                  <span>🌙 Evening (Return Home)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Date Quick Selector */}
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                2. Commute Date
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickDate(new Date().toISOString().slice(0, 10))}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${
+                    quickDate === new Date().toISOString().slice(0, 10)
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "bg-slate-800/80 text-slate-300 hover:bg-slate-800 border border-slate-700"
+                  }`}
+                >
+                  Today ({new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date();
+                    d.setDate(d.getDate() + 1);
+                    setQuickDate(d.toISOString().slice(0, 10));
+                  }}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${
+                    quickDate !== new Date().toISOString().slice(0, 10)
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "bg-slate-800/80 text-slate-300 hover:bg-slate-800 border border-slate-700"
+                  }`}
+                >
+                  Tomorrow
+                </button>
+              </div>
+            </div>
+
+            {/* Pickup Stop Preset Buttons */}
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                3. Pickup Stop / Area
+              </label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {["Garden West", "Gulshan Block 4", "Saddar", "Clifton / DHA", "Main Gate"].map((area) => (
+                  <button
+                    key={area}
+                    type="button"
+                    onClick={() => setQuickArea(area)}
+                    className={`px-3 py-1.5 rounded-xl text-2xs font-extrabold transition ${
+                      quickArea === area
+                        ? "bg-blue-500 text-white shadow-xs"
+                        : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700"
+                    }`}
+                  >
+                    {area}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={quickArea}
+                onChange={(e) => setQuickArea(e.target.value)}
+                placeholder="Or type custom pickup stop..."
+                className="w-full rounded-xl bg-slate-800/90 border border-slate-700 px-3.5 py-2.5 text-xs text-white placeholder-slate-400 outline-none focus:border-blue-500"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleQuickBook}
+              disabled={isSubmittingQuick}
+              className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-sm font-black shadow-lg shadow-emerald-500/20 active:scale-98 transition flex items-center justify-center gap-2"
+            >
+              <CheckCircle2 size={18} />
+              <span>{isSubmittingQuick ? "Reserving Seat..." : "Confirm & Reserve My Seat Now"}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Card B: Digital Boarding Pass Ticket */}
+        {upcomingCommutes.length > 0 ? (
+          (() => {
+            const ticket = upcomingCommutes[0];
+            const isAssigned = ticket.status === "ASSIGNED";
+            const isBoarded = ticket.status === "COMPLETED";
+
+            return (
+              <div className="rounded-3xl border-2 border-emerald-300 bg-white p-6 shadow-xl flex flex-col justify-between space-y-4 relative overflow-hidden">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800 font-bold">
+                      <TicketCheck size={22} />
+                    </div>
+                    <div>
+                      <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-3xs font-black uppercase tracking-wider text-emerald-800">
+                        Active Digital Boarding Pass
+                      </span>
+                      <h4 className="text-base font-black text-slate-900 mt-0.5">
+                        IndusConnect Shuttle Ticket
+                      </h4>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-black ${
+                      isBoarded
+                        ? "bg-emerald-100 text-emerald-800"
+                        : isAssigned
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-amber-100 text-amber-800"
+                    }`}
+                  >
+                    {isBoarded ? "✓ BOARDED" : isAssigned ? "SEAT CONFIRMED" : "PENDING ROSTER"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 py-1">
+                  <div>
+                    <span className="text-2xs font-extrabold uppercase text-slate-400">Pickup Location</span>
+                    <p className="text-sm font-black text-slate-900 truncate">
+                      {ticket.pickupArea || ticket.pickupStop?.stopName || "Regular Stop"}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-2xs font-extrabold uppercase text-slate-400">Travel Date & Shift</span>
+                    <p className="text-sm font-black text-slate-900">
+                      {new Date(ticket.bookingDate).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} • {ticket.shiftType}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-2xs font-extrabold uppercase text-slate-400">Assigned Seat</span>
+                    <p className="text-base font-black text-blue-700">
+                      {ticket.seatNumber ? `Seat #${ticket.seatNumber}` : "Auto-Assigned on Boarding"}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-2xs font-extrabold uppercase text-slate-400">Vehicle / Van</span>
+                    <p className="text-sm font-black text-slate-900">
+                      {ticket.assignedRoute?.vehicle?.vehicleNumber || "Standard Enterprise Shuttle"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Simulated Digital Barcode */}
+                <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3 flex items-center justify-between">
+                  <div className="space-y-1">
+                    <span className="text-3xs font-extrabold uppercase text-slate-400 tracking-wider">
+                      Pass ID: #{ticket.id.substring(0, 8).toUpperCase()}
+                    </span>
+                    <div className="flex gap-1 h-6 items-end">
+                      {[4, 8, 2, 6, 9, 3, 7, 5, 8, 4, 6, 3, 7, 9, 5].map((h, i) => (
+                        <div key={i} className="bg-slate-800 w-1 rounded-xs" style={{ height: `${h * 10}%` }} />
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCancelQuickBooking(ticket.id)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition"
+                  >
+                    <Trash2 size={13} />
+                    <span>Cancel Ticket</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })()
+        ) : (
+          <div className="rounded-3xl border-2 border-dashed border-slate-300 bg-white p-6 flex flex-col items-center justify-center text-center space-y-2">
+            <TicketCheck size={36} className="text-slate-400" />
+            <h4 className="text-base font-bold text-slate-800">No Active Boarding Pass Today</h4>
+            <p className="text-xs text-slate-500 max-w-xs">
+              Use the quick booking panel on the left to reserve your seat in 2 clicks.
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Grid: Upcoming Plans & Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

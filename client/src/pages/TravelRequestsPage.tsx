@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+  import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import {
   AlertTriangle,
@@ -28,6 +28,7 @@ import type {
   TravelDecisionInput,
 } from "../api/travelRequests";
 import { useAuth } from "../auth/AuthContext";
+import { useToast } from "../context/ToastContext";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import MobileCard from "../components/ui/MobileCard";
@@ -194,6 +195,7 @@ function getMinimumDate() {
 }
 
 function EmployeeTravelRequestsPage() {
+  const toast = useToast();
   const [requests, setRequests] = useState<TravelRequest[]>([]);
   const [form, setForm] =
     useState<TravelFormState>(defaultForm);
@@ -345,14 +347,14 @@ function EmployeeTravelRequestsPage() {
       setMessage(
         "Travel request submitted successfully"
       );
+      toast.success("Travel request submitted successfully!");
 
       resetForm();
       await loadRequests();
     } catch (requestError) {
-      setError(
-        getErrorMessage(requestError) ??
-          "Failed to submit travel request"
-      );
+      const errMsg = getErrorMessage(requestError) ?? "Failed to submit travel request";
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -390,13 +392,13 @@ function EmployeeTravelRequestsPage() {
       setMessage(
         "Travel request cancelled successfully"
       );
+      toast.info("Travel request cancelled.");
 
       await loadRequests();
     } catch (requestError) {
-      setError(
-        getErrorMessage(requestError) ??
-          "Failed to cancel travel request"
-      );
+      const errMsg = getErrorMessage(requestError) ?? "Failed to cancel travel request";
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setProcessingId(null);
     }
@@ -575,6 +577,39 @@ function EmployeeTravelRequestsPage() {
                 required
                 className="w-full resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
               />
+            </div>
+
+            <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3">
+              <p className="text-xs font-bold text-blue-900 mb-1.5 flex items-center gap-1.5">
+                <span>⚡</span> Quick Route Select:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { label: "Karachi → Islamabad", from: "Karachi Head Office", to: "Islamabad Regional Office", type: "INTER_CITY" as TravelType, mode: "FLIGHT" as TravelMode },
+                  { label: "Karachi → Lahore", from: "Karachi Head Office", to: "Lahore Regional Office", type: "INTER_CITY" as TravelType, mode: "FLIGHT" as TravelMode },
+                  { label: "Karachi → Hyderabad", from: "Karachi Head Office", to: "Hyderabad Campus", type: "INTER_CITY" as TravelType, mode: "COMPANY_VEHICLE" as TravelMode },
+                  { label: "Main → City Campus", from: "Indus Main Campus", to: "Indus City Campus", type: "INTER_CAMPUS" as TravelType, mode: "COMPANY_VEHICLE" as TravelMode },
+                ].map((route) => (
+                  <button
+                    key={route.label}
+                    type="button"
+                    onClick={() => {
+                      setForm((prev) => ({
+                        ...prev,
+                        fromLocation: route.from,
+                        toLocation: route.to,
+                        travelType: route.type,
+                        travelMode: route.mode,
+                        purpose: prev.purpose || `Official visit: ${route.to}`,
+                      }));
+                      toast.info(`Selected ${route.label}`);
+                    }}
+                    className="rounded-lg bg-white border border-blue-200 px-2.5 py-1 text-[11px] font-semibold text-blue-800 hover:bg-blue-600 hover:text-white transition-all shadow-xs"
+                  >
+                    📍 {route.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div>
@@ -1046,6 +1081,7 @@ function EmployeeTravelRequestsPage() {
 }
 
 function ManagerTravelApprovalPage() {
+  const toast = useToast();
   const [requests, setRequests] =
     useState<TravelRequest[]>([]);
 
@@ -1211,14 +1247,14 @@ function ManagerTravelApprovalPage() {
       setMessage(
         "Travel request approved successfully"
       );
+      toast.success("Travel request approved successfully!");
 
       closeRequest();
       await loadRequests();
     } catch (requestError) {
-      setError(
-        getErrorMessage(requestError) ??
-          "Failed to approve travel request"
-      );
+      const errMsg = getErrorMessage(requestError) ?? "Failed to approve travel request";
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setProcessingAction(null);
     }
@@ -1263,14 +1299,14 @@ function ManagerTravelApprovalPage() {
       setMessage(
         "Travel request rejected successfully"
       );
+      toast.info("Travel request rejected.");
 
       closeRequest();
       await loadRequests();
     } catch (requestError) {
-      setError(
-        getErrorMessage(requestError) ??
-          "Failed to reject travel request"
-      );
+      const errMsg = getErrorMessage(requestError) ?? "Failed to reject travel request";
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setProcessingAction(null);
     }

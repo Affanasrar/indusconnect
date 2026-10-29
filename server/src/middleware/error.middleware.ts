@@ -12,15 +12,30 @@ export function notFoundMiddleware(
 }
 
 export function globalErrorMiddleware(
-  error: Error,
+  error: any,
   _req: Request,
   res: Response,
   _next: NextFunction
 ) {
   console.error("Unhandled error:", error);
 
-  return res.status(500).json({
+  const statusCode =
+    typeof error.statusCode === "number"
+      ? error.statusCode
+      : typeof error.status === "number"
+      ? error.status
+      : 500;
+
+  const message =
+    error.expose && error.message
+      ? error.message
+      : error.name === "ZodError"
+      ? "Validation failed"
+      : error.message || "Internal server error";
+
+  return res.status(statusCode).json({
     success: false,
-    message: "Internal server error",
+    message,
+    ...(error.errors && { errors: error.errors }),
   });
 }

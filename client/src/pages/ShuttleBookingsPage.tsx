@@ -29,6 +29,7 @@ import { getRoutes } from "../api/routes";
 import MapView from "../components/ui/MapView";
 import LiveRideTracker from "../components/ui/LiveRideTracker";
 import { useAuth } from "../auth/AuthContext";
+import { useToast } from "../context/ToastContext";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import type {
@@ -138,6 +139,7 @@ export default function ShuttleBookingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const toast = useToast();
 
   const currentRole = bootstrap?.role;
 
@@ -323,6 +325,7 @@ export default function ShuttleBookingsPage() {
         });
 
         setMessage("Standing commute subscription registered. Shuttles will auto-register daily.");
+        toast.success("Standing weekly commute pass activated!", "Commute Pass Created");
       } else {
         if (!form.bookingDate) throw new Error("Booking date is required");
         if (!form.pickupArea.trim()) throw new Error("Pickup area is required");
@@ -338,12 +341,15 @@ export default function ShuttleBookingsPage() {
         });
 
         setMessage("Shuttle booking request submitted successfully");
+        toast.success("Shuttle seat requested successfully! You will be assigned to a route shortly.", "Ride Booked");
       }
 
       resetForm();
       await loadData();
     } catch (requestError) {
-      setError(getErrorMessage(requestError) ?? "Failed to register shuttle request");
+      const errMsg = getErrorMessage(requestError) ?? "Failed to register shuttle request";
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -363,9 +369,12 @@ export default function ShuttleBookingsPage() {
 
       await cancelShuttleBooking(booking.id, { remarks: "Skip tomorrow's commute" });
       setMessage("Tomorrow's shuttle ride has been skipped");
+      toast.info("Shuttle ride skipped for " + formatDate(booking.bookingDate), "Ride Cancelled");
       await loadData();
     } catch (requestError) {
-      setError(getErrorMessage(requestError) ?? "Failed to skip shuttle ride");
+      const errMsg = getErrorMessage(requestError) ?? "Failed to skip shuttle ride";
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setProcessingId(null);
     }
@@ -751,6 +760,38 @@ export default function ShuttleBookingsPage() {
                       required
                       className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 bg-white"
                     />
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] font-semibold text-slate-400">Quick Pick:</span>
+                      {[
+                        { name: "Garden West", lat: 24.8789, lng: 67.0254 },
+                        { name: "Gulshan Block 4", lat: 24.9180, lng: 67.0971 },
+                        { name: "Saddar Center", lat: 24.8565, lng: 67.0298 },
+                        { name: "Clifton Bilawal Chowrangi", lat: 24.8190, lng: 67.0315 },
+                        { name: "Indus Main Gate", lat: 24.8607, lng: 67.0104 },
+                      ].map((preset) => (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => {
+                            setForm((prev) => ({
+                              ...prev,
+                              pickupArea: preset.name,
+                              pickupAddress: `Near ${preset.name} Landmark Stop`,
+                              latitude: preset.lat,
+                              longitude: preset.lng,
+                            }));
+                            toast.info(`Selected ${preset.name}`);
+                          }}
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-medium border transition-colors ${
+                            form.pickupArea === preset.name
+                              ? "bg-blue-600 text-white border-blue-600 font-semibold"
+                              : "bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border-slate-200"
+                          }`}
+                        >
+                          📍 {preset.name}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div>

@@ -6,6 +6,7 @@ import {
 import {
   endTrip,
   getMyAssignedRoutes,
+  getMyDriverTrips,
   getMyRouteManifest,
   markPassengerBoarded,
   markPassengerNoShow,
@@ -214,6 +215,26 @@ export async function endTripController(req: Request, res: Response) {
     return res.status(400).json({
       success: false,
       message: error instanceof Error ? error.message : "Failed to end trip",
+    });
+  }
+}
+
+export async function getMyDriverTripsController(req: Request, res: Response) {
+  try {
+    const currentUser = (req as any).user;
+
+    const trips = await getMyDriverTrips(currentUser.userId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Driver trips fetched successfully",
+      data: trips,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Failed to fetch driver trips",
     });
   }
 }

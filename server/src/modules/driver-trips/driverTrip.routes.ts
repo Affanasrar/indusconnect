@@ -4,6 +4,7 @@ import { authorizeRoles } from "../../middleware/role.middleware";
 import {
   endTripController,
   getMyAssignedRoutesController,
+  getMyDriverTripsController,
   getMyRouteManifestController,
   markPassengerBoardedController,
   markPassengerNoShowController,
@@ -18,8 +19,18 @@ router.use(authMiddleware);
 router.use(authorizeRoles("DRIVER", "TRANSPORT_ADMIN"));
 
 router.get(
+  "/",
+  getMyAssignedRoutesController
+);
+
+router.get(
   "/routes",
   getMyAssignedRoutesController
+);
+
+router.get(
+  "/trips",
+  getMyDriverTripsController
 );
 
 router.get(

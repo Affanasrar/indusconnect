@@ -17,6 +17,7 @@ import {
 } from "../api/expenses";
 import type { CreateExpenseClaimInput } from "../api/expenses";
 import { getMyTravelRequests } from "../api/travelRequests";
+import { useToast } from "../context/ToastContext";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import type {
@@ -170,6 +171,7 @@ function canCancelClaim(status?: ExpenseClaimStatus) {
 }
 
 export default function EmployeeExpensesPage() {
+  const toast = useToast();
   const [claims, setClaims] = useState<ExpenseClaim[]>([]);
   const [travelRequests, setTravelRequests] = useState<
     TravelRequest[]
@@ -323,14 +325,14 @@ export default function EmployeeExpensesPage() {
       setMessage(
         "Expense claim created successfully"
       );
+      toast.success("Expense claim created successfully!");
 
       setForm(defaultForm);
       await loadData();
     } catch (requestError) {
-      setError(
-        getErrorMessage(requestError) ??
-          "Failed to create expense claim"
-      );
+      const errMsg = getErrorMessage(requestError) ?? "Failed to create expense claim";
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -349,13 +351,13 @@ export default function EmployeeExpensesPage() {
       setMessage(
         "Expense claim submitted for review"
       );
+      toast.success("Expense claim submitted for review!");
 
       await loadData();
     } catch (requestError) {
-      setError(
-        getErrorMessage(requestError) ??
-          "Failed to submit expense claim"
-      );
+      const errMsg = getErrorMessage(requestError) ?? "Failed to submit expense claim";
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setProcessingId(null);
     }
@@ -390,13 +392,13 @@ export default function EmployeeExpensesPage() {
       setMessage(
         "Expense claim cancelled successfully"
       );
+      toast.info("Expense claim cancelled.");
 
       await loadData();
     } catch (requestError) {
-      setError(
-        getErrorMessage(requestError) ??
-          "Failed to cancel expense claim"
-      );
+      const errMsg = getErrorMessage(requestError) ?? "Failed to cancel expense claim";
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setProcessingId(null);
     }
@@ -485,6 +487,39 @@ export default function EmployeeExpensesPage() {
               <p className="text-sm text-slate-500">
                 Add accurate expense and receipt details.
               </p>
+            </div>
+          </div>
+
+          <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50/70 p-3">
+            <p className="text-xs font-bold text-blue-900 mb-1.5 flex items-center gap-1.5">
+              <span>⚡</span> Quick 1-Tap Fill:
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { label: "🍱 Lunch (PKR 500)", cat: "MEAL" as ExpenseCategory, amt: 500, desc: "Daily Lunch Allowance" },
+                { label: "⛽ Fuel (PKR 2,000)", cat: "FUEL" as ExpenseCategory, amt: 2000, desc: "Vehicle Fuel Refill" },
+                { label: "🚕 Taxi (PKR 1,200)", cat: "LOCAL_TRANSPORT" as ExpenseCategory, amt: 1200, desc: "Local Transport / Careem" },
+                { label: "🛣️ Toll (PKR 350)", cat: "TOLL" as ExpenseCategory, amt: 350, desc: "Highway / Motorway Toll" },
+              ].map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => {
+                    const todayStr = new Date().toISOString().slice(0, 10);
+                    setForm((prev) => ({
+                      ...prev,
+                      category: p.cat,
+                      amount: p.amt,
+                      description: p.desc,
+                      expenseDate: prev.expenseDate || todayStr,
+                    }));
+                    toast.info(`Filled ${p.desc}`);
+                  }}
+                  className="rounded-lg bg-white border border-blue-200 px-2 py-1 text-[11px] font-semibold text-blue-800 hover:bg-blue-600 hover:text-white transition-all shadow-xs"
+                >
+                  {p.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -580,7 +615,7 @@ export default function EmployeeExpensesPage() {
                 type="number"
                 min={1}
                 step="0.01"
-                value={form.amount}
+                value={form.amount || ""}
                 onChange={(event) =>
                   setForm({
                     ...form,
@@ -590,6 +625,31 @@ export default function EmployeeExpensesPage() {
                 required
                 className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
               />
+              <div className="mt-1.5 flex items-center gap-1.5">
+                <span className="text-[10px] text-slate-400 font-semibold">Quick add:</span>
+                {[500, 1000, 2000, 5000].map((inc) => (
+                  <button
+                    key={inc}
+                    type="button"
+                    onClick={() => {
+                      setForm((prev) => ({
+                        ...prev,
+                        amount: (prev.amount || 0) + inc,
+                      }));
+                    }}
+                    className="rounded-md bg-slate-100 hover:bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700"
+                  >
+                    +{inc.toLocaleString()}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setForm((prev) => ({ ...prev, amount: 0 }))}
+                  className="rounded-md bg-red-50 hover:bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600 ml-auto"
+                >
+                  Clear
+                </button>
+              </div>
             </div>
 
             <div>

@@ -23,6 +23,10 @@ export async function loginUser(data: LoginInput) {
     throw new Error("Invalid email or password");
   }
 
+  if (user.status !== "ACTIVE") {
+    throw new Error("Account is deactivated. Please contact your organization administrator.");
+  }
+
   const token = jwt.sign(
     {
       userId: user.id,
