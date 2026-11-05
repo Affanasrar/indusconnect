@@ -158,6 +158,19 @@ export async function createTelemetryLog(
     }
   }
 
+  const isTripInProgress = activeTrip?.status === TripStatus.IN_PROGRESS;
+  const isEmergencyStatus =
+    data.status === TelemetryStatus.SOS ||
+    data.status === TelemetryStatus.BREAKDOWN;
+
+  const effectiveStatus = isEmergencyStatus
+    ? data.status!
+    : isTripInProgress
+    ? data.status ?? TelemetryStatus.MOVING
+    : TelemetryStatus.STOPPED;
+
+  const effectiveSpeed = isTripInProgress ? data.speed ?? 0 : 0;
+
   const telemetry = await prisma.vehicleTelemetryLog.create({
     data: {
       driverId: driver.id,
@@ -166,9 +179,9 @@ export async function createTelemetryLog(
       transportTripId: activeTrip?.id,
       latitude: data.latitude,
       longitude: data.longitude,
-      speed: data.speed,
+      speed: effectiveSpeed,
       heading: data.heading,
-      status: data.status ?? TelemetryStatus.MOVING,
+      status: effectiveStatus,
       source: data.source ?? TelemetrySource.MOBILE_GPS,
       batteryLevel: data.batteryLevel,
       accuracy: data.accuracy,
@@ -237,8 +250,12 @@ function mapTripIssueToTelemetryStatus(issueType?: TripIssueType | null): Teleme
 }
 
 async function syncTripIssuesToTelemetry() {
+  // Only sync issues from currently active (IN_PROGRESS or READY) trips
   const tripsWithIssues = await prisma.transportTrip.findMany({
     where: {
+      status: {
+        in: [TripStatus.READY, TripStatus.IN_PROGRESS],
+      },
       issueType: {
         not: null,
       },
@@ -291,7 +308,7 @@ async function syncTripIssuesToTelemetry() {
 export async function getLatestVehicleLocations() {
   await syncTripIssuesToTelemetry();
 
-  const [recentLogs, activeVehicles] = await Promise.all([
+  const [recentLogs, activeVehicles, inProgressTrips] = await Promise.all([
     prisma.vehicleTelemetryLog.findMany({
       include: telemetryInclude,
       orderBy: {
@@ -350,7 +367,20 @@ export async function getLatestVehicleLocations() {
         },
       },
     }),
+    prisma.transportTrip.findMany({
+      where: {
+        status: TripStatus.IN_PROGRESS,
+      },
+      select: {
+        id: true,
+        routeId: true,
+        driverId: true,
+      },
+    }),
   ]);
+
+  const activeTripIds = new Set(inProgressTrips.map((t) => t.id));
+  const activeDriverIds = new Set(inProgressTrips.map((t) => t.driverId));
 
   const latestByVehicleOrDriver = new Map<string, any>();
 
@@ -359,20 +389,16 @@ export async function getLatestVehicleLocations() {
 
     if (!latestByVehicleOrDriver.has(key)) {
       const normalizedLog = { ...log };
+      const hasActiveTrip =
+        (normalizedLog.transportTripId &&
+          activeTripIds.has(normalizedLog.transportTripId)) ||
+        activeDriverIds.has(normalizedLog.driverId);
 
-      // If the linked trip has already completed or been cancelled, do not report stale MOVING status
-      if (
-        normalizedLog.transportTrip &&
-        (normalizedLog.transportTrip.status === TripStatus.COMPLETED ||
-          normalizedLog.transportTrip.status === TripStatus.CANCELLED) &&
-        normalizedLog.status === TelemetryStatus.MOVING
-      ) {
+      // A vehicle can ONLY be MOVING (or in active trip emergency) if a driver currently has an IN_PROGRESS trip
+      if (!hasActiveTrip) {
         normalizedLog.status = TelemetryStatus.STOPPED;
         normalizedLog.speed = 0;
-        normalizedLog.remarks =
-          normalizedLog.remarks
-            ? `${normalizedLog.remarks} (Trip completed)`
-            : "Trip completed - vehicle parked at destination";
+        normalizedLog.remarks = "No active trip in progress — vehicle parked";
       }
 
       latestByVehicleOrDriver.set(key, normalizedLog);
@@ -400,7 +426,7 @@ export async function getLatestVehicleLocations() {
       ? TelemetryStatus.MOVING
       : TelemetryStatus.STOPPED;
 
-    if (latestTrip?.issueType) {
+    if (isTripActive && latestTrip?.issueType) {
       derivedStatus = mapTripIssueToTelemetryStatus(latestTrip.issueType);
     }
 
@@ -413,22 +439,24 @@ export async function getLatestVehicleLocations() {
       routeId: assignedRoute?.id ?? null,
       transportTripId: latestTrip?.id ?? null,
       latitude:
-        latestTrip?.issueLatitude ?? firstStop?.latitude ?? 24.8607,
+        (isTripActive ? latestTrip?.issueLatitude : null) ??
+        firstStop?.latitude ??
+        24.8607,
       longitude:
-        latestTrip?.issueLongitude ?? firstStop?.longitude ?? 67.0011,
-      speed: isTripActive ? 30 : 0,
+        (isTripActive ? latestTrip?.issueLongitude : null) ??
+        firstStop?.longitude ??
+        67.0011,
+      speed: 0,
       heading: 0,
       status: derivedStatus,
       source: TelemetrySource.MOBILE_GPS,
       batteryLevel: null,
       accuracy: null,
-      remarks:
-        latestTrip?.issueDescription ??
-        (isTripActive
-          ? "Trip in progress"
-          : firstStop
-          ? `Stationed at ${firstStop.stopName}`
-          : "Stationed at depot"),
+      remarks: isTripActive
+        ? latestTrip?.issueDescription ?? "Trip in progress"
+        : firstStop
+        ? `Stationed at ${firstStop.stopName} (No active trip)`
+        : "Stationed at depot (No active trip)",
       recordedAt:
         latestTrip?.updatedAt?.toISOString?.() ??
         vehicle.updatedAt.toISOString(),
@@ -450,6 +478,11 @@ export async function getEmergencyTelemetryEvents() {
     where: {
       status: {
         in: [TelemetryStatus.SOS, TelemetryStatus.BREAKDOWN],
+      },
+      transportTrip: {
+        status: {
+          in: [TripStatus.READY, TripStatus.IN_PROGRESS],
+        },
       },
     },
     include: telemetryInclude,
@@ -560,7 +593,7 @@ export async function getTelemetryByDriver(driverId: string) {
 export async function getMyTelemetryLogs(userId: string) {
   const driver = await getCurrentDriver(userId);
 
-  return prisma.vehicleTelemetryLog.findMany({
+  const logs = await prisma.vehicleTelemetryLog.findMany({
     where: {
       driverId: driver.id,
     },
@@ -569,5 +602,17 @@ export async function getMyTelemetryLogs(userId: string) {
       recordedAt: "desc",
     },
     take: 100,
+  });
+
+  return logs.map((log) => {
+    const isTripActive = log.transportTrip?.status === TripStatus.IN_PROGRESS;
+    if (!isTripActive && log.status === TelemetryStatus.MOVING) {
+      return {
+        ...log,
+        status: TelemetryStatus.STOPPED,
+        speed: 0,
+      };
+    }
+    return log;
   });
 }

@@ -630,15 +630,15 @@ export default function MapView({
       if (m.type === "vehicle" || m.type === "driver") {
         const headingDeg = typeof m.heading === "number" ? Math.round(m.heading) : 0;
         const speedVal = typeof m.speed === "number" ? Math.round(m.speed) : 0;
-        const isEmergency = m.status === "SOS" || m.status === "BREAKDOWN" || m.pulse;
-        const isMoving = m.status === "MOVING" || speedVal > 5;
+        const isEmergency = m.status === "SOS" || m.status === "BREAKDOWN";
+        const isMoving = m.status === "MOVING";
 
         // Theme colors
         const accentBg = isEmergency
           ? "#ef4444"
           : isMoving
           ? "#10b981"
-          : "#3b82f6";
+          : "#475569";
 
         const vehicleIconSvg =
           m.vehicleType === "BUS" || m.vehicleType === "COASTER"
@@ -647,13 +647,21 @@ export default function MapView({
 
         const html = `
           <div style="position: relative; width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
-            <!-- Radar concentric beacon -->
-            <div style="position: absolute; width: ${isEmergency ? "58px" : "48px"}; height: ${isEmergency ? "58px" : "48px"}; border-radius: 50%; background: ${isEmergency ? "rgba(239,68,68,0.35)" : "rgba(16,185,129,0.25)"}; animation: ping ${isEmergency ? "1.2s" : "2s"} cubic-bezier(0,0,0.2,1) infinite;"></div>
+            ${
+              isEmergency || isMoving
+                ? `<!-- Radar concentric beacon (only when moving or in emergency) -->
+            <div style="position: absolute; width: ${isEmergency ? "58px" : "48px"}; height: ${isEmergency ? "58px" : "48px"}; border-radius: 50%; background: ${isEmergency ? "rgba(239,68,68,0.35)" : "rgba(16,185,129,0.25)"}; animation: ping ${isEmergency ? "1.2s" : "2s"} cubic-bezier(0,0,0.2,1) infinite;"></div>`
+                : ""
+            }
             
-            <!-- Heading Direction Needle -->
+            ${
+              isMoving
+                ? `<!-- Heading Direction Needle -->
             <div style="position: absolute; width: 50px; height: 50px; transform: rotate(${headingDeg}deg); transition: transform 0.4s ease-out; pointer-events: none; display: flex; align-items: flex-start; justify-content: center;">
               <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid ${accentBg}; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));"></div>
-            </div>
+            </div>`
+                : ""
+            }
 
             <!-- Elevated Vehicle Badge (Google Fleet Style) -->
             <div style="position: relative; width: 36px; height: 36px; border-radius: 50%; background: #ffffff; border: 3px solid ${accentBg}; box-shadow: 0 6px 18px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: ${accentBg}; font-weight: 800; z-index: 2;">
@@ -662,7 +670,7 @@ export default function MapView({
 
             <!-- Speed Badge Pill Over Vehicle -->
             <div style="position: absolute; bottom: 0; background: #0f172a; color: #ffffff; font-family: ui-monospace, monospace; font-size: 9px; font-weight: 800; padding: 1.5px 6px; border-radius: 9999px; box-shadow: 0 2px 6px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); white-space: nowrap; z-index: 3;">
-              ${speedVal > 0 ? `${speedVal} km/h` : "IDLE"}
+              ${isMoving && speedVal > 0 ? `${speedVal} km/h` : "PARKED"}
             </div>
           </div>
         `;
@@ -684,13 +692,13 @@ export default function MapView({
                   ${m.vehicleType || "FLEET VEHICLE"}
                 </span>
                 <h4 style="font-size: 15px; font-weight: 900; margin: 0; color: #0f172a; line-height: 1.2;">
-                  ${m.vehicleNumber || m.label || "Active Transit"}
+                  ${m.vehicleNumber || m.label || "Fleet Vehicle"}
                 </h4>
               </div>
               <span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 800; background: ${
-                isEmergency ? "#fee2e2" : "#dcfce7"
-              }; color: ${isEmergency ? "#b91c1c" : "#15803d"};">
-                ${m.status || (isMoving ? "MOVING" : "IDLE")}
+                isEmergency ? "#fee2e2" : isMoving ? "#dcfce7" : "#f1f5f9"
+              }; color: ${isEmergency ? "#b91c1c" : isMoving ? "#15803d" : "#475569"};">
+                ${m.status || (isMoving ? "MOVING" : "STOPPED")}
               </span>
             </div>
 

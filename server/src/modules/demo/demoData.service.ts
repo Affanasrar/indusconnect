@@ -334,7 +334,7 @@ export async function seedDemoData() {
     },
     create: {
       vendorName: "Karachi Corporate Transport Services",
-      contactPerson: "Mr. Vendor Manager",
+      contactPerson: "Fleet Operations Lead",
       phone: "03001234567",
       email: "vendor@transport.com",
       address: "Shahrah-e-Faisal, Karachi",
@@ -342,13 +342,13 @@ export async function seedDemoData() {
       status: VendorStatus.ACTIVE,
       contractStartDate: new Date("2026-07-01"),
       contractEndDate: new Date("2027-06-30"),
-      notes: "Demo outsourced fleet vendor for FYP-II",
+      notes: "Contracted Corporate Fleet Partner",
     },
   });
 
   const vehicle = await prisma.vehicle.upsert({
     where: {
-      vehicleNumber: "DEMO-VAN-001",
+      vehicleNumber: "KHI-VAN-102",
     },
     update: {
       status: VehicleStatus.ACTIVE,
@@ -358,7 +358,7 @@ export async function seedDemoData() {
       ownershipType: OwnershipType.VENDOR,
     },
     create: {
-      vehicleNumber: "DEMO-VAN-001",
+      vehicleNumber: "KHI-VAN-102",
       vehicleType: VehicleType.VAN,
       capacity: 12,
       ownershipType: OwnershipType.VENDOR,
@@ -366,7 +366,7 @@ export async function seedDemoData() {
       vendorName: vendor.vendorName,
       status: VehicleStatus.ACTIVE,
       fitnessStatus: FitnessStatus.VALID,
-      notes: "Demo vendor vehicle for FYP-II",
+      notes: "Corporate Fleet Van",
     },
   });
 
@@ -380,7 +380,7 @@ export async function seedDemoData() {
     },
     create: {
       userId: driverUser.id,
-      licenseNumber: "DEMO-LIC-001",
+      licenseNumber: "KHI-LIC-88412",
       cnic: "42101-0000000-1",
       address: "Karachi",
       status: "ASSIGNED",
@@ -390,7 +390,7 @@ export async function seedDemoData() {
 
   const route = await prisma.transportRoute.upsert({
     where: {
-      routeCode: "DEMO-GW-KOR-001",
+      routeCode: "GW-KOR-002",
     },
     update: {
       vehicleId: vehicle.id,
@@ -400,9 +400,9 @@ export async function seedDemoData() {
     },
     create: {
       routeName: "Garden West to Korangi Campus",
-      routeCode: "DEMO-GW-KOR-001",
+      routeCode: "GW-KOR-002",
       shiftType: ShiftType.MORNING,
-      routeDate: new Date("2026-07-25"),
+      routeDate: new Date(),
       startTime: "08:00",
       endTime: "09:00",
       startLocation: "Garden West",
@@ -411,7 +411,7 @@ export async function seedDemoData() {
       driverId: driver.id,
       vendorId: vendor.id,
       status: RouteStatus.ACTIVE,
-      notes: "Demo active route with smart stops",
+      notes: "Garden West to Korangi Campus Shuttle",
     },
   });
 
@@ -484,90 +484,6 @@ export async function seedDemoData() {
     },
   });
 
-  const shuttleBooking = await createShuttleBookingIfMissing({
-    employeeId: employee.id,
-    routeId: route.id,
-    pickupStopId: stop1.id,
-    bookingDate: new Date("2026-07-25"),
-    shiftType: ShiftType.MORNING,
-    pickupArea: "Garden West",
-    pickupAddress: "Near Bagh-e-Halar Hall",
-    seatNumber: "A-01",
-    status: ShuttleBookingStatus.ASSIGNED,
-    remarks: "Demo assigned shuttle booking",
-  });
-
-  const trip = await prisma.transportTrip.findFirst({
-    where: {
-      routeId: route.id,
-      driverId: driver.id,
-    },
-  });
-
-  const transportTrip =
-    trip ??
-    (await prisma.transportTrip.create({
-      data: {
-        routeId: route.id,
-        driverId: driver.id,
-        status: "IN_PROGRESS",
-        fuelChecked: true,
-        tiresChecked: true,
-        brakesChecked: true,
-        lightsChecked: true,
-        checklistSubmittedAt: new Date(),
-        startedAt: new Date(),
-      },
-    }));
-
-  await prisma.vehicleTelemetryLog.create({
-    data: {
-      driverId: driver.id,
-      vehicleId: vehicle.id,
-      routeId: route.id,
-      transportTripId: transportTrip.id,
-      latitude: 24.8607,
-      longitude: 67.0104,
-      speed: 35,
-      heading: 120,
-      status: TelemetryStatus.MOVING,
-      source: TelemetrySource.MOCK_GPS,
-      batteryLevel: 85,
-      accuracy: 8,
-      remarks: "Demo live GPS ping",
-    },
-  });
-
-  const travelRequest = await prisma.travelRequest.findFirst({
-    where: {
-      employeeId: employee.id,
-      purpose: "Official meeting at Lahore site",
-    },
-  });
-
-  const approvedTravelRequest =
-    travelRequest ??
-    (await prisma.travelRequest.create({
-      data: {
-        employeeId: employee.id,
-        travelType: TravelType.INTER_CITY,
-        urgency: TravelUrgency.NORMAL,
-        purpose: "Official meeting at Lahore site",
-        fromLocation: "Karachi",
-        toLocation: "Lahore",
-        departureDate: new Date("2026-07-28"),
-        returnDate: new Date("2026-07-30"),
-        accommodationRequired: true,
-        transportRequired: true,
-        estimatedBudget: 25000,
-        status: TravelRequestStatus.APPROVED,
-        approvedById: manager.id,
-        decisionRemarks: "Approved for demo official meeting",
-        decidedAt: new Date(),
-        employeeRemarks: "Demo approved travel request",
-      },
-    }));
-
   const room = await prisma.room.upsert({
     where: {
       roomNumber: "GH-101",
@@ -582,67 +498,13 @@ export async function seedDemoData() {
       location: "IHHN Guest House Karachi",
       floor: "1st Floor",
       status: RoomStatus.AVAILABLE,
-      notes: "Demo guest house room",
-    },
-  });
-
-  const reservation = await prisma.roomReservation.upsert({
-    where: {
-      travelRequestId: approvedTravelRequest.id,
-    },
-    update: {
-      roomId: room.id,
-      status: ReservationStatus.CONFIRMED,
-    },
-    create: {
-      travelRequestId: approvedTravelRequest.id,
-      employeeId: employee.id,
-      accommodationType: AccommodationType.INTERNAL_GUEST_HOUSE,
-      roomId: room.id,
-      checkInDate: new Date("2026-07-28"),
-      checkOutDate: new Date("2026-07-30"),
-      status: ReservationStatus.CONFIRMED,
-      remarks: "Demo internal-first room reservation",
-    },
-  });
-
-  const expenseClaim = await createExpenseClaimIfMissing({
-    employeeId: employee.id,
-    travelRequestId: approvedTravelRequest.id,
-    category: ExpenseCategory.MEAL,
-    claimDate: new Date("2026-07-29"),
-    vendorName: "Demo Restaurant Lahore",
-    amount: 3500,
-    status: ExpenseClaimStatus.APPROVED,
-    payrollSyncStatus: PayrollSyncStatus.READY_FOR_EXPORT,
-  });
-
-  const vendorBill = await prisma.vendorBill.upsert({
-    where: {
-      billNumber: "VB-DEMO-001",
-    },
-    update: {
-      status: VendorBillStatus.APPROVED,
-      payrollSyncStatus: PayrollSyncStatus.READY_FOR_EXPORT,
-    },
-    create: {
-      vendorId: vendor.id,
-      routeId: route.id,
-      billNumber: "VB-DEMO-001",
-      billDate: new Date("2026-07-25"),
-      amount: 15000,
-      currency: "PKR",
-      description: "Demo vendor trip billing",
-      status: VendorBillStatus.APPROVED,
-      financeRemarks: "Demo bill approved for ERP export",
-      approvedAt: new Date(),
-      payrollSyncStatus: PayrollSyncStatus.READY_FOR_EXPORT,
+      notes: "IHHN Executive Guest House Room",
     },
   });
 
   await upsertPolicyRule({
     ruleName: "Staff Inter-City Travel Approval Policy",
-    ruleCode: "DEMO-TRAVEL-STAFF-001",
+    ruleCode: "POL-TRAVEL-STAFF-001",
     ruleType: PolicyRuleType.TRAVEL_APPROVAL,
     hrGrade: HRGrade.STAFF,
     maxAmount: 30000,
@@ -651,113 +513,35 @@ export async function seedDemoData() {
     requiresTransportApproval: true,
     requiresAccommodationApproval: true,
     allowEmergencyOverride: true,
-    description: "Demo staff travel approval policy",
+    description: "Standard staff inter-city travel approval policy",
   });
 
   await upsertPolicyRule({
     ruleName: "Meal Expense Review Limit",
-    ruleCode: "DEMO-EXP-MEAL-001",
+    ruleCode: "POL-EXP-MEAL-001",
     ruleType: PolicyRuleType.EXPENSE_LIMIT,
     hrGrade: HRGrade.STAFF,
     maxAmount: 5000,
     requiresFinanceApproval: true,
-    description: "Demo expense limit policy",
+    description: "Standard per-diem meal expense limit policy",
   });
 
   await upsertPolicyRule({
     ruleName: "Internal First Accommodation Policy",
-    ruleCode: "DEMO-ACC-INTERNAL-001",
+    ruleCode: "POL-ACC-INTERNAL-001",
     ruleType: PolicyRuleType.ACCOMMODATION_FALLBACK,
     internalFirstRequired: true,
     requiresAccommodationApproval: true,
-    description: "Demo internal-first accommodation policy",
+    description: "Prioritize internal IHHN guest house before hotel fallback",
   });
 
   await upsertPolicyRule({
     ruleName: "Shuttle Booking Cut-Off Policy",
-    ruleCode: "DEMO-TRANS-CUTOFF-001",
+    ruleCode: "POL-TRANS-CUTOFF-001",
     ruleType: PolicyRuleType.TRANSPORT_CUTOFF,
     cutoffHoursBeforeShift: 12,
     requiresTransportApproval: true,
-    description: "Demo transport cut-off policy",
-  });
-
-  const maintenanceTask = await prisma.vehicleMaintenanceTask.findFirst({
-    where: {
-      vehicleId: vehicle.id,
-      title: "Demo routine vehicle inspection",
-    },
-  });
-
-  if (!maintenanceTask) {
-    await prisma.vehicleMaintenanceTask.create({
-      data: {
-        vehicleId: vehicle.id,
-        driverId: driver.id,
-        transportTripId: transportTrip.id,
-        reportedById: transportAdmin.id,
-        taskType: MaintenanceTaskType.INSPECTION,
-        priority: MaintenancePriority.NORMAL,
-        status: MaintenanceTaskStatus.OPEN,
-        title: "Demo routine vehicle inspection",
-        description: "Demo maintenance task for defence testing",
-      },
-    });
-  }
-
-  const housekeepingTask = await prisma.housekeepingTask.findFirst({
-    where: {
-      roomId: room.id,
-      title: "Demo room cleaning task",
-    },
-  });
-
-  if (!housekeepingTask) {
-    await prisma.housekeepingTask.create({
-      data: {
-        roomId: room.id,
-        reservationId: reservation.id,
-        createdById: accommodationAdmin.id,
-        taskType: HousekeepingTaskType.ROOM_CLEANING,
-        priority: HousekeepingPriority.NORMAL,
-        status: HousekeepingTaskStatus.PENDING,
-        title: "Demo room cleaning task",
-        description: "Demo housekeeping task for defence testing",
-      },
-    });
-  }
-
-  await createNotificationIfMissing({
-    recipientId: employee.id,
-    createdById: admin.id,
-    type: NotificationType.SYSTEM,
-    priority: NotificationPriority.NORMAL,
-    title: "Welcome to IndusConnect",
-    message: "Your demo employee profile is ready for FYP-II testing.",
-    entityType: "User",
-    entityId: employee.id,
-  });
-
-  await createNotificationIfMissing({
-    recipientId: transportAdmin.id,
-    createdById: admin.id,
-    type: NotificationType.SHUTTLE,
-    priority: NotificationPriority.HIGH,
-    title: "Demo Route Ready",
-    message: "Garden West to Korangi Campus route is ready for testing.",
-    entityType: "TransportRoute",
-    entityId: route.id,
-  });
-
-  await createNotificationIfMissing({
-    recipientId: securityOfficer.id,
-    createdById: admin.id,
-    type: NotificationType.SOS,
-    priority: NotificationPriority.URGENT,
-    title: "Demo Emergency Alert",
-    message: "This is a sample SOS notification for emergency dashboard testing.",
-    entityType: "TransportTrip",
-    entityId: transportTrip.id,
+    description: "Standard shift shuttle booking cut-off policy",
   });
 
   return {
@@ -780,13 +564,7 @@ export async function seedDemoData() {
       vehicle: vehicle.vehicleNumber,
       driver: driver.id,
       route: route.routeCode,
-      shuttleBooking: shuttleBooking.id,
-      travelRequest: approvedTravelRequest.id,
       room: room.roomNumber,
-      reservation: reservation.id,
-      expenseClaim: expenseClaim.id,
-      vendorBill: vendorBill.billNumber,
-      transportTrip: transportTrip.id,
     },
   };
 }

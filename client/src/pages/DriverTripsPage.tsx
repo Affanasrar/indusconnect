@@ -301,7 +301,6 @@ export default function DriverTripsPage() {
   const [isSyncingTelemetry, setIsSyncingTelemetry] = useState(false);
   const [syncedCount, setSyncedCount] = useState(0);
   const [currentStopIndex, setCurrentStopIndex] = useState(0);
-  const [isSimulatingDrive, setIsSimulatingDrive] = useState(false);
   const [isFollowLocked, setIsFollowLocked] = useState(true);
   const prevCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
@@ -372,16 +371,17 @@ export default function DriverTripsPage() {
 
   // Real-time GPS watchPosition broadcasting
   useEffect(() => {
-    if (trip?.status !== "IN_PROGRESS" || isSimulatingDrive) return;
+    if (trip?.status !== "IN_PROGRESS") return;
     if (!navigator.geolocation) return;
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
-        const speed = position.coords.speed
-          ? Math.round(position.coords.speed * 3.6)
-          : 30;
+        const speed =
+          position.coords.speed != null && position.coords.speed > 0
+            ? Math.round(position.coords.speed * 3.6)
+            : 0;
         let heading = position.coords.heading ?? 0;
 
         if ((!heading || isNaN(heading)) && prevCoordsRef.current) {
@@ -413,60 +413,27 @@ export default function DriverTripsPage() {
     return () => {
       navigator.geolocation.clearWatch(watchId);
     };
-  }, [trip?.status, selectedRouteId, trip?.id, isSimulatingDrive, driverHeading, driverSpeed]);
-
-  // Simulated drive along route waypoints
-  useEffect(() => {
-    if (!isSimulatingDrive || orderedStops.length === 0) return;
-
-    const validCoords: Array<{ latitude: number; longitude: number }> = [];
-    orderedStops.forEach((s: any) => {
-      if (typeof s.latitude === "number" && typeof s.longitude === "number") {
-        validCoords.push({ latitude: s.latitude, longitude: s.longitude });
-      }
-    });
-    if (validCoords.length === 0) return;
-
-    let step = currentStopIndex;
-    const interval = setInterval(() => {
-      const fromCoord = validCoords[step % validCoords.length];
-      const toCoord = validCoords[(step + 1) % validCoords.length];
-      const heading = calculateHeading(
-        fromCoord.latitude,
-        fromCoord.longitude,
-        toCoord.latitude,
-        toCoord.longitude
-      );
-
-      setDriverLat(fromCoord.latitude);
-      setDriverLng(fromCoord.longitude);
-      setDriverHeading(heading);
-      setDriverSpeed(36);
-      setCurrentStopIndex((step + 1) % validCoords.length);
-
-      syncDriverCoordinates(fromCoord.latitude, fromCoord.longitude, heading, 36);
-
-      step++;
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, [isSimulatingDrive, orderedStops, selectedRouteId, trip?.id, currentStopIndex]);
+  }, [trip?.status, selectedRouteId, trip?.id, driverHeading, driverSpeed]);
 
   const driverMapMarkers = useMemo(() => {
     const list: any[] = [];
+    const isTripActive = trip?.status === "IN_PROGRESS";
 
     // Rotating Driver Vehicle Marker
     list.push({
       latitude: driverLat,
       longitude: driverLng,
       label: "Your Bus / Cab (Captain)",
-      subLabel: nextStop
-        ? `Target: Stop #${nextStop.stopOrder} ${nextStop.stopName}`
-        : "Live Transit",
+      subLabel: isTripActive
+        ? nextStop
+          ? `Target: Stop #${nextStop.stopOrder} ${nextStop.stopName}`
+          : "Live Transit"
+        : "Vehicle Parked • Awaiting Trip Start",
       type: "vehicle",
+      status: isTripActive ? "MOVING" : "STOPPED",
       heading: driverHeading,
-      speed: driverSpeed,
-      pulse: true,
+      speed: isTripActive ? driverSpeed : 0,
+      pulse: isTripActive,
     });
 
     // Smart stops along route
@@ -1586,21 +1553,6 @@ export default function DriverTripsPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                    {/* Simulated Driving test toggle */}
-                    <button
-                      type="button"
-                      onClick={() => setIsSimulatingDrive(!isSimulatingDrive)}
-                      className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-3xs font-bold transition ${
-                        isSimulatingDrive
-                          ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
-                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                      }`}
-                      title="Toggle simulated driver route drive"
-                    >
-                      <Sparkles size={12} className={isSimulatingDrive ? "animate-spin" : "text-amber-500"} />
-                      <span>{isSimulatingDrive ? "Simulating..." : "Simulate Drive"}</span>
-                    </button>
-
                     {/* Camera Lock toggle */}
                     <button
                       type="button"

@@ -1,14 +1,11 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Car,
   Phone,
-  ShieldAlert,
   Share2,
   Clock,
   Eye,
-  RotateCcw,
   X,
-  Sparkles,
 } from "lucide-react";
 import MapView, { type MapMarkerItem } from "./MapView";
 import { getTelemetryByRoute } from "../../api/telemetry";
@@ -95,12 +92,6 @@ export default function LiveRideTracker({
   const [telemetryLogs, setTelemetryLogs] = useState<any[]>([]);
   const [isFollowLocked, setIsFollowLocked] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [sosSent, setSosSent] = useState(false);
-
-  // Simulation state for realistic testing when no hardware GPS is broadcasting
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [simStepIndex, setSimStepIndex] = useState(0);
-  const simTimerRef = useRef<any>(null);
 
   // Sorted route stops
   const sortedStops = useMemo(() => {
@@ -122,12 +113,12 @@ export default function LiveRideTracker({
 
   // Polling telemetry from backend every 2.5 seconds
   useEffect(() => {
-    if (!routeId || isSimulating) return;
+    if (!routeId) return;
 
     async function fetchLogs() {
       try {
         const logs = await getTelemetryByRoute(routeId);
-        if (logs && Array.isArray(logs) && logs.length > 0) {
+        if (logs && Array.isArray(logs)) {
           setTelemetryLogs(logs);
         }
       } catch (err) {
@@ -138,9 +129,9 @@ export default function LiveRideTracker({
     fetchLogs();
     const interval = setInterval(fetchLogs, 2500);
     return () => clearInterval(interval);
-  }, [routeId, isSimulating]);
+  }, [routeId]);
 
-  // Extract latest real telemetry or simulated vehicle position
+  // Extract latest real telemetry vehicle position
   const latestTelemetry = useMemo(() => {
     if (telemetryLogs.length > 0) {
       return telemetryLogs[telemetryLogs.length - 1];
@@ -150,24 +141,6 @@ export default function LiveRideTracker({
 
   // Determine current vehicle coordinates & heading
   const currentVehiclePosition = useMemo(() => {
-    if (isSimulating && waypoints.length > 0) {
-      const currentWp = waypoints[simStepIndex % waypoints.length];
-      const nextWp = waypoints[(simStepIndex + 1) % waypoints.length];
-      const heading = calculateHeading(
-        currentWp.latitude,
-        currentWp.longitude,
-        nextWp.latitude,
-        nextWp.longitude
-      );
-      return {
-        lat: currentWp.latitude,
-        lng: currentWp.longitude,
-        heading,
-        speed: 36,
-        source: "SIMULATED",
-      };
-    }
-
     if (latestTelemetry) {
       let heading = latestTelemetry.heading;
       // If heading is 0 or undefined, derive from previous coordinate if available
@@ -210,20 +183,7 @@ export default function LiveRideTracker({
       status: "STOPPED",
       source: "DEFAULT",
     };
-  }, [isSimulating, simStepIndex, waypoints, latestTelemetry, telemetryLogs]);
-
-  // Simulation timer loop
-  useEffect(() => {
-    if (!isSimulating || waypoints.length === 0) return;
-
-    simTimerRef.current = setInterval(() => {
-      setSimStepIndex((prev) => (prev + 1) % waypoints.length);
-    }, 3500);
-
-    return () => {
-      if (simTimerRef.current) clearInterval(simTimerRef.current);
-    };
-  }, [isSimulating, waypoints.length]);
+  }, [waypoints, latestTelemetry, telemetryLogs]);
 
   // Passenger's pickup stop coordinates
   const passengerStopCoord = useMemo(() => {
@@ -274,9 +234,9 @@ export default function LiveRideTracker({
     const mins = Math.max(1, Math.round((dist / speed) * 60));
 
     let statusText = "Driver is on the way";
-    if (!latestTelemetry && !isSimulating) {
+    if (!latestTelemetry) {
       statusText = "Waiting for driver to start trip";
-    } else if ((currentVehiclePosition as any).status === "STOPPED" && !isSimulating) {
+    } else if ((currentVehiclePosition as any).status === "STOPPED") {
       statusText = "Vehicle stationary at stop";
     } else if (dist < 0.25) {
       statusText = "Driver has arrived at your stop!";
@@ -290,7 +250,7 @@ export default function LiveRideTracker({
       minutes: mins,
       statusText,
     };
-  }, [currentVehiclePosition, passengerStopCoord, latestTelemetry, isSimulating]);
+  }, [currentVehiclePosition, passengerStopCoord, latestTelemetry]);
 
   // Construct Map Markers
   const mapMarkers = useMemo(() => {
@@ -326,15 +286,17 @@ export default function LiveRideTracker({
     }
 
     // 3. Live Driver Vehicle Marker (Rotated in heading direction)
+    const isMoving = (currentVehiclePosition as any).status === "MOVING";
     list.push({
       latitude: currentVehiclePosition.lat,
       longitude: currentVehiclePosition.lng,
       label: `${driverName} (${vehicleNumber})`,
       subLabel: `${routeName} • ${etaInfo.statusText}`,
       type: "vehicle",
+      status: (currentVehiclePosition as any).status || "STOPPED",
       heading: currentVehiclePosition.heading,
       speed: currentVehiclePosition.speed,
-      pulse: true,
+      pulse: isMoving,
     });
 
     return list;
@@ -365,14 +327,6 @@ export default function LiveRideTracker({
     }
   };
 
-  // SOS Emergency button handler
-  const handleSos = () => {
-    setSosSent(true);
-    alert(
-      "EMERGENCY PROTOCOL ACTIVATED: Your live GPS coordinate and ride manifest have been transmitted to Indus Health Transport Control & Campus Security."
-    );
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/80 backdrop-blur-md animate-fadeIn">
       {/* Top Live Transit Header Bar */}
@@ -392,36 +346,12 @@ export default function LiveRideTracker({
             </div>
             <p className="truncate text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
               <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-              Live Transit Radar • {currentVehiclePosition.source === "SIMULATED" ? "Demo Simulation" : "GPS Satellite Locked"}
+              Live Transit Radar • Real-Time Driver GPS Telemetry
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Test simulation toggle button */}
-          <button
-            type="button"
-            onClick={() => setIsSimulating(!isSimulating)}
-            className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-bold transition ${
-              isSimulating
-                ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
-                : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700"
-            }`}
-            title="Toggle simulated driver movement along route"
-          >
-            {isSimulating ? (
-              <>
-                <RotateCcw size={14} className="animate-spin" />
-                <span className="hidden sm:inline">Simulating</span>
-              </>
-            ) : (
-              <>
-                <Sparkles size={14} className="text-amber-400" />
-                <span className="hidden sm:inline">Simulate Drive</span>
-              </>
-            )}
-          </button>
-
           {/* Close tracker modal */}
           <button
             type="button"
@@ -516,9 +446,6 @@ export default function LiveRideTracker({
                   .map((n) => n[0])
                   .slice(0, 2)
                   .join("")}
-                <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] text-amber-400 border border-slate-700">
-                  ★
-                </span>
               </div>
 
               <div>
@@ -526,8 +453,8 @@ export default function LiveRideTracker({
                   <h3 className="text-sm font-bold text-white">
                     {driverName}
                   </h3>
-                  <span className="rounded-md bg-amber-400/10 px-1.5 py-0.5 text-3xs font-extrabold text-amber-400 border border-amber-400/20">
-                    4.9 ★ (340+ rides)
+                  <span className="rounded-md bg-emerald-400/10 px-1.5 py-0.5 text-3xs font-extrabold text-emerald-400 border border-emerald-400/20">
+                    Verified Fleet Captain
                   </span>
                 </div>
 
@@ -573,20 +500,6 @@ export default function LiveRideTracker({
                 <span className="hidden sm:inline">
                   {copiedLink ? "Link Copied!" : "Share"}
                 </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSos}
-                className={`flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition ${
-                  sosSent
-                    ? "bg-red-600 text-white"
-                    : "bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/40"
-                }`}
-                title="Emergency SOS Broadcast"
-              >
-                <ShieldAlert size={15} />
-                <span className="hidden sm:inline">SOS</span>
               </button>
             </div>
           </div>
