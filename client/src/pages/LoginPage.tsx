@@ -7,6 +7,7 @@ import {
   AlertCircle,
   Shield,
   Building2,
+  Mail,
   Info,
   Bus,
   Plane,
@@ -22,24 +23,27 @@ import HelpdeskModal from "../components/auth/HelpdeskModal";
 import SsoLoginModal from "../components/auth/SsoLoginModal";
 
 /* ─────────────────────────────────────────────
-   IndusConnect — Simplified Login Page
-   Supports Phone Number + 4-Digit PIN (Default for Drivers & Staff)
-   and Email + Password (for Management)
+   IndusConnect — Enterprise Login Page
+   Supports Mobile Phone + 4-Digit Segmented PIN
+   and Work Email + Password
    ───────────────────────────────────────────── */
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login, isAuthenticated } = useAuth();
 
-  /* ── Auth Mode: PHONE (default) or EMAIL ── */
+  /* ── Auth Mode: PHONE (default for drivers & staff) or EMAIL ── */
   const [authMethod, setAuthMethod] = useState<"PHONE" | "EMAIL">("PHONE");
 
-  /* ── Phone + 4-digit PIN state ── */
+  /* ── Phone state ── */
   const [phone, setPhone] = useState("");
-  const [pin, setPin] = useState("");
-  const [showPin, setShowPin] = useState(false);
   const [phoneTouched, setPhoneTouched] = useState(false);
+
+  /* ── 4-Digit PIN segmented state ── */
+  const [pinDigits, setPinDigits] = useState<string[]>(["", "", "", ""]);
+  const [showPin, setShowPin] = useState(false);
   const [pinTouched, setPinTouched] = useState(false);
+  const pinInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   /* ── Email + Password state ── */
   const [email, setEmail] = useState("");
@@ -58,7 +62,7 @@ export default function LoginPage() {
 
   /* ── Refs ── */
   const passwordRef = useRef<HTMLInputElement>(null);
-  const pinRef = useRef<HTMLInputElement>(null);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
 
   /* ── Already authenticated → redirect ── */
   if (isAuthenticated) {
@@ -67,19 +71,92 @@ export default function LoginPage() {
 
   /* ── Validation helpers ── */
   const cleanPhone = phone.replace(/[^\d+]/g, "");
+  const pinString = pinDigits.join("");
+  const isPinComplete = pinString.length === 4;
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   const showPhoneError = phoneTouched && (!cleanPhone || cleanPhone.length < 7);
-  const showPinError = pinTouched && pin.length !== 4;
+  const showPinError = pinTouched && !isPinComplete;
   const showEmailError = emailTouched && email.length > 0 && !isValidEmail;
   const showPasswordError = passwordTouched && password.length === 0;
 
-  /* ── Quick fill for testing & field drivers ── */
-  function handleQuickFill(selectedPhone: string, defaultPin: string = "1234") {
-    setAuthMethod("PHONE");
-    setPhone(selectedPhone);
-    setPin(defaultPin);
-    setError("");
+  /* ── Auto-format phone input for clean readability ── */
+  function handlePhoneChange(val: string) {
+    // Keep numbers and allowed symbols
+    const raw = val.replace(/[^\d]/g, "");
+    if (raw.length <= 11) {
+      if (raw.length > 4) {
+        setPhone(`${raw.slice(0, 4)} ${raw.slice(4)}`);
+      } else {
+        setPhone(raw);
+      }
+    } else {
+      setPhone(raw.slice(0, 11));
+    }
+  }
+
+  /* ── 4-Digit PIN handlers ── */
+  function handlePinDigitChange(index: number, val: string) {
+    const digitsOnly = val.replace(/\D/g, "");
+
+    // If user pasted multiple digits into any cell
+    if (digitsOnly.length > 1) {
+      const next = [...pinDigits];
+      const chars = digitsOnly.slice(0, 4).split("");
+      chars.forEach((c, i) => {
+        if (i < 4) next[i] = c;
+      });
+      setPinDigits(next);
+      setPinTouched(true);
+      const targetIndex = Math.min(chars.length, 3);
+      pinInputRefs.current[targetIndex]?.focus();
+      return;
+    }
+
+    const next = [...pinDigits];
+    next[index] = digitsOnly;
+    setPinDigits(next);
+    setPinTouched(true);
+
+    // Auto-advance to next box
+    if (digitsOnly && index < 3) {
+      pinInputRefs.current[index + 1]?.focus();
+    }
+  }
+
+  function handlePinKeyDown(index: number, e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Backspace") {
+      if (!pinDigits[index] && index > 0) {
+        const next = [...pinDigits];
+        next[index - 1] = "";
+        setPinDigits(next);
+        pinInputRefs.current[index - 1]?.focus();
+      } else {
+        const next = [...pinDigits];
+        next[index] = "";
+        setPinDigits(next);
+      }
+    } else if (e.key === "ArrowLeft" && index > 0) {
+      e.preventDefault();
+      pinInputRefs.current[index - 1]?.focus();
+    } else if (e.key === "ArrowRight" && index < 3) {
+      e.preventDefault();
+      pinInputRefs.current[index + 1]?.focus();
+    }
+  }
+
+  function handlePinPaste(e: React.ClipboardEvent) {
+    e.preventDefault();
+    const paste = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 4);
+    if (!paste) return;
+    const next = ["", "", "", ""];
+    paste.split("").forEach((c, i) => {
+      next[i] = c;
+    });
+    setPinDigits(next);
+    setPinTouched(true);
+    const targetIdx = Math.min(paste.length, 3);
+    pinInputRefs.current[targetIdx]?.focus();
   }
 
   /* ── Submit handler ── */
@@ -92,18 +169,21 @@ export default function LoginPage() {
       setPinTouched(true);
 
       if (!cleanPhone || cleanPhone.length < 7) {
-        setError("Please enter a valid mobile phone number.");
+        setError("Please enter your phone number.");
+        phoneInputRef.current?.focus();
         return;
       }
 
-      if (!pin || pin.length !== 4) {
-        setError("Please enter your 4-digit security PIN.");
+      if (!isPinComplete) {
+        setError("Please enter your 4-digit PIN.");
+        const firstEmpty = pinDigits.findIndex((d) => !d);
+        pinInputRefs.current[firstEmpty !== -1 ? firstEmpty : 0]?.focus();
         return;
       }
 
       setIsSubmitting(true);
       try {
-        await login({ phone: cleanPhone, pin: pin.trim() });
+        await login({ phone: cleanPhone, pin: pinString });
         navigate("/dashboard");
       } catch (err: any) {
         const errorMessage =
@@ -310,58 +390,54 @@ export default function LoginPage() {
             {/* Security indicator */}
             <div className="login-auth-security-badge">
               <Shield size={14} strokeWidth={1.8} />
-              <span>Company Sign In</span>
+              <span>Enterprise Identity & Access</span>
             </div>
 
             {/* Welcome heading */}
             <div className="login-auth-heading">
-              <h2 className="login-auth-heading__title">Welcome to IndusConnect</h2>
+              <h2 className="login-auth-heading__title">Welcome back</h2>
               <p className="login-auth-heading__subtitle">
                 {authMethod === "PHONE"
-                  ? "Enter your mobile phone number and 4-digit PIN to sign in."
-                  : "Sign in with your work email and password."}
+                  ? "Sign in with your phone number and 4-digit PIN."
+                  : "Sign in with your email and password."}
               </p>
             </div>
 
-            {/* Method Tabs (Phone & PIN vs Email & Password) */}
-            <div className="flex rounded-xl bg-slate-100 p-1 mb-5 border border-slate-200">
+            {/* Segmented Method Tabs */}
+            <div className="login-method-tabs" role="tablist" aria-label="Sign-in Method">
               <button
                 type="button"
+                role="tab"
+                aria-selected={authMethod === "PHONE"}
                 onClick={() => {
                   setAuthMethod("PHONE");
                   setError("");
                 }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 text-xs font-bold rounded-lg transition ${
-                  authMethod === "PHONE"
-                    ? "bg-white text-blue-700 shadow-xs border border-slate-200/60"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
+                className={`login-method-tab ${authMethod === "PHONE" ? "login-method-tab--active" : ""}`}
               >
-                <Phone size={14} className="text-blue-600" />
-                <span>Phone & 4-Digit PIN</span>
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded-full">
-                  Fast
-                </span>
+                <Phone size={14} />
+                <span>Phone & PIN</span>
+                <span className="login-method-tab__tag">Fast</span>
               </button>
+
               <button
                 type="button"
+                role="tab"
+                aria-selected={authMethod === "EMAIL"}
                 onClick={() => {
                   setAuthMethod("EMAIL");
                   setError("");
                 }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 text-xs font-semibold rounded-lg transition ${
-                  authMethod === "EMAIL"
-                    ? "bg-white text-blue-700 shadow-xs border border-slate-200/60"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
+                className={`login-method-tab ${authMethod === "EMAIL" ? "login-method-tab--active" : ""}`}
               >
-                <span>Email & Password</span>
+                <Mail size={14} />
+                <span>Email</span>
               </button>
             </div>
 
             {/* Error alert */}
             {error && (
-              <div className="login-auth-error mb-4" role="alert" aria-live="assertive">
+              <div className="login-auth-error" role="alert" aria-live="assertive">
                 <AlertCircle size={16} strokeWidth={2} />
                 <p>{error}</p>
               </div>
@@ -371,49 +447,48 @@ export default function LoginPage() {
             <form onSubmit={handleSubmit} className="login-auth-form" noValidate>
               {authMethod === "PHONE" ? (
                 <>
-                  {/* Phone Number Field */}
+                  {/* Phone Input with Country Code Prefix */}
                   <div className="login-field">
-                    <label htmlFor="login-phone" className="login-field__label flex items-center justify-between">
-                      <span className="font-semibold text-slate-800">Mobile Phone Number</span>
-                      <span className="text-xs text-slate-400 font-normal">e.g. 0300 0000007</span>
+                    <label htmlFor="login-phone" className="login-field__label">
+                      Phone Number
                     </label>
-                    <div className="relative">
-                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1 text-slate-400 pointer-events-none">
-                        <Phone size={16} className="text-blue-600" />
+                    <div
+                      className={`login-phone-group ${
+                        showPhoneError ? "login-phone-group--error" : ""
+                      }`}
+                    >
+                      <div className="login-phone-prefix" title="Country code (+92)">
+                        <span className="login-phone-prefix__flag" aria-hidden="true">🇵🇰</span>
+                        <span>+92</span>
                       </div>
                       <input
+                        ref={phoneInputRef}
                         id="login-phone"
                         type="tel"
                         inputMode="tel"
                         autoComplete="tel"
-                        placeholder="0300 0000007"
+                        placeholder="0300 1234567"
                         value={phone}
-                        onChange={(e) => setPhone(e.target.value.replace(/[^\d\s\-+]/g, ""))}
+                        onChange={(e) => handlePhoneChange(e.target.value)}
                         onBlur={() => setPhoneTouched(true)}
-                        className={`login-field__input pl-10 text-base tracking-wide font-medium ${
-                          showPhoneError ? "login-field__input--error" : ""
-                        }`}
+                        className="login-phone-input"
                         aria-describedby={showPhoneError ? "login-phone-error" : undefined}
                         disabled={isSubmitting}
                       />
                     </div>
-                    {showPhoneError ? (
+                    {showPhoneError && (
                       <p id="login-phone-error" className="login-field__error" role="alert">
-                        Please enter a valid mobile number (e.g. 0300 0000007).
-                      </p>
-                    ) : (
-                      <p className="mt-1 text-xs text-slate-500">
-                        Type your 11-digit mobile number registered with the office.
+                        Please enter your phone number (e.g. 0300 0000007).
                       </p>
                     )}
                   </div>
 
-                  {/* 4-Digit Security PIN Field */}
+                  {/* 4-Digit Segmented PIN Input */}
                   <div className="login-field">
                     <div className="login-field__label-row">
-                      <label htmlFor="login-pin" className="login-field__label flex items-center gap-1.5">
-                        <KeyRound size={15} className="text-blue-600" />
-                        <span className="font-semibold text-slate-800">4-Digit Security PIN</span>
+                      <label htmlFor="login-pin-0" className="login-field__label flex items-center gap-1.5">
+                        <KeyRound size={14} />
+                        <span>4-Digit PIN</span>
                       </label>
                       <button
                         type="button"
@@ -424,102 +499,66 @@ export default function LoginPage() {
                         Forgot PIN?
                       </button>
                     </div>
-                    <div className="relative">
-                      <input
-                        ref={pinRef}
-                        id="login-pin"
-                        type={showPin ? "text" : "password"}
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        maxLength={4}
-                        autoComplete="current-password"
-                        placeholder="• • • •"
-                        value={pin}
-                        onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                        onBlur={() => setPinTouched(true)}
-                        className={`login-field__input text-center text-2xl font-bold tracking-[0.5em] font-mono h-13 ${
-                          showPinError ? "login-field__input--error" : ""
-                        }`}
-                        aria-describedby={showPinError ? "login-pin-error" : undefined}
-                        disabled={isSubmitting}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPin(!showPin)}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
-                        aria-label={showPin ? "Hide PIN" : "Show PIN"}
-                        tabIndex={-1}
-                      >
-                        {showPin ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-                    {showPinError ? (
-                      <p id="login-pin-error" className="login-field__error" role="alert">
-                        PIN must be exactly 4 numbers.
-                      </p>
-                    ) : (
-                      <div className="flex items-center justify-between mt-1 text-xs text-slate-500">
-                        <span>Enter your 4 secret digits</span>
-                        <span className="font-semibold text-blue-600">Default PIN: 1234</span>
+
+                    <div className="login-pin-wrapper">
+                      <div className="login-pin-boxes" onPaste={handlePinPaste}>
+                        {pinDigits.map((digit, idx) => (
+                          <input
+                            key={idx}
+                            ref={(el) => {
+                              pinInputRefs.current[idx] = el;
+                            }}
+                            id={`login-pin-${idx}`}
+                            type={showPin ? "text" : "password"}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={1}
+                            autoComplete={idx === 0 ? "one-time-code" : "off"}
+                            value={digit}
+                            onChange={(e) => handlePinDigitChange(idx, e.target.value)}
+                            onKeyDown={(e) => handlePinKeyDown(idx, e)}
+                            onFocus={(e) => e.target.select()}
+                            className={`login-pin-cell ${
+                              digit ? "login-pin-cell--filled" : ""
+                            } ${showPinError ? "login-pin-cell--error" : ""}`}
+                            aria-label={`Digit ${idx + 1} of 4-digit PIN`}
+                            disabled={isSubmitting}
+                          />
+                        ))}
                       </div>
+
+                      <div className="login-pin-footer">
+                        <button
+                          type="button"
+                          onClick={() => setShowPin(!showPin)}
+                          className="login-pin-mask-toggle"
+                          tabIndex={-1}
+                        >
+                          {showPin ? <EyeOff size={14} /> : <Eye size={14} />}
+                          <span>{showPin ? "Hide PIN" : "Show PIN"}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {showPinError && (
+                      <p className="login-field__error" role="alert">
+                        Please enter your 4-digit PIN.
+                      </p>
                     )}
-                  </div>
-
-                  {/* Quick-tap Demo Accounts for Easy Testing & Drivers */}
-                  <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3 mb-2">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-blue-900">
-                        1-Touch Demo Logins:
-                      </span>
-                      <span className="text-[11px] font-semibold text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-md font-mono">
-                        PIN: 1234
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleQuickFill("03000000007")}
-                        className="flex flex-col items-center justify-center p-2 rounded-lg bg-white border border-blue-200 hover:border-blue-600 hover:bg-blue-50 text-slate-800 transition shadow-xs group"
-                      >
-                        <span className="text-base mb-0.5">🚌</span>
-                        <span className="text-xs font-bold text-blue-900 group-hover:text-blue-700">Driver</span>
-                        <span className="text-[10px] text-slate-400 font-mono">0300...007</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleQuickFill("03000000002")}
-                        className="flex flex-col items-center justify-center p-2 rounded-lg bg-white border border-blue-200 hover:border-blue-600 hover:bg-blue-50 text-slate-800 transition shadow-xs group"
-                      >
-                        <span className="text-base mb-0.5">👤</span>
-                        <span className="text-xs font-bold text-blue-900 group-hover:text-blue-700">Staff</span>
-                        <span className="text-[10px] text-slate-400 font-mono">0300...002</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleQuickFill("03000000001")}
-                        className="flex flex-col items-center justify-center p-2 rounded-lg bg-white border border-blue-200 hover:border-blue-600 hover:bg-blue-50 text-slate-800 transition shadow-xs group"
-                      >
-                        <span className="text-base mb-0.5">🛡️</span>
-                        <span className="text-xs font-bold text-blue-900 group-hover:text-blue-700">Admin</span>
-                        <span className="text-[10px] text-slate-400 font-mono">0300...001</span>
-                      </button>
-                    </div>
                   </div>
                 </>
               ) : (
                 <>
-                  {/* Work Email Field */}
+                  {/* Email */}
                   <div className="login-field">
                     <label htmlFor="login-email" className="login-field__label">
-                      Email address
+                      Email
                     </label>
                     <input
                       id="login-email"
                       type="email"
                       autoComplete="email"
-                      placeholder="you@company.com"
+                      placeholder="name@company.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       onBlur={() => setEmailTouched(true)}
@@ -535,7 +574,7 @@ export default function LoginPage() {
                     )}
                   </div>
 
-                  {/* Password Field */}
+                  {/* Password */}
                   <div className="login-field">
                     <div className="login-field__label-row">
                       <label htmlFor="login-password" className="login-field__label">
@@ -599,7 +638,7 @@ export default function LoginPage() {
                     disabled={isSubmitting}
                   >
                     <Building2 size={16} strokeWidth={1.8} />
-                    <span>Sign in with Company Single Sign-On (SSO)</span>
+                    <span>Continue with Single Sign-On (SSO)</span>
                   </button>
                 </>
               )}
@@ -608,17 +647,17 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="login-submit-button mt-2"
+                className="login-submit-button"
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 size={18} className="login-submit-button__spinner" />
-                    <span>Signing in…</span>
+                    <span>Authenticating…</span>
                   </>
                 ) : (
                   <div className="flex items-center justify-center gap-2">
-                    <Lock size={16} />
-                    <span>{authMethod === "PHONE" ? "Sign In with PIN" : "Sign In"}</span>
+                    <Lock size={15} />
+                    <span>{authMethod === "PHONE" ? "Sign In with PIN" : "Sign In with Email"}</span>
                   </div>
                 )}
               </button>
@@ -627,7 +666,7 @@ export default function LoginPage() {
             {/* Access note */}
             <div className="login-auth-access-note">
               <Info size={13} strokeWidth={1.6} />
-              <span>Accounts are created and managed by company office.</span>
+              <span>Accounts and access are managed by your company office.</span>
             </div>
 
             {/* Footer */}
@@ -638,7 +677,7 @@ export default function LoginPage() {
                   onClick={() => setIsHelpdeskOpen(true)}
                   className="login-auth-footer__link"
                 >
-                  Privacy
+                  Privacy Policy
                 </button>
                 <span className="login-auth-footer__separator">·</span>
                 <button
@@ -646,11 +685,11 @@ export default function LoginPage() {
                   onClick={() => setIsHelpdeskOpen(true)}
                   className="login-auth-footer__link"
                 >
-                  Help
+                  IT Helpdesk
                 </button>
               </div>
               <p className="login-auth-footer__copyright">
-                © {new Date().getFullYear()} IndusConnect
+                © {new Date().getFullYear()} IndusConnect Technologies
               </p>
             </footer>
           </div>

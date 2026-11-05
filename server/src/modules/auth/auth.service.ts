@@ -41,7 +41,6 @@ export async function loginUser(data: LoginInput) {
 
     const isPinValid =
       (user.pin && user.pin === pin) ||
-      pin === "1234" ||
       (await bcrypt.compare(pin, user.password).catch(() => false));
 
     if (!isPinValid) {

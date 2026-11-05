@@ -466,6 +466,203 @@
   animation: login-spin 800ms linear infinite;
 }
 
+/* ── Modern Method Segmented Tabs ── */
+.login-method-tabs {
+  display: flex;
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  border-radius: var(--login-radius-lg);
+  padding: 4px;
+  margin-bottom: 22px;
+  gap: 4px;
+}
+
+.login-method-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--login-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all var(--login-transition);
+}
+
+.login-method-tab:hover:not(.login-method-tab--active) {
+  color: var(--login-text-primary);
+}
+
+.login-method-tab--active {
+  background: #FFFFFF;
+  color: var(--login-navy);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(16, 38, 68, 0.08), 0 1px 2px rgba(16, 38, 68, 0.04);
+}
+
+.login-method-tab__tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #E0F2FE;
+  color: #0369A1;
+  letter-spacing: 0.01em;
+}
+
+/* ── SaaS Phone Number Control ── */
+.login-phone-group {
+  display: flex;
+  border: 1px solid var(--login-border);
+  border-radius: var(--login-radius);
+  background: #FFFFFF;
+  transition: border-color var(--login-transition), box-shadow var(--login-transition);
+  overflow: hidden;
+}
+
+.login-phone-group:hover:not(:focus-within) {
+  border-color: #B8C5D6;
+}
+
+.login-phone-group:focus-within {
+  border-color: var(--login-focus-ring);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.login-phone-group--error {
+  border-color: var(--login-error);
+}
+
+.login-phone-group--error:focus-within {
+  border-color: var(--login-error);
+  box-shadow: 0 0 0 3px rgba(196, 61, 75, 0.1);
+}
+
+.login-phone-prefix {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  background: #F8FAFC;
+  border-right: 1px solid var(--login-border);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--login-text-primary);
+  user-select: none;
+}
+
+.login-phone-prefix__flag {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.login-phone-input {
+  flex: 1;
+  height: var(--login-input-height);
+  padding: 0 14px;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--login-text-primary);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.login-phone-input::placeholder {
+  color: #94A3B8;
+  font-weight: 400;
+  letter-spacing: normal;
+}
+
+/* ── 4-Digit Segmented PIN Boxes ── */
+.login-pin-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.login-pin-boxes {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.login-pin-cell {
+  flex: 1;
+  height: 60px;
+  max-width: 72px;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--login-navy);
+  background: #FFFFFF;
+  border: 1.5px solid var(--login-border);
+  border-radius: var(--login-radius-lg);
+  outline: none;
+  transition: all var(--login-transition);
+  caret-color: var(--login-blue);
+}
+
+.login-pin-cell:hover:not(:disabled):not(:focus) {
+  border-color: #94A3B8;
+}
+
+.login-pin-cell:focus {
+  border-color: var(--login-blue);
+  background: #FFFFFF;
+  box-shadow: 0 0 0 4px rgba(23, 105, 224, 0.12);
+  transform: translateY(-1px);
+}
+
+.login-pin-cell--filled {
+  border-color: #64748B;
+  background: #F8FAFC;
+}
+
+.login-pin-cell--error {
+  border-color: var(--login-error);
+  color: var(--login-error);
+}
+
+.login-pin-cell--error:focus {
+  border-color: var(--login-error);
+  box-shadow: 0 0 0 4px rgba(196, 61, 75, 0.12);
+}
+
+.login-pin-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.login-pin-mask-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--login-text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color var(--login-transition);
+}
+
+.login-pin-mask-toggle:hover {
+  color: var(--login-text-primary);
+}
+
 /* ── Access note ── */
 .login-auth-access-note {
   display: flex;
