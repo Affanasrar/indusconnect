@@ -72,11 +72,12 @@ export async function getMyTravelRequestsController(
 }
 
 export async function getAllTravelRequestsController(
-  _req: Request,
+  req: Request,
   res: Response
 ) {
   try {
-    const requests = await getAllTravelRequests();
+    const currentUser = (req as any).user;
+    const requests = await getAllTravelRequests(currentUser);
 
     return res.status(200).json({
       success: true,
@@ -95,11 +96,12 @@ export async function getAllTravelRequestsController(
 }
 
 export async function getPendingTravelRequestsController(
-  _req: Request,
+  req: Request,
   res: Response
 ) {
   try {
-    const requests = await getPendingTravelRequests();
+    const currentUser = (req as any).user;
+    const requests = await getPendingTravelRequests(currentUser);
 
     return res.status(200).json({
       success: true,

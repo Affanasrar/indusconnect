@@ -1120,16 +1120,37 @@ export default function ShuttleBookingsPage() {
 
                       {/* Ticket Action Footer */}
                       <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
-                        {booking.route && (
-                          <button
-                            type="button"
-                            onClick={() => setTrackingBooking(booking)}
-                            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition"
-                          >
-                            <Activity size={14} className="animate-pulse" />
-                            <span>Live Transit Radar</span>
-                          </button>
-                        )}
+                        {(() => {
+                          const latestTrip = (booking.route as any)?.trips?.[0];
+                          const isTripActive =
+                            booking.status === "ASSIGNED" &&
+                            latestTrip?.status === "IN_PROGRESS";
+
+                          if (booking.route && isTripActive) {
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => setTrackingBooking(booking)}
+                                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition"
+                              >
+                                <Activity size={14} className="animate-pulse" />
+                                <span>Live Transit Radar (Trip Active)</span>
+                              </button>
+                            );
+                          }
+
+                          if (booking.route && booking.status === "ASSIGNED") {
+                            return (
+                              <div className="w-full py-2 px-3 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 font-bold text-[11px] text-center">
+                                {latestTrip?.status === "READY"
+                                  ? "Safety Check Ready • Waiting for Driver to Start Trip"
+                                  : "Vehicle Approved • Live Radar Unlocks When Driver Starts Trip"}
+                              </div>
+                            );
+                          }
+
+                          return null;
+                        })()}
 
                         {(booking.status === "PENDING" || booking.status === "ASSIGNED") && (
                           <button
@@ -1201,17 +1222,36 @@ export default function ShuttleBookingsPage() {
                           </span>
                         </td>
                         <td className="rounded-r-xl px-4 py-3 text-right">
-                          <div className="flex justify-end gap-1.5">
-                            {booking.route && (
-                              <button
-                                type="button"
-                                onClick={() => setTrackingBooking(booking)}
-                                className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-3xs flex items-center gap-1 shadow-2xs hover:bg-emerald-500"
-                              >
-                                <Activity size={12} />
-                                Radar
-                              </button>
-                            )}
+                          <div className="flex justify-end items-center gap-1.5">
+                            {(() => {
+                              const latestTrip = (booking.route as any)?.trips?.[0];
+                              const isTripActive =
+                                booking.status === "ASSIGNED" &&
+                                latestTrip?.status === "IN_PROGRESS";
+
+                              if (booking.route && isTripActive) {
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => setTrackingBooking(booking)}
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-3xs flex items-center gap-1 shadow-2xs hover:bg-emerald-500"
+                                  >
+                                    <Activity size={12} />
+                                    Live Radar
+                                  </button>
+                                );
+                              }
+
+                              if (booking.route && booking.status === "ASSIGNED") {
+                                return (
+                                  <span className="px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-500 font-semibold text-[10px]">
+                                    Awaiting Trip Start
+                                  </span>
+                                );
+                              }
+
+                              return null;
+                            })()}
                             {(booking.status === "PENDING" || booking.status === "ASSIGNED") && (
                               <button
                                 type="button"

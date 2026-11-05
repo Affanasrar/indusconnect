@@ -184,7 +184,8 @@ export default function LiveRideTracker({
         lat: latestTelemetry.latitude,
         lng: latestTelemetry.longitude,
         heading: heading || 0,
-        speed: latestTelemetry.speed ?? 28,
+        speed: latestTelemetry.speed ?? 0,
+        status: latestTelemetry.status ?? "MOVING",
         source: "LIVE_GPS",
       };
     }
@@ -194,8 +195,9 @@ export default function LiveRideTracker({
       return {
         lat: waypoints[0].latitude,
         lng: waypoints[0].longitude,
-        heading: 45,
+        heading: 0,
         speed: 0,
+        status: "STOPPED",
         source: "SCHEDULED_ORIGIN",
       };
     }
@@ -205,6 +207,7 @@ export default function LiveRideTracker({
       lng: 67.0104,
       heading: 0,
       speed: 0,
+      status: "STOPPED",
       source: "DEFAULT",
     };
   }, [isSimulating, simStepIndex, waypoints, latestTelemetry, telemetryLogs]);
@@ -271,7 +274,11 @@ export default function LiveRideTracker({
     const mins = Math.max(1, Math.round((dist / speed) * 60));
 
     let statusText = "Driver is on the way";
-    if (dist < 0.25) {
+    if (!latestTelemetry && !isSimulating) {
+      statusText = "Waiting for driver to start trip";
+    } else if ((currentVehiclePosition as any).status === "STOPPED" && !isSimulating) {
+      statusText = "Vehicle stationary at stop";
+    } else if (dist < 0.25) {
       statusText = "Driver has arrived at your stop!";
     } else if (dist < 1.0) {
       statusText = "Driver is approaching your pickup stop";
@@ -283,7 +290,7 @@ export default function LiveRideTracker({
       minutes: mins,
       statusText,
     };
-  }, [currentVehiclePosition, passengerStopCoord]);
+  }, [currentVehiclePosition, passengerStopCoord, latestTelemetry, isSimulating]);
 
   // Construct Map Markers
   const mapMarkers = useMemo(() => {

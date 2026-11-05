@@ -17,6 +17,9 @@ const travelRequestInclude = {
       fullName: true,
       email: true,
       phone: true,
+      employeeCode: true,
+      department: true,
+      hrGrade: true,
       role: {
         select: {
           name: true,
@@ -29,6 +32,7 @@ const travelRequestInclude = {
       id: true,
       fullName: true,
       email: true,
+      department: true,
     },
   },
   proxyCreatedBy: {
@@ -36,6 +40,7 @@ const travelRequestInclude = {
       id: true,
       fullName: true,
       email: true,
+      department: true,
       role: {
         select: {
           name: true,
@@ -52,6 +57,9 @@ const shuttleBookingInclude = {
       fullName: true,
       email: true,
       phone: true,
+      employeeCode: true,
+      department: true,
+      hrGrade: true,
       role: {
         select: {
           name: true,
@@ -83,6 +91,7 @@ const shuttleBookingInclude = {
       id: true,
       fullName: true,
       email: true,
+      department: true,
       role: {
         select: {
           name: true,
@@ -92,7 +101,7 @@ const shuttleBookingInclude = {
   },
 };
 
-async function validateEmployee(employeeId: string) {
+async function validateEmployee(employeeId: string, createdById?: string) {
   const employee = await prisma.user.findUnique({
     where: {
       id: employeeId,
@@ -110,6 +119,25 @@ async function validateEmployee(employeeId: string) {
     throw new Error("Proxy booking can only be created for EMPLOYEE users");
   }
 
+  if (createdById) {
+    const creator = await prisma.user.findUnique({
+      where: { id: createdById },
+      include: { role: true },
+    });
+
+    if (creator?.role.name === RoleName.MANAGER) {
+      if (
+        !creator.department ||
+        !employee.department ||
+        creator.department.toLowerCase() !== employee.department.toLowerCase()
+      ) {
+        throw new Error(
+          `Department mismatch: As Manager of ${creator.department || "Unassigned"}, you can only create proxy bookings for employees in your own department (${employee.department || "Unassigned"}).`
+        );
+      }
+    }
+  }
+
   return employee;
 }
 
@@ -117,7 +145,7 @@ export async function createProxyTravelRequest(
   createdById: string,
   data: ProxyTravelRequestInput
 ) {
-  const employee = await validateEmployee(data.employeeId);
+  const employee = await validateEmployee(data.employeeId, createdById);
 
   const travelRequest = await prisma.travelRequest.create({
     data: {
@@ -158,7 +186,7 @@ export async function createProxyShuttleBooking(
   createdById: string,
   data: ProxyShuttleBookingInput
 ) {
-  const employee = await validateEmployee(data.employeeId);
+  const employee = await validateEmployee(data.employeeId, createdById);
 
   const booking = await prisma.shuttleBooking.create({
     data: {

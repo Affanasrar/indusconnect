@@ -26,7 +26,15 @@ const telemetryInclude = {
     },
   },
   vehicle: true,
-  route: true,
+  route: {
+    include: {
+      smartStops: {
+        orderBy: {
+          stopOrder: "asc" as const,
+        },
+      },
+    },
+  },
   transportTrip: true,
 };
 
@@ -221,29 +229,223 @@ export async function createTelemetryLog(
   return telemetry;
 }
 
-export async function getLatestVehicleLocations() {
-  const recentLogs = await prisma.vehicleTelemetryLog.findMany({
-    include: telemetryInclude,
-    orderBy: {
-      recordedAt: "desc",
+function mapTripIssueToTelemetryStatus(issueType?: TripIssueType | null): TelemetryStatus {
+  if (issueType === TripIssueType.SOS) return TelemetryStatus.SOS;
+  if (issueType === TripIssueType.BREAKDOWN) return TelemetryStatus.BREAKDOWN;
+  if (issueType === TripIssueType.DELAY) return TelemetryStatus.DELAYED;
+  return TelemetryStatus.STOPPED;
+}
+
+async function syncTripIssuesToTelemetry() {
+  const tripsWithIssues = await prisma.transportTrip.findMany({
+    where: {
+      issueType: {
+        not: null,
+      },
     },
-    take: 300,
+    include: {
+      route: {
+        include: {
+          smartStops: {
+            orderBy: { stopOrder: "asc" },
+          },
+        },
+      },
+      driver: true,
+    },
   });
 
-  const latestByVehicleOrDriver = new Map<string, (typeof recentLogs)[number]>();
+  for (const trip of tripsWithIssues) {
+    const targetStatus = mapTripIssueToTelemetryStatus(trip.issueType);
+    const existingLog = await prisma.vehicleTelemetryLog.findFirst({
+      where: {
+        transportTripId: trip.id,
+        status: targetStatus,
+      },
+    });
+
+    if (!existingLog) {
+      const fallbackStop = trip.route?.smartStops?.[0];
+      const lat = trip.issueLatitude ?? fallbackStop?.latitude ?? 24.8607;
+      const lng = trip.issueLongitude ?? fallbackStop?.longitude ?? 67.0011;
+
+      await prisma.vehicleTelemetryLog.create({
+        data: {
+          driverId: trip.driverId,
+          vehicleId: trip.route?.vehicleId ?? trip.driver?.vehicleId ?? undefined,
+          routeId: trip.routeId,
+          transportTripId: trip.id,
+          latitude: lat,
+          longitude: lng,
+          speed: 0,
+          status: targetStatus,
+          source: TelemetrySource.MOBILE_GPS,
+          remarks: trip.issueDescription ?? `Trip issue reported: ${trip.issueType}`,
+          recordedAt: trip.issueReportedAt ?? trip.updatedAt,
+        },
+      });
+    }
+  }
+}
+
+export async function getLatestVehicleLocations() {
+  await syncTripIssuesToTelemetry();
+
+  const [recentLogs, activeVehicles] = await Promise.all([
+    prisma.vehicleTelemetryLog.findMany({
+      include: telemetryInclude,
+      orderBy: {
+        recordedAt: "desc",
+      },
+      take: 300,
+    }),
+    prisma.vehicle.findMany({
+      where: {
+        status: "ACTIVE",
+      },
+      include: {
+        drivers: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+                phone: true,
+              },
+            },
+          },
+        },
+        transportRoutes: {
+          where: {
+            status: {
+              in: ["ACTIVE", "DRAFT"],
+            },
+          },
+          include: {
+            smartStops: {
+              orderBy: {
+                stopOrder: "asc",
+              },
+            },
+            driver: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    email: true,
+                    phone: true,
+                  },
+                },
+              },
+            },
+            trips: {
+              orderBy: {
+                createdAt: "desc",
+              },
+              take: 1,
+            },
+          },
+        },
+      },
+    }),
+  ]);
+
+  const latestByVehicleOrDriver = new Map<string, any>();
 
   for (const log of recentLogs) {
     const key = log.vehicleId ?? `driver-${log.driverId}`;
 
     if (!latestByVehicleOrDriver.has(key)) {
-      latestByVehicleOrDriver.set(key, log);
+      const normalizedLog = { ...log };
+
+      // If the linked trip has already completed or been cancelled, do not report stale MOVING status
+      if (
+        normalizedLog.transportTrip &&
+        (normalizedLog.transportTrip.status === TripStatus.COMPLETED ||
+          normalizedLog.transportTrip.status === TripStatus.CANCELLED) &&
+        normalizedLog.status === TelemetryStatus.MOVING
+      ) {
+        normalizedLog.status = TelemetryStatus.STOPPED;
+        normalizedLog.speed = 0;
+        normalizedLog.remarks =
+          normalizedLog.remarks
+            ? `${normalizedLog.remarks} (Trip completed)`
+            : "Trip completed - vehicle parked at destination";
+      }
+
+      latestByVehicleOrDriver.set(key, normalizedLog);
     }
+  }
+
+  // Ensure every active vehicle in the database is represented with real route/driver data
+  for (const vehicle of activeVehicles) {
+    if (latestByVehicleOrDriver.has(vehicle.id)) {
+      continue;
+    }
+
+    const assignedRoute = vehicle.transportRoutes[0] ?? null;
+    const assignedDriver = assignedRoute?.driver ?? vehicle.drivers[0] ?? null;
+
+    if (!assignedDriver) {
+      continue;
+    }
+
+    const latestTrip = assignedRoute?.trips?.[0] ?? null;
+    const firstStop = assignedRoute?.smartStops?.[0] ?? null;
+    const isTripActive = latestTrip?.status === TripStatus.IN_PROGRESS;
+
+    let derivedStatus: TelemetryStatus = isTripActive
+      ? TelemetryStatus.MOVING
+      : TelemetryStatus.STOPPED;
+
+    if (latestTrip?.issueType) {
+      derivedStatus = mapTripIssueToTelemetryStatus(latestTrip.issueType);
+    }
+
+    const { drivers: _drivers, transportRoutes: _routes, ...vehicleData } = vehicle;
+
+    latestByVehicleOrDriver.set(vehicle.id, {
+      id: `vehicle-state-${vehicle.id}`,
+      driverId: assignedDriver.id,
+      vehicleId: vehicle.id,
+      routeId: assignedRoute?.id ?? null,
+      transportTripId: latestTrip?.id ?? null,
+      latitude:
+        latestTrip?.issueLatitude ?? firstStop?.latitude ?? 24.8607,
+      longitude:
+        latestTrip?.issueLongitude ?? firstStop?.longitude ?? 67.0011,
+      speed: isTripActive ? 30 : 0,
+      heading: 0,
+      status: derivedStatus,
+      source: TelemetrySource.MOBILE_GPS,
+      batteryLevel: null,
+      accuracy: null,
+      remarks:
+        latestTrip?.issueDescription ??
+        (isTripActive
+          ? "Trip in progress"
+          : firstStop
+          ? `Stationed at ${firstStop.stopName}`
+          : "Stationed at depot"),
+      recordedAt:
+        latestTrip?.updatedAt?.toISOString?.() ??
+        vehicle.updatedAt.toISOString(),
+      createdAt: vehicle.createdAt.toISOString(),
+      driver: assignedDriver,
+      vehicle: vehicleData,
+      route: assignedRoute,
+      transportTrip: latestTrip,
+    });
   }
 
   return Array.from(latestByVehicleOrDriver.values());
 }
 
 export async function getEmergencyTelemetryEvents() {
+  await syncTripIssuesToTelemetry();
+
   return prisma.vehicleTelemetryLog.findMany({
     where: {
       status: {
@@ -272,9 +474,9 @@ export async function getTelemetryByRoute(
     throw new Error("Route not found");
   }
 
-  // Restrict telemetry access to route booking assignment
+  // Restrict telemetry access to route booking assignment AND active IN_PROGRESS trip for employees
   if (currentUser && currentUser.role === "EMPLOYEE") {
-    const [activeBooking, activeSubscription] = await Promise.all([
+    const [activeBooking, activeSubscription, activeTrip] = await Promise.all([
       prisma.shuttleBooking.findFirst({
         where: {
           employeeId: currentUser.userId,
@@ -289,11 +491,36 @@ export async function getTelemetryByRoute(
           isActive: true,
         },
       }),
+      prisma.transportTrip.findFirst({
+        where: {
+          routeId,
+          status: TripStatus.IN_PROGRESS,
+        },
+        orderBy: {
+          startedAt: "desc",
+        },
+      }),
     ]);
 
     if (!activeBooking && !activeSubscription) {
       throw new Error("Forbidden: You do not have an approved shuttle booking on this route.");
     }
+
+    // Employees only see active vehicle telemetry after the driver starts the trip (IN_PROGRESS)
+    if (!activeTrip) {
+      return [];
+    }
+
+    return prisma.vehicleTelemetryLog.findMany({
+      where: {
+        routeId,
+        transportTripId: activeTrip.id,
+      },
+      include: telemetryInclude,
+      orderBy: {
+        recordedAt: "asc",
+      },
+    });
   }
 
   return prisma.vehicleTelemetryLog.findMany({

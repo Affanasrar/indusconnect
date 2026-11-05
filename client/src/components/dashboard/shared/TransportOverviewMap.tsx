@@ -42,24 +42,27 @@ export default function TransportOverviewMap({
         const routesData = routesRes.data.data ?? routesRes.data;
         if (Array.isArray(routesData)) {
           routesData.forEach((route: any) => {
-            if (Array.isArray(route.stops)) {
-              route.stops.forEach((stop: any) => {
-                if (stop.latitude && stop.longitude) {
-                  newMarkers.push({
-                    latitude: Number(stop.latitude),
-                    longitude: Number(stop.longitude),
-                    label: stop.stopName || "Transit Stop",
-                    subLabel: `Route: ${route.routeName || "Shuttle"}`,
-                    color: "bg-blue-600",
-                    type: "pickup",
-                  });
-                  newPolylinePoints.push({
-                    latitude: Number(stop.latitude),
-                    longitude: Number(stop.longitude),
-                  });
-                }
-              });
-            }
+            const routeStops = Array.isArray(route.smartStops)
+              ? route.smartStops
+              : Array.isArray(route.stops)
+              ? route.stops
+              : [];
+            routeStops.forEach((stop: any) => {
+              if (stop.latitude && stop.longitude) {
+                newMarkers.push({
+                  latitude: Number(stop.latitude),
+                  longitude: Number(stop.longitude),
+                  label: stop.stopName || "Transit Stop",
+                  subLabel: `Route: ${route.routeName || "Shuttle"} (${route.routeCode || ""})`,
+                  color: "bg-blue-600",
+                  type: "pickup",
+                });
+                newPolylinePoints.push({
+                  latitude: Number(stop.latitude),
+                  longitude: Number(stop.longitude),
+                });
+              }
+            });
           });
         }
       } catch (e) {
@@ -84,12 +87,25 @@ export default function TransportOverviewMap({
                 newMarkers.push({
                   latitude: Number(item.latitude),
                   longitude: Number(item.longitude),
-                  label: vehicleNum,
-                  subLabel: `Last reported location (${lastSeen}) • ${driverName}`,
-                  color: item.status === "SOS" || item.status === "BREAKDOWN" ? "bg-red-500" : "bg-emerald-600",
+                  label: `${vehicleNum} (${item.status || "STOPPED"})`,
+                  subLabel: `Last reported (${lastSeen}) • ${driverName}`,
+                  color:
+                    item.status === "SOS" || item.status === "BREAKDOWN"
+                      ? "bg-red-500"
+                      : item.status === "MOVING"
+                      ? "bg-emerald-600"
+                      : "bg-slate-600",
                   type: "vehicle",
-                  pulse: item.status === "MOVING",
-                  speed: item.speed ? Number(item.speed) : undefined,
+                  pulse:
+                    item.status === "MOVING" ||
+                    item.status === "SOS" ||
+                    item.status === "BREAKDOWN",
+                  speed: item.speed ? Number(item.speed) : 0,
+                  status: item.status,
+                  driverName,
+                  vehicleNumber: vehicleNum,
+                  routeName: item.route?.routeName,
+                  routeCode: item.route?.routeCode,
                 });
               }
             });

@@ -7,9 +7,10 @@ import {
   updateUser,
 } from "./user.service";
 
-export async function getAllUsersController(_req: Request, res: Response) {
+export async function getAllUsersController(req: Request, res: Response) {
   try {
-    const users = await getAllUsers();
+    const currentUser = (req as any).user;
+    const users = await getAllUsers(currentUser);
 
     return res.status(200).json({
       success: true,

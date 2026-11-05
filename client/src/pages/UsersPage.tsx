@@ -79,6 +79,67 @@ export default function UsersPage() {
     loadUsers();
   }, []);
 
+  const isSuperAdmin = bootstrap?.role === "SUPER_ADMIN";
+  const isManager = bootstrap?.role === "MANAGER";
+
+  const departmentHierarchy = useMemo(() => {
+    const deptMap = new Map<
+      string,
+      {
+        department: string;
+        managers: UserProfile[];
+        employees: UserProfile[];
+        others: UserProfile[];
+      }
+    >();
+
+    for (const u of users) {
+      const deptName = u.department?.trim() || "Unassigned";
+      const key = deptName.toLowerCase();
+      if (!deptMap.has(key)) {
+        deptMap.set(key, {
+          department: deptName,
+          managers: [],
+          employees: [],
+          others: [],
+        });
+      }
+      const entry = deptMap.get(key)!;
+      if (u.role?.name === "MANAGER") {
+        entry.managers.push(u);
+      } else if (u.role?.name === "EMPLOYEE") {
+        entry.employees.push(u);
+      } else {
+        entry.others.push(u);
+      }
+    }
+
+    return Array.from(deptMap.values()).sort((a, b) =>
+      a.department.localeCompare(b.department)
+    );
+  }, [users]);
+
+  const departmentOptions = useMemo(() => {
+    const defaults = [
+      "Operations",
+      "IT",
+      "Finance",
+      "Transport",
+      "Accommodation",
+      "Security",
+      "Administration",
+      "HR",
+      "Engineering",
+    ];
+    const set = new Set<string>(defaults);
+    for (const u of users) {
+      if (u.department?.trim()) {
+        set.add(u.department.trim());
+      }
+    }
+    return Array.from(set).sort();
+  }, [users]);
+
   const filteredUsers = useMemo(() => {
     const keyword = search.toLowerCase().trim();
 
@@ -87,13 +148,16 @@ export default function UsersPage() {
     }
 
     return users.filter((user) => {
+      const deptMgrName =
+        (user as any).departmentManager?.fullName?.toLowerCase() ?? "";
       return (
         user.fullName?.toLowerCase().includes(keyword) ||
         user.email?.toLowerCase().includes(keyword) ||
         user.phone?.toLowerCase().includes(keyword) ||
         user.department?.toLowerCase().includes(keyword) ||
         user.employeeCode?.toLowerCase().includes(keyword) ||
-        user.role?.name?.toLowerCase().includes(keyword)
+        user.role?.name?.toLowerCase().includes(keyword) ||
+        deptMgrName.includes(keyword)
       );
     });
   }, [users, search]);
@@ -173,13 +237,17 @@ export default function UsersPage() {
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
-            Super Admin
+            {isManager
+              ? `Department Manager • ${bootstrap?.profile?.department || "Unassigned"}`
+              : "Super Admin"}
           </p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900">
-            People & Staff
+            People & Department Hierarchy
           </h1>
           <p className="mt-2 text-slate-500">
-            Create and manage driver and staff accounts with clear role access.
+            {isManager
+              ? `Viewing employees and staff assigned to your department (${bootstrap?.profile?.department || "Unassigned"}).`
+              : "Assign employees and managers to departments. Employees in a department are managed and approved by that department's Manager."}
           </p>
         </div>
 
@@ -189,7 +257,86 @@ export default function UsersPage() {
         </Button>
       </div>
 
-      <div className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]">
+      {/* Department-to-Manager Mapping Overview */}
+      {departmentHierarchy.length > 0 && (
+        <Card>
+          <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">
+                Department Management Structure
+              </h2>
+              <p className="text-xs text-slate-500">
+                Each department&apos;s Manager automatically manages and reviews travel requests, proxy bookings, and expenses for employees in the same department. Click a department to filter.
+              </p>
+            </div>
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="text-xs font-semibold text-blue-600 hover:underline self-start sm:self-auto"
+              >
+                Clear Filter ({search})
+              </button>
+            )}
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {departmentHierarchy.map((dept) => {
+              const isSelected =
+                search.toLowerCase().trim() === dept.department.toLowerCase();
+              return (
+                <div
+                  key={dept.department}
+                  onClick={() =>
+                    setSearch(isSelected ? "" : dept.department)
+                  }
+                  className={`cursor-pointer rounded-2xl border p-3.5 transition ${
+                    isSelected
+                      ? "border-blue-600 bg-blue-50/50 shadow-xs"
+                      : "border-slate-200 bg-slate-50/70 hover:border-blue-300 hover:bg-white"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-sm text-slate-900">
+                      {dept.department}
+                    </span>
+                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-bold text-blue-800">
+                      {dept.employees.length} Employee{dept.employees.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+
+                  <div className="mt-2 text-xs">
+                    {dept.managers.length > 0 ? (
+                      <div className="text-emerald-700 font-semibold">
+                        Manager:{" "}
+                        {dept.managers.map((m) => m.fullName).join(", ")}
+                      </div>
+                    ) : (
+                      <div className="text-amber-700 font-medium">
+                        No Department Manager assigned
+                      </div>
+                    )}
+                    {dept.employees.length > 0 && (
+                      <div className="mt-1 text-[11px] text-slate-500 truncate">
+                        Staff: {dept.employees.map((e) => e.fullName).join(", ")}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      <div
+        className={
+          isSuperAdmin
+            ? "grid min-w-0 gap-6 2xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]"
+            : "grid min-w-0 gap-6"
+        }
+      >
+        {isSuperAdmin && (
         <Card>
           <div className="mb-5 flex items-center gap-3">
             <div className="rounded-2xl bg-blue-50 p-3 text-blue-700">
@@ -343,12 +490,37 @@ export default function UsersPage() {
                 Department
               </label>
               <input
+                list="department-options-list"
+                placeholder="e.g. Operations, IT, Finance"
                 className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
                 value={form.department}
                 onChange={(event) =>
                   setForm({ ...form, department: event.target.value })
                 }
               />
+              <datalist id="department-options-list">
+                {departmentOptions.map((dept) => (
+                  <option key={dept} value={dept} />
+                ))}
+              </datalist>
+              {form.department?.trim() && (
+                <p className="mt-1.5 text-xs text-slate-500">
+                  {form.role === "MANAGER"
+                    ? `This user will manage all employees in the "${form.department.trim()}" department.`
+                    : (() => {
+                        const match = departmentHierarchy.find(
+                          (d) =>
+                            d.department.toLowerCase() ===
+                            form.department!.trim().toLowerCase()
+                        );
+                        return match && match.managers.length > 0
+                          ? `Managed by: ${match.managers
+                              .map((m) => m.fullName)
+                              .join(", ")} (${match.department})`
+                          : `No MANAGER user is currently assigned to "${form.department.trim()}".`;
+                      })()}
+                </p>
+              )}
             </div>
 
             <div className="flex gap-3">
@@ -368,6 +540,7 @@ export default function UsersPage() {
             </div>
           </form>
         </Card>
+        )}
 
         <Card>
           <div className="mb-5 flex flex-col justify-between gap-4 md:flex-row md:items-center">
@@ -410,15 +583,28 @@ export default function UsersPage() {
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
                     <th className="px-4 py-2">User</th>
                     <th className="px-4 py-2">Role</th>
-                    <th className="px-4 py-2">Department</th>
+                    <th className="px-4 py-2">Department & Manager</th>
                     <th className="px-4 py-2">HR Grade</th>
                     <th className="px-4 py-2">Status</th>
-                    <th className="px-4 py-2 text-right">Action</th>
+                    {isSuperAdmin && (
+                      <th className="px-4 py-2 text-right">Action</th>
+                    )}
                   </tr>
                 </thead>
 
                 <tbody>
-                  {filteredUsers.map((user) => (
+                  {filteredUsers.map((user) => {
+                    const deptManager =
+                      (user as any).departmentManager ??
+                      departmentHierarchy.find(
+                        (d) =>
+                          user.department &&
+                          d.department.toLowerCase() ===
+                            user.department.toLowerCase()
+                      )?.managers?.[0] ??
+                      null;
+
+                    return (
                     <tr key={user.id} className="bg-slate-50">
                       <td className="rounded-l-2xl px-4 py-4">
                         <p className="font-semibold text-slate-900">
@@ -437,36 +623,56 @@ export default function UsersPage() {
                       </td>
 
                       <td className="px-4 py-4 text-sm text-slate-600">
-                        {user.department ?? "-"}
+                        <div className="font-semibold text-slate-800">
+                          {user.department ?? "-"}
+                        </div>
+                        {user.role?.name === "MANAGER" ? (
+                          <span className="mt-1 inline-block rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-bold text-indigo-700 border border-indigo-200">
+                            ★ Department Manager
+                          </span>
+                        ) : user.role?.name === "EMPLOYEE" ? (
+                          deptManager ? (
+                            <span className="mt-0.5 block text-xs font-medium text-emerald-700">
+                              Managed by: {deptManager.fullName}
+                            </span>
+                          ) : (
+                            <span className="mt-0.5 block text-xs text-amber-600">
+                              No dept manager assigned
+                            </span>
+                          )
+                        ) : null}
                       </td>
 
                       <td className="px-4 py-4 text-sm text-slate-600">
                         {user.hrGrade ?? "-"}
                       </td>
 
-                      <td className="px-4 py-4">
+                      <td className={`px-4 py-4 ${!isSuperAdmin ? "rounded-r-2xl" : ""}`}>
                         <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
                           {user.status ?? "ACTIVE"}
                         </span>
                       </td>
 
-                      <td className="rounded-r-2xl px-4 py-4 text-right">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={() => handleEdit(user)}
-                        >
-                          <Edit size={15} className="mr-2" />
-                          Edit
-                        </Button>
-                      </td>
+                      {isSuperAdmin && (
+                        <td className="rounded-r-2xl px-4 py-4 text-right">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => handleEdit(user)}
+                          >
+                            <Edit size={15} className="mr-2" />
+                            Edit
+                          </Button>
+                        </td>
+                      )}
                     </tr>
-                  ))}
+                    );
+                  })}
 
                   {filteredUsers.length === 0 && (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={isSuperAdmin ? 6 : 5}
                         className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500"
                       >
                         No users found.

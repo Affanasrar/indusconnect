@@ -1,5 +1,11 @@
-import { RouteStatus, DriverStatus } from "@prisma/client";
+import {
+  RouteStatus,
+  DriverStatus,
+  NotificationPriority,
+  NotificationType,
+} from "@prisma/client";
 import prisma from "../../config/prisma";
+import { createNotification } from "../notifications/notification.service";
 import { geocodeAddress } from "../../utils/geocoder";
 import { solveVRP, VRPNode } from "../../utils/vrpSolver";
 import {
@@ -105,7 +111,7 @@ export async function createRoute(data: CreateRouteInput) {
     }
   }
 
-  return prisma.transportRoute.create({
+  const createdRoute = await prisma.transportRoute.create({
     data: {
       routeName: data.routeName,
       routeCode: data.routeCode,
@@ -127,10 +133,36 @@ export async function createRoute(data: CreateRouteInput) {
     },
     include: routeInclude,
   });
+
+  if (createdRoute.driver?.user?.id) {
+    await prisma.driver.update({
+      where: { id: createdRoute.driver.id },
+      data: {
+        status: DriverStatus.ASSIGNED,
+        ...(createdRoute.vehicleId ? { vehicleId: createdRoute.vehicleId } : {}),
+      },
+    });
+
+    await createNotification(undefined, {
+      recipientId: createdRoute.driver.user.id,
+      type: NotificationType.SHUTTLE,
+      priority: NotificationPriority.HIGH,
+      title: "New Trip Route & Vehicle Assigned",
+      message: `Transport Admin assigned you to route "${createdRoute.routeName}" (${createdRoute.routeCode}) for the ${createdRoute.shiftType} shift (${createdRoute.startTime || "Scheduled"})${
+        createdRoute.vehicle
+          ? ` with vehicle ${createdRoute.vehicle.vehicleNumber}`
+          : ""
+      }. Open Driver Trips & Passenger List to complete your safety checklist and start the trip.`,
+      entityType: "TransportRoute",
+      entityId: createdRoute.id,
+    });
+  }
+
+  return createdRoute;
 }
 
 export async function updateRoute(id: string, data: UpdateRouteInput) {
-  await getRouteById(id);
+  const previousRoute = await getRouteById(id);
 
   if (data.routeCode) {
     const existingRoute = await prisma.transportRoute.findUnique({
@@ -164,7 +196,7 @@ export async function updateRoute(id: string, data: UpdateRouteInput) {
     }
   }
 
-  return prisma.transportRoute.update({
+  const updatedRoute = await prisma.transportRoute.update({
     where: { id },
     data: {
       routeName: data.routeName,
@@ -182,6 +214,38 @@ export async function updateRoute(id: string, data: UpdateRouteInput) {
     },
     include: routeInclude,
   });
+
+  if (
+    updatedRoute.driver?.user?.id &&
+    (data.driverId !== previousRoute.driverId ||
+      data.vehicleId !== previousRoute.vehicleId ||
+      (data.status === RouteStatus.ACTIVE &&
+        previousRoute.status !== RouteStatus.ACTIVE))
+  ) {
+    await prisma.driver.update({
+      where: { id: updatedRoute.driver.id },
+      data: {
+        status: DriverStatus.ASSIGNED,
+        ...(updatedRoute.vehicleId ? { vehicleId: updatedRoute.vehicleId } : {}),
+      },
+    });
+
+    await createNotification(undefined, {
+      recipientId: updatedRoute.driver.user.id,
+      type: NotificationType.SHUTTLE,
+      priority: NotificationPriority.HIGH,
+      title: "Route & Vehicle Approved for Dispatch",
+      message: `Transport Admin approved/updated your assignment on route "${updatedRoute.routeName}" (${updatedRoute.routeCode}) [${updatedRoute.status}]${
+        updatedRoute.vehicle
+          ? ` with vehicle ${updatedRoute.vehicle.vehicleNumber}`
+          : ""
+      }. Please review your manifest and complete the safety checklist before starting the trip.`,
+      entityType: "TransportRoute",
+      entityId: updatedRoute.id,
+    });
+  }
+
+  return updatedRoute;
 }
 
 export async function cancelRoute(id: string) {
@@ -385,7 +449,7 @@ export async function runVRPOptimization(shiftType: string, dateStr: string) {
       });
 
       // Update the booking to link it to the newly created route/stop, and assign seat number
-      await prisma.shuttleBooking.update({
+      const updatedBooking = await prisma.shuttleBooking.update({
         where: { id: optStop.bookingId },
         data: {
           routeId: newRoute.id,
@@ -394,6 +458,40 @@ export async function runVRPOptimization(shiftType: string, dateStr: string) {
           status: "ASSIGNED",
         },
       });
+
+      await createNotification(undefined, {
+        recipientId: updatedBooking.employeeId,
+        type: NotificationType.SHUTTLE,
+        priority: NotificationPriority.HIGH,
+        title: "Shuttle Vehicle & Route Approved",
+        message: `Your shuttle booking has been assigned to route ${newRoute.routeName} (${newRoute.routeCode}), Seat-${String(optStop.stopOrder).padStart(2, "0")} at stop ${dbStop.stopName}. Live vehicle tracking will activate once the driver starts the trip.`,
+        entityType: "ShuttleBooking",
+        entityId: updatedBooking.id,
+      });
+    }
+
+    if (optRoute.driverId) {
+      const assignedDriver = await prisma.driver.findUnique({
+        where: { id: optRoute.driverId },
+        include: { user: true },
+      });
+      const assignedVehicle = optRoute.vehicleId
+        ? await prisma.vehicle.findUnique({ where: { id: optRoute.vehicleId } })
+        : null;
+
+      if (assignedDriver?.user?.id) {
+        await createNotification(undefined, {
+          recipientId: assignedDriver.user.id,
+          type: NotificationType.SHUTTLE,
+          priority: NotificationPriority.HIGH,
+          title: "New Optimized Trip Dispatched to You",
+          message: `Transport Admin dispatched route "${newRoute.routeName}" (${newRoute.routeCode}) with ${optRoute.stops.length} passenger stops${
+            assignedVehicle ? ` on vehicle ${assignedVehicle.vehicleNumber}` : ""
+          }. Open Driver Trips & Passenger List to complete your safety checklist and start the trip.`,
+          entityType: "TransportRoute",
+          entityId: newRoute.id,
+        });
+      }
     }
   }
 

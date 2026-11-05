@@ -33,14 +33,6 @@ import { getRoutes } from "../api/routes";
 import type { VehicleTelemetryLog, TelemetryStatus } from "../types/telemetry";
 import type { TransportRoute } from "../types/transport";
 
-// Karachi Landmarks for spatial reference
-const MAP_LANDMARKS = [
-  { name: "Garden West Hub", lat: 24.8765, lng: 67.0321 },
-  { name: "Saddar Commute Terminus", lat: 24.8607, lng: 67.0104 },
-  { name: "Korangi Campus Gate", lat: 24.8138, lng: 67.1209 },
-  { name: "Port Qasim Facility", lat: 24.7831, lng: 67.3321 },
-];
-
 export default function TelemetryPage() {
   const { bootstrap } = useAuth();
 
@@ -84,19 +76,30 @@ export default function TelemetryPage() {
   async function syncGPSCoordinates(
     lat: number,
     lng: number,
-    status: TelemetryStatus = "MOVING",
+    speedKmh: number = 0,
+    headingDeg?: number,
+    accuracyMeters?: number,
+    status?: TelemetryStatus,
     remarks?: string
   ) {
     try {
+      const derivedStatus: TelemetryStatus =
+        status ?? (speedKmh > 2 ? "MOVING" : "STOPPED");
+      const activeRouteId =
+        selectedRouteId || liveLogs[0]?.routeId || routes[0]?.id || undefined;
       await createTelemetryLog({
+        routeId: activeRouteId,
         latitude: lat,
         longitude: lng,
-        speed: 35,
-        status: status,
+        speed: speedKmh,
+        heading: headingDeg,
+        accuracy: accuracyMeters,
+        status: derivedStatus,
         source: "MOBILE_GPS",
-        remarks: remarks || "Automated live GPS coordinate update.",
+        remarks: remarks || "Live GPS coordinate telemetry sync.",
       });
       setGpsSyncedCount((prev) => prev + 1);
+      await loadTelemetry();
     } catch (err) {
       console.error("GPS Sync failed:", err);
     }
@@ -116,9 +119,21 @@ export default function TelemetryPage() {
       (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
+        const speedKmh =
+          position.coords.speed != null && position.coords.speed >= 0
+            ? Math.round(position.coords.speed * 3.6)
+            : 0;
+        const headingDeg =
+          position.coords.heading != null && !Number.isNaN(position.coords.heading)
+            ? Math.round(position.coords.heading)
+            : undefined;
+        const accuracyMeters =
+          position.coords.accuracy != null
+            ? Math.round(position.coords.accuracy)
+            : undefined;
         setGpsLat(lat);
         setGpsLng(lng);
-        syncGPSCoordinates(lat, lng);
+        syncGPSCoordinates(lat, lng, speedKmh, headingDeg, accuracyMeters);
       },
       (err) => console.warn("Driver GPS watch error:", err),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
@@ -138,7 +153,31 @@ export default function TelemetryPage() {
       if (isDriver) {
         const myLogs = await getMyTelemetryLogs();
         if (myLogs && myLogs.length > 0) {
-          setLiveLogs(myLogs);
+          // Deduplicate by vehicleId/driverId for live fleet view so stats & markers represent real unique vehicles
+          const latestByVehicle = new Map<string, VehicleTelemetryLog>();
+          const uniqueRoutes = new Map<string, TransportRoute>();
+
+          for (const log of myLogs) {
+            const key = log.vehicleId ?? `driver-${log.driverId}`;
+            if (!latestByVehicle.has(key)) {
+              latestByVehicle.set(key, log);
+            }
+            if (log.route && !uniqueRoutes.has(log.route.id)) {
+              uniqueRoutes.set(log.route.id, log.route as unknown as TransportRoute);
+            }
+          }
+
+          setLiveLogs(Array.from(latestByVehicle.values()));
+          setEmergencies(
+            myLogs.filter((l) => l.status === "SOS" || l.status === "BREAKDOWN")
+          );
+          if (uniqueRoutes.size > 0) {
+            setRoutes(Array.from(uniqueRoutes.values()));
+          }
+          setRouteHistory([...myLogs].reverse());
+        } else {
+          setLiveLogs([]);
+          setEmergencies([]);
         }
       } else {
         const [live, emergenciesList, routesList] = await Promise.all([
@@ -268,18 +307,33 @@ export default function TelemetryPage() {
     return result;
   }, [liveLogs, statusFilter, searchQuery]);
 
-  // Dynamic Fleet Telemetry Map Markers with Orientation
+  // Dynamic Fleet Telemetry Map Markers with Real Route Stops & Vehicle Orientation
   const telemetryMapMarkers = useMemo(() => {
     const list: MapMarkerItem[] = [];
+    const seenStops = new Set<string>();
 
-    // Static Landmarks
-    MAP_LANDMARKS.forEach((l) => {
-      list.push({
-        latitude: l.lat,
-        longitude: l.lng,
-        label: `${l.name} (Hub)`,
-        color: "bg-slate-700",
-        type: "standard",
+    // Real Route Smart Stops from Database
+    const routesToRender = selectedRouteId
+      ? routes.filter((r) => r.id === selectedRouteId)
+      : routes;
+
+    routesToRender.forEach((route) => {
+      const stops = (route as any).smartStops ?? [];
+      stops.forEach((stop: any, idx: number) => {
+        if (stop.latitude != null && stop.longitude != null) {
+          const stopKey = `${stop.latitude.toFixed(5)}-${stop.longitude.toFixed(5)}`;
+          if (!seenStops.has(stopKey)) {
+            seenStops.add(stopKey);
+            list.push({
+              latitude: Number(stop.latitude),
+              longitude: Number(stop.longitude),
+              label: `${stop.stopName} (Stop #${stop.stopOrder ?? idx + 1})`,
+              subLabel: `Route: ${route.routeName} (${route.routeCode})`,
+              color: idx === 0 ? "bg-indigo-600" : "bg-blue-600",
+              type: "pickup",
+            });
+          }
+        }
       });
     });
 
@@ -294,7 +348,7 @@ export default function TelemetryPage() {
           log.route?.routeName || "En route"
         }`,
         type: "vehicle",
-        vehicleType: (log.vehicle?.vehicleType as any) || "VAN",
+        vehicleType: ((log.vehicle as any)?.type || log.vehicle?.vehicleType || "VAN") as any,
         heading: log.heading || 0,
         speed: log.speed || 0,
         status: log.status,
@@ -302,13 +356,37 @@ export default function TelemetryPage() {
         vehicleNumber: log.vehicle?.vehicleNumber,
         routeName: log.route?.routeName,
         routeCode: log.route?.routeCode,
-        batteryLevel: log.batteryLevel || 100,
-        pulse: isEmergency,
+        batteryLevel: log.batteryLevel ?? 100,
+        pulse: isEmergency || log.status === "MOVING",
       });
     });
 
     return list;
-  }, [filteredLiveLogs]);
+  }, [filteredLiveLogs, routes, selectedRouteId]);
+
+  // Real Route / Breadcrumb Polylines
+  const telemetryPolylines = useMemo(() => {
+    if (selectedRouteId && routeHistory.length > 1) {
+      return routeHistory.map((h) => ({
+        latitude: Number(h.latitude),
+        longitude: Number(h.longitude),
+      }));
+    }
+
+    const activeRoute = selectedRouteId
+      ? routes.find((r) => r.id === selectedRouteId)
+      : selectedLiveLog?.routeId
+      ? routes.find((r) => r.id === selectedLiveLog.routeId)
+      : routes[0];
+
+    const stops = (activeRoute as any)?.smartStops ?? [];
+    return stops
+      .filter((s: any) => s.latitude != null && s.longitude != null)
+      .map((s: any) => ({
+        latitude: Number(s.latitude),
+        longitude: Number(s.longitude),
+      }));
+  }, [routes, selectedRouteId, routeHistory, selectedLiveLog]);
 
   // Selected map center
   const mapCenter = useMemo(() => {
@@ -720,6 +798,7 @@ export default function TelemetryPage() {
                 hideMainPin={true}
                 followCenter={Boolean(selectedLiveLog)}
                 markers={telemetryMapMarkers}
+                polylines={telemetryPolylines}
                 height="620px"
                 zoom={13}
                 enableFullscreenToggle={true}

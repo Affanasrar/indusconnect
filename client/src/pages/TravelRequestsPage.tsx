@@ -1435,14 +1435,14 @@ function ManagerTravelApprovalPage() {
                         "-"}
                     </p>
 
-                    <p className="mt-1 text-xs text-slate-400">
-                      {selectedRequest.employee
-                        ?.department ??
-                        "No department"}{" "}
-                      •{" "}
-                      {selectedRequest.employee
-                        ?.hrGrade ?? "No HR grade"}
+                    <p className="mt-1 text-xs text-slate-500 font-medium">
+                      Dept: {selectedRequest.employee?.department ?? "Unassigned"} • Grade: {selectedRequest.employee?.hrGrade ?? "Standard"}
                     </p>
+                    {(selectedRequest as any).departmentManager && (
+                      <p className="mt-0.5 text-xs font-semibold text-emerald-700">
+                        Dept Manager: {(selectedRequest as any).departmentManager.fullName}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1734,10 +1734,15 @@ function ManagerTravelApprovalPage() {
                             "Employee"}
                         </p>
 
-                        <p className="text-xs text-slate-500">
-                          {request.employee
-                            ?.department ?? "-"}
+                        <p className="text-xs font-medium text-slate-600">
+                          Dept: {request.employee?.department ?? "-"}
                         </p>
+
+                        {(request as any).departmentManager && (
+                          <p className="text-[11px] font-semibold text-emerald-700">
+                            Mgr: {(request as any).departmentManager.fullName}
+                          </p>
+                        )}
 
                         <p className="text-xs text-slate-400">
                           {request.employee

@@ -23,13 +23,69 @@ const userSelect = {
   },
 };
 
-export async function getAllUsers() {
-  return prisma.user.findMany({
-    select: userSelect,
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+export async function getAllUsers(currentUser?: { userId: string; role: string }) {
+  let whereClause: any = {};
+
+  if (currentUser?.role === "MANAGER") {
+    const manager = await prisma.user.findUnique({
+      where: { id: currentUser.userId },
+      select: { department: true },
+    });
+
+    if (manager?.department) {
+      whereClause = {
+        department: manager.department,
+      };
+    } else {
+      whereClause = {
+        id: currentUser.userId,
+      };
+    }
+  }
+
+  const [users, allManagers] = await Promise.all([
+    prisma.user.findMany({
+      where: whereClause,
+      select: userSelect,
+      orderBy: {
+        createdAt: "desc",
+      },
+    }),
+    prisma.user.findMany({
+      where: {
+        status: "ACTIVE",
+        role: {
+          name: RoleName.MANAGER,
+        },
+        department: {
+          not: null,
+        },
+      },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        department: true,
+      },
+    }),
+  ]);
+
+  const managerByDept = new Map<
+    string,
+    { id: string; fullName: string; email: string; department: string | null }
+  >();
+  for (const mgr of allManagers) {
+    if (mgr.department && !managerByDept.has(mgr.department.toLowerCase())) {
+      managerByDept.set(mgr.department.toLowerCase(), mgr);
+    }
+  }
+
+  return users.map((u) => ({
+    ...u,
+    departmentManager: u.department
+      ? managerByDept.get(u.department.toLowerCase()) ?? null
+      : null,
+  }));
 }
 
 export async function getUserById(id: string) {

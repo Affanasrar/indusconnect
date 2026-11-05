@@ -53,6 +53,12 @@ const bookingInclude = {
           stopOrder: "asc" as const,
         },
       },
+      trips: {
+        orderBy: {
+          createdAt: "desc" as const,
+        },
+        take: 1,
+      },
     },
   },
   pickupStop: true,
@@ -189,7 +195,7 @@ export async function createShuttleBooking(
     include: bookingInclude,
   });
 
-  // Dispatch notification for auto-approvals
+  // Dispatch notification for auto-approvals to both Employee and Driver
   if (bookingStatus === ShuttleBookingStatus.ASSIGNED) {
     await createNotification(undefined, {
       recipientId: employeeId,
@@ -198,10 +204,26 @@ export async function createShuttleBooking(
       title: "Shuttle Ride Auto-Approved",
       message: `Your shuttle ride is confirmed on Route: ${
         booking.route?.routeName ?? "N/A"
-      }. Assigned seat: ${assignedSeatNumber ?? "N/A"}.`,
+      } (${booking.route?.vehicle?.vehicleNumber ?? "Assigned Vehicle"}). Assigned seat: ${
+        assignedSeatNumber ?? "N/A"
+      }. Live vehicle tracking will become active once the driver starts the trip.`,
       entityType: "ShuttleBooking",
       entityId: booking.id,
     });
+
+    if (booking.route?.driver?.user?.id) {
+      await createNotification(employeeId, {
+        recipientId: booking.route.driver.user.id,
+        type: NotificationType.SHUTTLE,
+        priority: NotificationPriority.HIGH,
+        title: "New Passenger Added to Your Trip",
+        message: `${employee.fullName} was assigned to your route "${booking.route.routeName}" at stop "${
+          booking.pickupStop?.stopName ?? booking.pickupArea
+        }" (${assignedSeatNumber ?? "Seat Assigned"}).`,
+        entityType: "ShuttleBooking",
+        entityId: booking.id,
+      });
+    }
   }
 
   return booking;
@@ -296,13 +318,35 @@ await createNotification(undefined, {
   recipientId: updatedBooking.employeeId,
   type: NotificationType.SHUTTLE,
   priority: NotificationPriority.HIGH,
-  title: "Shuttle Booking Assigned",
-  message: `Your shuttle booking has been assigned. Seat: ${
+  title: "Shuttle Vehicle & Seat Approved",
+  message: `Transport Admin assigned your shuttle booking to Route: ${
+    updatedBooking.route?.routeName ?? "Assigned Route"
+  } (${
+    updatedBooking.route?.vehicle?.vehicleNumber ?? "Assigned Vehicle"
+  }). Seat: ${
     updatedBooking.seatNumber ?? "Not assigned"
-  }.`,
+  }. Live vehicle radar will activate when the driver starts the trip.`,
   entityType: "ShuttleBooking",
   entityId: updatedBooking.id,
 });
+
+if (updatedBooking.route?.driver?.user?.id) {
+  await createNotification(undefined, {
+    recipientId: updatedBooking.route.driver.user.id,
+    type: NotificationType.SHUTTLE,
+    priority: NotificationPriority.HIGH,
+    title: "Passenger Approved for Your Trip Manifest",
+    message: `Transport Admin assigned passenger ${
+      updatedBooking.employee?.fullName ?? "Employee"
+    } to your route "${updatedBooking.route.routeName}" (${
+      updatedBooking.route.vehicle?.vehicleNumber ?? "Vehicle"
+    }) at stop "${
+      updatedBooking.pickupStop?.stopName ?? updatedBooking.pickupArea
+    }" (Seat: ${updatedBooking.seatNumber ?? "Assigned"}).`,
+    entityType: "ShuttleBooking",
+    entityId: updatedBooking.id,
+  });
+}
 
 return updatedBooking;
 }

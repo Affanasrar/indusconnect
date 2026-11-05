@@ -28,6 +28,9 @@ const expenseInclude = {
       fullName: true,
       email: true,
       phone: true,
+      employeeCode: true,
+      department: true,
+      hrGrade: true,
       role: {
         select: {
           name: true,
@@ -41,6 +44,9 @@ const expenseInclude = {
       id: true,
       fullName: true,
       email: true,
+      employeeCode: true,
+      department: true,
+      hrGrade: true,
       role: {
         select: {
           name: true,
@@ -148,8 +154,24 @@ export async function getMyExpenseClaims(employeeId: string) {
   });
 }
 
-export async function getAllExpenseClaims() {
+export async function getAllExpenseClaims(currentUser?: AuthUser) {
+  let whereClause: any = {};
+
+  if (currentUser?.role === "MANAGER") {
+    const manager = await prisma.user.findUnique({
+      where: { id: currentUser.userId },
+      select: { department: true },
+    });
+
+    whereClause = {
+      employee: {
+        department: manager?.department ?? "__UNASSIGNED_DEPT__",
+      },
+    };
+  }
+
   return prisma.expenseClaim.findMany({
+    where: whereClause,
     include: expenseInclude,
     orderBy: {
       createdAt: "desc",
@@ -157,11 +179,24 @@ export async function getAllExpenseClaims() {
   });
 }
 
-export async function getPendingExpenseClaims() {
+export async function getPendingExpenseClaims(currentUser?: AuthUser) {
+  const whereClause: any = {
+    status: ExpenseClaimStatus.PENDING,
+  };
+
+  if (currentUser?.role === "MANAGER") {
+    const manager = await prisma.user.findUnique({
+      where: { id: currentUser.userId },
+      select: { department: true },
+    });
+
+    whereClause.employee = {
+      department: manager?.department ?? "__UNASSIGNED_DEPT__",
+    };
+  }
+
   return prisma.expenseClaim.findMany({
-    where: {
-      status: ExpenseClaimStatus.PENDING,
-    },
+    where: whereClause,
     include: expenseInclude,
     orderBy: {
       createdAt: "desc",
@@ -169,18 +204,31 @@ export async function getPendingExpenseClaims() {
   });
 }
 
-export async function getFlaggedExpenseClaims() {
+export async function getFlaggedExpenseClaims(currentUser?: AuthUser) {
+  const whereClause: any = {
+    OR: [
+      {
+        status: ExpenseClaimStatus.FLAGGED,
+      },
+      {
+        anomalyStatus: ExpenseAnomalyStatus.ANOMALY_REVIEW_REQUIRED,
+      },
+    ],
+  };
+
+  if (currentUser?.role === "MANAGER") {
+    const manager = await prisma.user.findUnique({
+      where: { id: currentUser.userId },
+      select: { department: true },
+    });
+
+    whereClause.employee = {
+      department: manager?.department ?? "__UNASSIGNED_DEPT__",
+    };
+  }
+
   return prisma.expenseClaim.findMany({
-    where: {
-      OR: [
-        {
-          status: ExpenseClaimStatus.FLAGGED,
-        },
-        {
-          anomalyStatus: ExpenseAnomalyStatus.ANOMALY_REVIEW_REQUIRED,
-        },
-      ],
-    },
+    where: whereClause,
     include: expenseInclude,
     orderBy: {
       createdAt: "desc",

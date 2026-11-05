@@ -87,7 +87,7 @@ const menuItems = [
     key: "users",
     title: "People & Staff",
     path: "/users",
-    roles: ["SUPER_ADMIN"],
+    roles: ["SUPER_ADMIN", "MANAGER"],
   },
   {
     key: "vehicles",

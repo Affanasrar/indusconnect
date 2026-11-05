@@ -79,11 +79,12 @@ export async function getMyExpenseClaimsController(
 }
 
 export async function getAllExpenseClaimsController(
-  _req: Request,
+  req: Request,
   res: Response
 ) {
   try {
-    const claims = await getAllExpenseClaims();
+    const currentUser = (req as any).user;
+    const claims = await getAllExpenseClaims(currentUser);
 
     return res.status(200).json({
       success: true,
@@ -102,11 +103,12 @@ export async function getAllExpenseClaimsController(
 }
 
 export async function getPendingExpenseClaimsController(
-  _req: Request,
+  req: Request,
   res: Response
 ) {
   try {
-    const claims = await getPendingExpenseClaims();
+    const currentUser = (req as any).user;
+    const claims = await getPendingExpenseClaims(currentUser);
 
     return res.status(200).json({
       success: true,
@@ -125,11 +127,12 @@ export async function getPendingExpenseClaimsController(
 }
 
 export async function getFlaggedExpenseClaimsController(
-  _req: Request,
+  req: Request,
   res: Response
 ) {
   try {
-    const claims = await getFlaggedExpenseClaims();
+    const currentUser = (req as any).user;
+    const claims = await getFlaggedExpenseClaims(currentUser);
 
     return res.status(200).json({
       success: true,

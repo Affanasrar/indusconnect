@@ -1,5 +1,11 @@
-import { DriverStatus, RoleName } from "@prisma/client";
+import {
+  DriverStatus,
+  NotificationPriority,
+  NotificationType,
+  RoleName,
+} from "@prisma/client";
 import prisma from "../../config/prisma";
+import { createNotification } from "../notifications/notification.service";
 import {
   CreateDriverInput,
   UpdateDriverInput,
@@ -95,7 +101,7 @@ export async function createDriver(data: CreateDriverInput) {
     }
   }
 
-  return prisma.driver.create({
+  const createdDriver = await prisma.driver.create({
     data: {
       userId: data.userId,
       licenseNumber: data.licenseNumber,
@@ -106,10 +112,24 @@ export async function createDriver(data: CreateDriverInput) {
     },
     include: driverInclude,
   });
+
+  if (createdDriver.vehicle) {
+    await createNotification(undefined, {
+      recipientId: createdDriver.userId,
+      type: NotificationType.SHUTTLE,
+      priority: NotificationPriority.HIGH,
+      title: "Vehicle Approved & Assigned to You",
+      message: `Transport Admin has assigned vehicle ${createdDriver.vehicle.vehicleNumber} (${createdDriver.vehicle.vehicleType}) to your driver profile.`,
+      entityType: "Driver",
+      entityId: createdDriver.id,
+    });
+  }
+
+  return createdDriver;
 }
 
 export async function updateDriver(id: string, data: UpdateDriverInput) {
-  await getDriverById(id);
+  const existingDriver = await getDriverById(id);
 
   if (data.licenseNumber) {
     const existingLicense = await prisma.driver.findUnique({
@@ -135,7 +155,7 @@ export async function updateDriver(id: string, data: UpdateDriverInput) {
     }
   }
 
-  return prisma.driver.update({
+  const updatedDriver = await prisma.driver.update({
     where: { id },
     data: {
       licenseNumber: data.licenseNumber,
@@ -148,6 +168,24 @@ export async function updateDriver(id: string, data: UpdateDriverInput) {
     },
     include: driverInclude,
   });
+
+  if (
+    updatedDriver.vehicle &&
+    data.vehicleId &&
+    data.vehicleId !== existingDriver.vehicleId
+  ) {
+    await createNotification(undefined, {
+      recipientId: updatedDriver.userId,
+      type: NotificationType.SHUTTLE,
+      priority: NotificationPriority.HIGH,
+      title: "Vehicle Approved & Assigned to You",
+      message: `Transport Admin has assigned vehicle ${updatedDriver.vehicle.vehicleNumber} (${updatedDriver.vehicle.vehicleType}) to you.`,
+      entityType: "Driver",
+      entityId: updatedDriver.id,
+    });
+  }
+
+  return updatedDriver;
 }
 
 export async function deactivateDriver(id: string) {
