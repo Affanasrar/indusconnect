@@ -137,7 +137,23 @@ export async function getMyAssignedRoutes(userId: string) {
 export async function getMyRouteManifest(userId: string, routeId: string) {
   const { route } = await getAssignedRouteForDriver(userId, routeId);
 
-  return route;
+  const activeOrLatestTrip =
+    route.trips?.find(
+      (t) =>
+        t.status !== TripStatus.COMPLETED && t.status !== TripStatus.CANCELLED
+    ) ??
+    route.trips?.[0] ??
+    null;
+
+  return {
+    ...route,
+    route,
+    vehicle: route.vehicle ?? null,
+    driver: route.driver ?? null,
+    smartStops: route.smartStops ?? [],
+    bookings: route.shuttleBookings ?? [],
+    trip: activeOrLatestTrip,
+  };
 }
 
 export async function submitSafetyChecklist(

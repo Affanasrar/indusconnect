@@ -223,26 +223,40 @@ function normalizeManifest(
   manifest: DriverRouteManifest,
   fallbackRoute: AssignedDriverRoute
 ): DriverRouteManifest {
+  const rawManifest = manifest as any;
+  const rawRoute = (manifest.route ?? rawManifest) as any;
+  const rawFallback = fallbackRoute as any;
+
   return {
-    route: manifest.route ?? fallbackRoute,
+    route: manifest.route ?? (rawManifest?.id ? rawManifest : fallbackRoute),
     vehicle:
       manifest.vehicle ??
       manifest.route?.vehicle ??
+      rawManifest?.vehicle ??
       fallbackRoute.vehicle ??
       null,
     driver:
       manifest.driver ??
       manifest.route?.driver ??
+      rawManifest?.driver ??
       fallbackRoute.driver ??
       null,
     smartStops:
       manifest.smartStops ??
       manifest.route?.smartStops ??
+      rawManifest?.smartStops ??
       fallbackRoute.smartStops ??
       [],
-    bookings: manifest.bookings ?? [],
+    bookings:
+      manifest.bookings ??
+      rawManifest?.shuttleBookings ??
+      rawRoute?.shuttleBookings ??
+      rawFallback?.shuttleBookings ??
+      [],
     trip:
       manifest.trip ??
+      rawManifest?.trips?.[0] ??
+      rawRoute?.trips?.[0] ??
       fallbackRoute.trips?.[0] ??
       null,
   };
@@ -598,11 +612,23 @@ export default function DriverTripsPage() {
   }
 
   async function refreshCurrentRoute() {
-    if (!selectedRoute) {
+    if (!selectedRouteId) {
       return;
     }
 
-    await selectRoute(selectedRoute);
+    try {
+      const updatedRoutes = await getMyAssignedDriverRoutes();
+      setRoutes(updatedRoutes);
+      const freshRoute =
+        updatedRoutes.find((r) => r.id === selectedRouteId) ?? selectedRoute;
+      if (freshRoute) {
+        await selectRoute(freshRoute);
+      }
+    } catch {
+      if (selectedRoute) {
+        await selectRoute(selectedRoute);
+      }
+    }
   }
 
   useEffect(() => {
@@ -638,13 +664,22 @@ export default function DriverTripsPage() {
         lightsChecked: checklist.lightsChecked,
       };
 
-      await submitDriverSafetyChecklist(
+      const savedTrip = await submitDriverSafetyChecklist(
         selectedRouteId,
         payload
       );
 
-      setMessage("Safety checklist submitted successfully");
-      toast.success("Safety inspection saved! Vehicle is cleared for departure.", "Checklist Approved");
+      setManifest((prev) =>
+        prev
+          ? {
+              ...prev,
+              trip: savedTrip,
+            }
+          : prev
+      );
+
+      setMessage("Safety checklist submitted successfully. You can now start your trip.");
+      toast.success("Safety inspection saved! Click 'START TRIP' below to depart.", "Checklist Approved");
 
       await refreshCurrentRoute();
     } catch (requestError) {
@@ -698,6 +733,15 @@ export default function DriverTripsPage() {
 
       const updatedTrip = await startDriverTrip(selectedRouteId);
 
+      setManifest((prev) =>
+        prev
+          ? {
+              ...prev,
+              trip: updatedTrip,
+            }
+          : prev
+      );
+
       setMessage("Trip started successfully");
       toast.success("Trip started successfully! Drive safely.", "Departure Active");
 
@@ -707,8 +751,8 @@ export default function DriverTripsPage() {
           transportTripId: updatedTrip.id,
           latitude: lat,
           longitude: lng,
-          speed: 0,
-          status: "STOPPED",
+          speed: driverSpeed > 0 ? driverSpeed : 20,
+          status: "MOVING",
           source: "MOBILE_GPS",
         });
         setSyncedCount((prev) => prev + 1);
@@ -1235,18 +1279,29 @@ export default function DriverTripsPage() {
                         ))}
                       </div>
 
-                      <button
-                        type="submit"
-                        disabled={isSubmittingChecklist || !checklistComplete}
-                        className={`w-full py-4 rounded-2xl text-base font-black transition shadow-md flex items-center justify-center gap-2 ${
-                          checklistComplete
-                            ? "bg-emerald-600 hover:bg-emerald-700 text-white active:scale-98"
-                            : "bg-slate-200 text-slate-400 cursor-not-allowed"
-                        }`}
-                      >
-                        <SquareCheckBig size={20} />
-                        <span>{isSubmittingChecklist ? "Saving Safety Check..." : "Save Safety Check (Ready to Drive)"}</span>
-                      </button>
+                      {trip?.status === "READY" || trip?.status === "IN_PROGRESS" ? (
+                        <div className="w-full py-4 px-5 rounded-2xl bg-emerald-50 border-2 border-emerald-400 text-emerald-900 font-black flex items-center justify-center gap-2.5 text-sm sm:text-base">
+                          <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
+                          <span>
+                            {trip?.status === "IN_PROGRESS"
+                              ? "✓ Safety Check Verified — Trip is Currently In Progress"
+                              : "✓ Safety Check Saved — Vehicle Cleared! Click 'START TRIP' Below"}
+                          </span>
+                        </div>
+                      ) : (
+                        <button
+                          type="submit"
+                          disabled={isSubmittingChecklist || !checklistComplete}
+                          className={`w-full py-4 rounded-2xl text-base font-black transition shadow-md flex items-center justify-center gap-2 ${
+                            checklistComplete
+                              ? "bg-emerald-600 hover:bg-emerald-700 text-white active:scale-98"
+                              : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                          }`}
+                        >
+                          <SquareCheckBig size={20} />
+                          <span>{isSubmittingChecklist ? "Saving Safety Check..." : "Save Safety Check (Ready to Drive)"}</span>
+                        </button>
+                      )}
                     </form>
                   </div>
                 </Card>
